@@ -60,7 +60,7 @@ export function TableToolbar({
 
         {/* Buttons */}
         <div className="flex items-center gap-2">
-          {onToggleFilters && (
+          {/* {onToggleFilters && (
             <Button
               variant={showFilters ? "secondary" : "outline"}
               size="sm"
@@ -76,7 +76,7 @@ export function TableToolbar({
                 </Badge>
               )}
             </Button>
-          )}
+          )} */}
 
           {onExport && (
             <DropdownMenu>

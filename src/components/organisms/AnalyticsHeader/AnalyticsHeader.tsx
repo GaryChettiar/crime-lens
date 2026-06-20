@@ -17,7 +17,6 @@ import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import {
   setDistrict,
   setCrimeTypes,
-  setDateRange,
   setSelectedPoliceStations,
 } from '@/store/slices/globalFiltersSlice';
 import { MOCK_POLICE_STATIONS } from '@/features/geospatial/data/mockGeospatialData';
@@ -40,19 +39,6 @@ export interface AnalyticsHeaderProps extends React.HTMLAttributes<HTMLDivElemen
   timeWindow?: number | 'cumulative';
   onTimeWindowChange?: (val: number | 'cumulative') => void;
 }
-
-const MONTHS = [
-  "Jan 2022", "Feb 2022", "Mar 2022", "Apr 2022", "May 2022", "Jun 2022",
-  "Jul 2022", "Aug 2022", "Sep 2022", "Oct 2022", "Nov 2022", "Dec 2022",
-  "Jan 2023", "Feb 2023", "Mar 2023", "Apr 2023", "May 2023", "Jun 2023",
-  "Jul 2023", "Aug 2023", "Sep 2023", "Oct 2023", "Nov 2023", "Dec 2023",
-  "Jan 2024", "Feb 2024", "Mar 2024", "Apr 2024", "May 2024", "Jun 2024",
-  "Jul 2024", "Aug 2024", "Sep 2024", "Oct 2024", "Nov 2024", "Dec 2024",
-  "Jan 2025", "Feb 2025", "Mar 2025", "Apr 2025", "May 2025", "Jun 2025",
-  "Jul 2025", "Aug 2025", "Sep 2025", "Oct 2025", "Nov 2025", "Dec 2025",
-  "Jan 2026", "Feb 2026", "Mar 2026", "Apr 2026", "May 2026", "Jun 2026",
-  "Jul 2026", "Aug 2026", "Sep 2026", "Oct 2026", "Nov 2026", "Dec 2026"
-];
 
 const DISTRICTS = [
   "Bagalkot", "Bangalore", "BangaloreRural", "Belgaum", "Bellary", "Bidar",
@@ -79,24 +65,7 @@ const formatDistrictName = (name: string): string => {
   return name;
 };
 
-// Helper to convert "Month YYYY" string to "YYYY-MM-DD"
-const mapMonthToDateStr = (monthStr: string, position: 'start' | 'end'): string => {
-  const [mName, yStr] = monthStr.split(' ');
-  const year = parseInt(yStr);
-  const monthMap: Record<string, number> = {
-    Jan: 1, Feb: 2, Mar: 3, Apr: 4, May: 5, Jun: 6,
-    Jul: 7, Aug: 8, Sep: 9, Oct: 10, Nov: 11, Dec: 12
-  };
-  const mNum = monthMap[mName] || 1;
-  const monthPad = String(mNum).padStart(2, '0');
-  
-  if (position === 'start') {
-    return `${year}-${monthPad}-01`;
-  } else {
-    const lastDay = new Date(year, mNum, 0).getDate();
-    return `${year}-${monthPad}-${lastDay}`;
-  }
-};
+
 
 export function AnalyticsHeader({
   title,
@@ -128,21 +97,19 @@ export function AnalyticsHeader({
   const timeWindow = propTimeWindow !== undefined ? propTimeWindow : localTimeWindow;
   const onTimeWindowChange = propOnTimeWindowChange || setLocalTimeWindow;
 
-  // Convert dates for Temporal Timeline Playback
-  const startDate = new Date();
-  startDate.setDate(startDate.getDate() - 30);
-  const startDateStr = startDate.toISOString().split('T')[0];
-  const endDateStr = new Date().toISOString().split('T')[0];
 
-  const [sliderVal, setSliderVal] = React.useState(53); // Default to June 2026 (index 53)
-  const [isPlaying, setIsPlaying] = React.useState(false);
   const [isLocationOpen, setIsLocationOpen] = React.useState(false);
+  const [isCrimeTypeOpen, setIsCrimeTypeOpen] = React.useState(false);
   const dropdownRef = React.useRef<HTMLDivElement>(null);
+  const crimeTypeRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsLocationOpen(false);
+      }
+      if (crimeTypeRef.current && !crimeTypeRef.current.contains(event.target as Node)) {
+        setIsCrimeTypeOpen(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -159,49 +126,7 @@ export function AnalyticsHeader({
     ? 'All Crime Types'
     : (CRIME_TYPES.find((c) => c.value === activeCrimeType)?.label || activeCrimeType);
 
-  // Sync date range on initial mount or load active date range
-  React.useEffect(() => {
-    if (!globalFilters.dateRange.start && !globalFilters.dateRange.end) {
-      dispatch(setDateRange({
-        start: '2025-07-01',
-        end: '2026-06-30'
-      }));
-    } else {
-      const reduxEnd = globalFilters.dateRange.end;
-      if (reduxEnd) {
-        const [year, month] = reduxEnd.split('-');
-        const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-        const mIndex = parseInt(month) - 1;
-        const targetStr = `${monthNames[mIndex]} ${year}`;
-        const foundIdx = MONTHS.indexOf(targetStr);
-        if (foundIdx !== -1) {
-          setSliderVal(foundIdx);
-        }
-      }
-    }
-  }, [dispatch]);
 
-  // Handle timeline animation playback
-  React.useEffect(() => {
-    let interval: ReturnType<typeof setInterval> | null = null;
-    if (isPlaying) {
-      interval = setInterval(() => {
-        setSliderVal((prev) => {
-          const next = prev >= MONTHS.length - 1 ? 0 : prev + 1;
-          const endMonthStr = MONTHS[next];
-          const startMonthStr = MONTHS[Math.max(0, next - 11)];
-          dispatch(setDateRange({
-            start: mapMonthToDateStr(startMonthStr, 'start'),
-            end: mapMonthToDateStr(endMonthStr, 'end')
-          }));
-          return next;
-        });
-      }, 500);
-    }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [isPlaying, dispatch]);
 
   const handleSelectDistrict = (d: string) => {
     dispatch(setDistrict(d === 'all' ? null : d));
@@ -220,20 +145,12 @@ export function AnalyticsHeader({
     dispatch(setCrimeTypes(val === 'all' ? [] : [val]));
   };
 
-  const handleSliderChange = (val: number) => {
-    setSliderVal(val);
-    const endMonthStr = MONTHS[val];
-    const startMonthStr = MONTHS[Math.max(0, val - 11)];
-    dispatch(setDateRange({
-      start: mapMonthToDateStr(startMonthStr, 'start'),
-      end: mapMonthToDateStr(endMonthStr, 'end')
-    }));
-  };
+
 
   return (
     <div
       className={cn(
-        "flex flex-col gap-5 pb-4 w-full select-none",
+        "flex flex-col gap-5 pb-2 w-full select-none relative z-20",
         className
       )}
       {...props}
@@ -310,27 +227,55 @@ export function AnalyticsHeader({
       </div> */}
 
       {/* Row 2: Control Ribbon */}
-      <div className="flex flex-col lg:flex-row lg:items-center gap-4 w-full p-3.5 bg-card border border-border/70 rounded-xl shadow-sm">
+      <div className="flex flex-col lg:flex-row lg:items-center gap-4 w-full p-1.5 bg-card border border-border/70 rounded-xl shadow-sm">
         
         {/* Crime Type (Indicator) Dropdown */}
-        <div className="relative border border-border/80 rounded-lg px-3 py-1 bg-background text-[11px] font-semibold min-w-[210px] h-9 flex flex-col justify-center shrink-0">
-          <span className="absolute -top-2 left-2 px-1 text-[8px] bg-card text-muted-foreground font-bold uppercase tracking-wider">Crime Category</span>
-          <div className="flex items-center justify-between text-foreground">
-            <span className="truncate pr-4">
-              {activeCrimeTypeLabel}
-            </span>
-            <span className="text-[9px] text-muted-foreground">▼</span>
-          </div>
-          <select
-            value={activeCrimeType}
-            onChange={(e) => handleIndicatorChange(e.target.value)}
-            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+        <div ref={crimeTypeRef} className="relative shrink-0">
+          <button
+            onClick={() => setIsCrimeTypeOpen(!isCrimeTypeOpen)}
+            className="relative border border-border/80 rounded-lg px-3 py-1 bg-background text-[11px] font-semibold min-w-[210px] h-9 flex flex-col justify-center text-left cursor-pointer hover:border-border/100 transition-colors"
           >
-            <option value="all">All Crime Types</option>
-            {CRIME_TYPES.map((type) => (
-              <option key={type.value} value={type.value}>{type.label}</option>
-            ))}
-          </select>
+            <span className="absolute -top-2 left-2 px-1 text-[8px] bg-card text-muted-foreground font-bold uppercase tracking-wider">Crime Category</span>
+            <div className="flex items-center justify-between text-foreground w-full">
+              <span className="truncate pr-4">
+                {activeCrimeTypeLabel}
+              </span>
+              <span className="text-[9px] text-muted-foreground">▼</span>
+            </div>
+          </button>
+
+          {/* Custom Dropdown Menu Overlay */}
+          {isCrimeTypeOpen && (
+            <div className="absolute top-full mt-1.5 left-0 w-[220px] bg-card border border-border rounded-lg shadow-xl z-50 flex flex-col overflow-hidden max-h-72">
+              <div className="overflow-y-auto flex-1 py-1.5 scrollbar-thin scrollbar-thumb-muted-foreground/30 scrollbar-track-transparent">
+                <button
+                  onClick={() => { handleIndicatorChange('all'); setIsCrimeTypeOpen(false); }}
+                  className="relative w-full text-left pl-7 pr-3 py-1 text-xs text-foreground hover:bg-muted/80 cursor-pointer transition-colors"
+                >
+                  {activeCrimeType === 'all' && (
+                    <span className="absolute left-3 text-primary font-bold">✓</span>
+                  )}
+                  <span className={cn(activeCrimeType === 'all' && "font-semibold text-primary")}>
+                    All Crime Types
+                  </span>
+                </button>
+                {CRIME_TYPES.map((type) => (
+                  <button
+                    key={type.value}
+                    onClick={() => { handleIndicatorChange(type.value); setIsCrimeTypeOpen(false); }}
+                    className="relative w-full text-left pl-7 pr-3 py-1 text-xs text-foreground hover:bg-muted/80 cursor-pointer transition-colors"
+                  >
+                    {activeCrimeType === type.value && (
+                      <span className="absolute left-3 text-primary font-bold">✓</span>
+                    )}
+                    <span className={cn(activeCrimeType === type.value && "font-semibold text-primary")}>
+                      {type.label}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* District (Location) Dropdown */}
@@ -416,10 +361,10 @@ export function AnalyticsHeader({
           )}
         </div>
 
-        {/* Timeline Start Date Label */}
+        {/* Temporal Timeline Playback (manages its own date range via Redux) */}
         <TemporalCrimePlayback
-          startDate={startDateStr}
-          endDate={endDateStr}
+          startDate=""
+          endDate=""
           currentDayOffset={currentDayOffset}
           onDayOffsetChange={onDayOffsetChange}
           timeWindow={timeWindow}

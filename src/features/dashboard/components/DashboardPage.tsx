@@ -32,7 +32,7 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import { Link } from "react-router-dom";
-import { ArrowRight, Brain } from "lucide-react";
+import { ArrowRight, Brain, ChevronRight } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
   setDistrict,
@@ -366,10 +366,7 @@ export function DashboardPage() {
           timeWindow={timeWindow}
           onTimeWindowChange={setTimeWindow}
         />
-
-        {/* KPI Overview (with Loading skeletons support) */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4  p-2 border border-border rounded-lg bg-card/10">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-2 border border-border rounded-lg bg-card/10">
+ <div className="grid grid-cols-1 sm:grid-cols-[19fr_19fr_19fr_3fr] gap-4 p-2 border border-border rounded-lg bg-card/10">
           <MetricCard
             label="Total Crimes (Active Selection)"
             value={filteredIncidents.length}
@@ -399,44 +396,14 @@ export function DashboardPage() {
           />
           <Link
             to="/analytics"
-            className="flex flex-col justify-between p-4 rounded-lg border bg-card text-card-foreground shadow-xs relative overflow-hidden transition-all duration-200 hover:border-primary/50 hover:shadow-md group cursor-pointer"
+            className="flex flex-col justify-center items-center p-4 rounded-lg border bg-card text-card-foreground shadow-xs relative overflow-hidden transition-all duration-200 hover:border-primary/50 hover:shadow-md group cursor-pointer"
           >
-            <div className="absolute top-0 right-0 p-3 text-primary/10 group-hover:text-primary/20 transition-colors duration-200">
-              <Brain className="h-14 w-14" />
-            </div>
-
-            <div className="space-y-1">
-              <div className="flex items-center gap-1 text-primary">
-                <Brain className="h-3.5 w-3.5" />
-                <Typography
-                  variant="caption"
-                  className="font-bold uppercase tracking-wider text-primary"
-                >
-                  AI Intel
-                </Typography>
-              </div>
-              <Typography
-                variant="heading-md"
-                className="font-bold tracking-tight text-foreground mt-1"
-              >
-                Predictive Insights
-              </Typography>
-              <Typography
-                variant="body-sm"
-                color="muted"
-                className="mt-1 leading-snug line-clamp-2 pr-6"
-              >
-                Explore historical crime trends, hotpots, and predictive
-                analytics.
-              </Typography>
-            </div>
-
-            <div className="flex items-center gap-1 mt-3 text-[11px] font-semibold text-primary group-hover:underline">
-              <span>View Insights & Analytics</span>
-              <ArrowRight className="h-3 w-3 transition-transform duration-200 group-hover:translate-x-1" />
-            </div>
+            <ChevronRight className="h-10 w-10 text-primary transition-transform duration-200 group-hover:translate-x-1" />
           </Link>
         </div>
+        {/* KPI Overview (with Loading skeletons support) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4  p-2 border border-border rounded-lg bg-card/10 mt-2">
+         
         {isLoadingIncidents || isLoadingDistricts ? (
             <div className="w-full h-[700px] md:h-[75vh] bg-slate-900/40 border border-border rounded-lg flex flex-col items-center justify-center space-y-4 animate-pulse">
               <div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
@@ -457,59 +424,17 @@ export function DashboardPage() {
               timeWindow={timeWindow}
             />
           )}
+            <ExternalIntelligenceWidget />
         </div>
 
         {/* External Intelligence Layer */}
-        <ExternalIntelligenceWidget />
+      
 
-        {/* Karnataka Geospatial Workspace (dominant dashboard map at 75vh height) */}
-        <div className="space-y-3 pt-2">
-          <div>
-            <Typography
-              variant="heading-md"
-              className="font-semibold text-foreground"
-            >
-              Karnataka Geospatial Workspace
-            </Typography>
-            <Typography variant="body-sm" color="muted">
-              Interactive incident mapping, temporal playback control, and
-              predictive hotspot analysis.
-            </Typography>
-          </div>
-          {isLoadingIncidents || isLoadingDistricts ? (
-            <div className="w-full h-[700px] md:h-[75vh] bg-slate-900/40 border border-border rounded-lg flex flex-col items-center justify-center space-y-4 animate-pulse">
-              <div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-              <div className="text-muted-foreground text-sm font-medium">
-                Loading geospatial command canvas...
-              </div>
-            </div>
-          ) : (
-            <GeospatialMapContainer
-              selectedDistrict={district}
-              onDistrictChange={handleDistrictChangeLocal}
-              showHeatmap={true}
-              showClusters={true}
-              showPredictions={true}
-              heatmapRadius={25}
-              className="w-full"
-            />
-          )}
-        </div>
+        
 
         {/* Incident Logs (TanStack Table) */}
         <div className="space-y-3 pt-2">
-          <div>
-            <Typography
-              variant="heading-md"
-              className="font-semibold text-foreground"
-            >
-              Incident Logs
-            </Typography>
-            <Typography variant="body-sm" color="muted">
-              Detailed breakdown of active, investigating, and resolved
-              emergency cases.
-            </Typography>
-          </div>
+          
           <CrimeDataTable
             data={paginatedIncidents}
             isLoading={isLoadingIncidents}

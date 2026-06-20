@@ -1,12 +1,12 @@
-"use client"
+"use client";
 
-import * as React from 'react';
+import * as React from "react";
 import {
   useReactTable,
   getCoreRowModel,
   flexRender,
   createColumnHelper,
-} from '@tanstack/react-table';
+} from "@tanstack/react-table";
 import {
   Table,
   TableBody,
@@ -14,17 +14,21 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
-import { Badge } from '@/components/atoms/Badge';
-import { EmptyState } from '@/components/atoms/EmptyState';
-import { Skeleton } from '@/components/ui/skeleton';
-import { TableToolbar, type ActiveFilter } from '@/components/molecules/TableToolbar';
-import { PaginationControls } from '@/components/molecules/PaginationControls';
-import { ErrorState } from '@/components/molecules/ErrorState';
-import { cn } from '@/lib/utils';
-import { Eye } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Icon } from '@/components/atoms/Icon';
+} from "@/components/ui/table";
+import { Badge } from "@/components/atoms/Badge";
+import { EmptyState } from "@/components/atoms/EmptyState";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  TableToolbar,
+  type ActiveFilter,
+} from "@/components/molecules/TableToolbar";
+import { PaginationControls } from "@/components/molecules/PaginationControls";
+import { ErrorState } from "@/components/molecules/ErrorState";
+import { cn } from "@/lib/utils";
+import { Eye } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Icon } from "@/components/atoms/Icon";
+import { Typography } from "@/components/atoms/Typography";
 
 export interface CrimeIncident {
   id: string;
@@ -32,8 +36,8 @@ export interface CrimeIncident {
   type: string;
   location: string;
   timestamp: string;
-  severity: 'low' | 'medium' | 'high' | 'critical';
-  status: 'open' | 'investigating' | 'resolved' | 'closed';
+  severity: "low" | "medium" | "high" | "critical";
+  status: "open" | "investigating" | "resolved" | "closed";
   description: string;
 }
 
@@ -53,7 +57,7 @@ export interface CrimeDataTableProps extends React.HTMLAttributes<HTMLDivElement
   activeFilters?: ActiveFilter[];
   onRemoveFilter?: (id: string) => void;
   onClearAllFilters?: () => void;
-  onExport?: (format: 'pdf' | 'csv' | 'xlsx') => void;
+  onExport?: (format: "pdf" | "csv" | "xlsx") => void;
   onRowClick?: (incident: CrimeIncident) => void;
   onToggleFilters?: () => void;
   showFilters?: boolean;
@@ -72,7 +76,7 @@ export function CrimeDataTable({
   pageSize,
   onPageChange,
   onPageSizeChange,
-  searchQuery = '',
+  searchQuery = "",
   onSearchChange,
   activeFilters = [],
   onRemoveFilter,
@@ -84,75 +88,81 @@ export function CrimeDataTable({
   className,
   ...props
 }: CrimeDataTableProps) {
-  
   // Define columns for TanStack Table
   const columns = React.useMemo(
     () => [
-      columnHelper.accessor('caseNumber', {
-        header: 'Case #',
+      columnHelper.accessor("caseNumber", {
+        header: "Case #",
         cell: (info) => (
           <span className="font-semibold text-foreground font-data">
             {info.getValue()}
           </span>
         ),
       }),
-      columnHelper.accessor('type', {
-        header: 'Incident Type',
+      columnHelper.accessor("type", {
+        header: "Incident Type",
         cell: (info) => <span className="capitalize">{info.getValue()}</span>,
       }),
-      columnHelper.accessor('description', {
-        header: 'Description',
+      columnHelper.accessor("description", {
+        header: "Description",
         cell: (info) => (
-          <span className="truncate max-w-[200px] block" title={info.getValue()}>
+          <span
+            className="truncate max-w-[200px] block"
+            title={info.getValue()}
+          >
             {info.getValue()}
           </span>
         ),
       }),
-      columnHelper.accessor('location', {
-        header: 'Location / Area',
-        cell: (info) => <span className="truncate max-w-[150px] block">{info.getValue()}</span>,
+      columnHelper.accessor("location", {
+        header: "Location / Area",
+        cell: (info) => (
+          <span className="truncate max-w-[150px] block">
+            {info.getValue()}
+          </span>
+        ),
       }),
-      columnHelper.accessor('timestamp', {
-        header: 'Date & Time',
+      columnHelper.accessor("timestamp", {
+        header: "Date & Time",
         cell: (info) => <span className="font-data">{info.getValue()}</span>,
       }),
-      columnHelper.accessor('severity', {
-        header: 'Severity',
+      columnHelper.accessor("severity", {
+        header: "Severity",
         cell: (info) => {
           const val = info.getValue();
           const variantMap = {
-            low: 'risk-low',
-            medium: 'risk-medium',
-            high: 'risk-high',
-            critical: 'risk-critical',
+            low: "risk-low",
+            medium: "risk-medium",
+            high: "risk-high",
+            critical: "risk-critical",
           } as const;
           return (
-            <Badge variant={variantMap[val] || 'default'} size="sm">
+            <Badge variant={variantMap[val] || "default"} size="sm">
               {val}
             </Badge>
           );
         },
       }),
-      columnHelper.accessor('status', {
-        header: 'Status',
+      columnHelper.accessor("status", {
+        header: "Status",
         cell: (info) => {
           const val = info.getValue();
           const variantMap = {
-            open: 'danger',
-            investigating: 'warning',
-            resolved: 'success',
-            closed: 'muted',
+            open: "danger",
+            investigating: "warning",
+            resolved: "success",
+            closed: "muted",
           } as const;
           return (
-            <Badge variant={variantMap[val] || 'secondary'} size="sm" dot>
+            <Badge variant={variantMap[val] || "secondary"} size="sm" dot>
               {val}
             </Badge>
           );
         },
       }),
       columnHelper.display({
-        id: 'actions',
-        header: 'Actions',
+        id: "actions",
+        header: "Actions",
         cell: (info) => (
           <Button
             variant="ghost"
@@ -168,7 +178,7 @@ export function CrimeDataTable({
         ),
       }),
     ],
-    [onRowClick]
+    [onRowClick],
   );
 
   // TanStack Table Instance
@@ -179,8 +189,26 @@ export function CrimeDataTable({
   });
 
   return (
-    <div className={cn("flex flex-col w-full border border-border rounded-lg bg-card/25 shadow-xs", className)} {...props}>
+    <div
+      className={cn(
+        "flex flex-col w-full border border-border rounded-lg bg-card/25 shadow-xs",
+        className,
+      )}
+      {...props}
+    >
       {/* Toolbar */}
+      <div className="pt-4 pl-4">
+        <Typography
+          variant="heading-md"
+          className="font-semibold text-foreground"
+        >
+          Incident Logs
+        </Typography>
+        <Typography variant="body-sm" color="muted">
+          Detailed breakdown of active, investigating, and resolved emergency
+          cases.
+        </Typography>
+      </div>
       <TableToolbar
         searchQuery={searchQuery}
         onSearchChange={onSearchChange}
@@ -189,7 +217,7 @@ export function CrimeDataTable({
         onClearAllFilters={onClearAllFilters}
         onExport={onExport}
         onToggleFilters={onToggleFilters}
-        showFilters={showFilters}
+        showFilters={false}
       />
 
       {/* Main Grid Viewport */}
@@ -226,12 +254,15 @@ export function CrimeDataTable({
               {table.getHeaderGroups().map((headerGroup) => (
                 <TableRow key={headerGroup.id}>
                   {headerGroup.headers.map((header) => (
-                    <TableHead key={header.id} className="font-semibold text-xs text-muted-foreground uppercase tracking-wider h-8">
+                    <TableHead
+                      key={header.id}
+                      className="font-semibold text-xs text-muted-foreground uppercase tracking-wider h-8"
+                    >
                       {header.isPlaceholder
                         ? null
                         : flexRender(
                             header.column.columnDef.header,
-                            header.getContext()
+                            header.getContext(),
                           )}
                     </TableHead>
                   ))}
@@ -249,7 +280,7 @@ export function CrimeDataTable({
                     <TableCell key={cell.id} className="py-2.5">
                       {flexRender(
                         cell.column.columnDef.cell,
-                        cell.getContext()
+                        cell.getContext(),
                       )}
                     </TableCell>
                   ))}

@@ -66,7 +66,7 @@ export function MetricCard({
           <div className="h-3 bg-muted rounded-md w-1/2" />
         </div>
       ) : (
-        <>
+        <div className='flex justify-between items-start'>
           <div className="flex justify-between items-start gap-4">
             <div className="space-y-1">
               <Typography variant="caption" color="muted" className="font-semibold uppercase tracking-wider">
@@ -94,7 +94,7 @@ export function MetricCard({
             )}
           </div>
 
-          <div className="flex items-center gap-1.5 mt-3 text-xs">
+          <div className="flex items-center gap-1.5  text-xs">
             {change !== undefined && (
               <span
                 className={cn(
@@ -118,7 +118,7 @@ export function MetricCard({
               <span className="text-muted-foreground truncate">{changeLabel}</span>
             )}
           </div>
-        </>
+        </div>
       )}
     </div>
   );
