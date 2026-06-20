@@ -1,0 +1,179 @@
+/* =============================================================================
+   CrimeLens Design System — Motion & Animation Guidelines
+   =============================================================================
+   
+   Principles:
+   - Subtle, purposeful motion only
+   - No decorative animation
+   - All animations respect prefers-reduced-motion
+   - Enterprise feel: quick, professional, unobtrusive
+   
+   Duration Scale:
+   - Micro (75ms): Hover states, active states
+   - Fast (150ms): Tooltips, color transitions, opacity
+   - Standard (250ms): Modals, dropdowns, sidebars
+   - Emphasis (350ms): Page transitions, large layout shifts
+   
+   Easing:
+   - ease-out-expo: Primary easing for exits/entries
+   - ease-in-out: For looping or continuous animations
+   ============================================================================= */
+
+:root {
+  /* --- Duration Tokens --- */
+  --duration-micro: 75ms;
+  --duration-fast: 150ms;
+  --duration-standard: 250ms;
+  --duration-emphasis: 350ms;
+
+  /* --- Easing Tokens --- */
+  --ease-default: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.45, 0, 0.55, 1);
+  --ease-in: cubic-bezier(0.55, 0, 1, 0.45);
+  --ease-out: cubic-bezier(0, 0.55, 0.45, 1);
+}
+
+/* ---------------------------------------------------------------------------
+   Keyframe Definitions
+   --------------------------------------------------------------------------- */
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slide-down {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes skeleton-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes accordion-down {
+  from {
+    height: 0;
+  }
+  to {
+    height: var(--radix-accordion-content-height);
+  }
+}
+
+@keyframes accordion-up {
+  from {
+    height: var(--radix-accordion-content-height);
+  }
+  to {
+    height: 0;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Utility Classes
+   --------------------------------------------------------------------------- */
+
+.animate-fade-in {
+  animation: fade-in var(--duration-fast) var(--ease-default);
+}
+
+.animate-slide-up {
+  animation: slide-up var(--duration-standard) var(--ease-default);
+}
+
+.animate-slide-down {
+  animation: slide-down var(--duration-standard) var(--ease-default);
+}
+
+.animate-scale-in {
+  animation: scale-in var(--duration-standard) var(--ease-default);
+}
+
+.animate-skeleton {
+  animation: skeleton-pulse 2s var(--ease-in-out) infinite;
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+/* ---------------------------------------------------------------------------
+   Reduced Motion
+   ---------------------------------------------------------------------------
+   WCAG 2.2 AAA: Disable all non-essential motion for users who prefer it.
+   Only preserve animations critical for understanding state (e.g., spinners
+   are slowed but not removed).
+   --------------------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* Preserve spinner animation but slow it */
+  .animate-spin {
+    animation-duration: 3s !important;
+    animation-iteration-count: infinite !important;
+  }
+}

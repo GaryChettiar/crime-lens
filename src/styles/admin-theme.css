@@ -1,0 +1,379 @@
+/* =============================================================================
+   CrimeLens — Admin Theme
+   =============================================================================
+   Unified styles for the administration workspace.
+   Derives all tokens dynamically from the root HSL theme variables.
+   
+   Design Philosophy:
+   - Consistent layout surfaces matching active light/dark state
+   - Professional enterprise SaaS styling
+   - Rounded cards with subtle shadows
+   - Clear data-table presentation
+   - Minimal visual noise
+   ============================================================================= */
+
+:root {
+  --admin-bg: hsl(var(--background));
+  --admin-card: hsl(var(--card));
+  --admin-border: hsl(var(--border));
+  --admin-border-light: hsl(var(--muted) / 0.3);
+  --admin-text: hsl(var(--foreground));
+  --admin-text-secondary: hsl(var(--muted-foreground));
+  --admin-text-muted: hsl(var(--muted-foreground) / 0.8);
+  --admin-accent: hsl(var(--primary));
+  --admin-accent-light: hsl(var(--primary) / 0.1);
+  --admin-success: hsl(var(--success));
+  --admin-warning: hsl(var(--warning));
+  --admin-danger: hsl(var(--danger));
+  --admin-hover: hsl(var(--accent) / 0.15);
+}
+
+/* --- Card Styling --- */
+.admin-card {
+  background: var(--admin-card);
+  border: 1px solid var(--admin-border);
+  border-radius: var(--radius);
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.04), 0 1px 2px -1px rgb(0 0 0 / 0.04);
+}
+
+.admin-card-hoverable {
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.admin-card-hoverable:hover {
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.06), 0 2px 4px -2px rgb(0 0 0 / 0.06);
+  border-color: var(--admin-accent);
+}
+
+/* --- Table Styling --- */
+.admin-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.admin-table thead th {
+  background: hsl(var(--muted) / 0.2);
+  border-bottom: 1px solid var(--admin-border);
+  padding: 0.75rem 1rem;
+  text-align: left;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+  color: var(--admin-text-secondary);
+  white-space: nowrap;
+}
+
+.admin-table tbody td {
+  padding: 0.875rem 1rem;
+  border-bottom: 1px solid var(--admin-border-light);
+  font-size: 0.875rem;
+  color: var(--admin-text);
+  vertical-align: middle;
+}
+
+.admin-table tbody tr {
+  transition: background-color 0.15s ease;
+}
+
+.admin-table tbody tr:hover {
+  background: var(--admin-hover);
+}
+
+.admin-table tbody tr.selected {
+  background: var(--admin-accent-light);
+}
+
+/* --- Form Elements --- */
+.admin-input {
+  height: 2.5rem;
+  padding: 0 0.75rem;
+  border: 1px solid var(--admin-border);
+  border-radius: calc(var(--radius) * 0.75);
+  font-size: 0.875rem;
+  color: var(--admin-text);
+  background: var(--admin-card);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  outline: none;
+  width: 100%;
+}
+
+.admin-input:focus {
+  border-color: var(--admin-accent);
+  box-shadow: 0 0 0 3px var(--admin-accent-light);
+}
+
+.admin-input::placeholder {
+  color: var(--admin-text-muted);
+}
+
+/* --- Badges --- */
+.admin-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.5rem;
+  border-radius: 9999px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  white-space: nowrap;
+  line-height: 1.5;
+}
+
+.admin-badge-active {
+  background: hsl(var(--success) / 0.15);
+  color: var(--admin-success);
+}
+
+.admin-badge-inactive {
+  background: hsl(var(--muted) / 0.15);
+  color: var(--admin-text-secondary);
+}
+
+.admin-badge-pending {
+  background: hsl(var(--warning) / 0.15);
+  color: var(--admin-warning);
+}
+
+.admin-badge-first-login {
+  background: hsl(var(--info) / 0.15);
+  color: hsl(var(--info));
+}
+
+.admin-badge-role {
+  background: hsl(var(--primary) / 0.1);
+  color: var(--admin-accent);
+  border: 1px solid hsl(var(--primary) / 0.2);
+}
+
+/* --- Buttons --- */
+.admin-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  padding: 0.5rem 1rem;
+  border-radius: calc(var(--radius) * 0.75);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  transition: all 0.15s ease;
+  cursor: pointer;
+  border: none;
+  outline: none;
+}
+
+.admin-btn:focus-visible {
+  box-shadow: 0 0 0 3px var(--admin-accent-light);
+}
+
+.admin-btn-primary {
+  background: var(--admin-accent);
+  color: hsl(var(--primary-foreground));
+}
+
+.admin-btn-primary:hover {
+  opacity: 0.9;
+}
+
+.admin-btn-secondary {
+  background: var(--admin-card);
+  color: var(--admin-text);
+  border: 1px solid var(--admin-border);
+}
+
+.admin-btn-secondary:hover {
+  background: var(--admin-hover);
+}
+
+.admin-btn-ghost {
+  background: transparent;
+  color: var(--admin-text-secondary);
+}
+
+.admin-btn-ghost:hover {
+  background: var(--admin-hover);
+  color: var(--admin-text);
+}
+
+.admin-btn-danger {
+  background: var(--admin-card);
+  color: var(--admin-danger);
+  border: 1px solid hsl(var(--danger) / 0.3);
+}
+
+.admin-btn-danger:hover {
+  background: hsl(var(--danger) / 0.08);
+}
+
+/* --- Section Headers --- */
+.admin-section-title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--admin-text);
+  letter-spacing: -0.01em;
+}
+
+.admin-section-subtitle {
+  font-size: 0.8125rem;
+  color: var(--admin-text-secondary);
+  margin-top: 0.25rem;
+}
+
+/* --- Tabs --- */
+.admin-tabs {
+  display: flex;
+  gap: 0.25rem;
+  border-bottom: 1px solid var(--admin-border);
+  padding: 0 0.25rem;
+}
+
+.admin-tab {
+  padding: 0.625rem 1rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--admin-text-secondary);
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s ease;
+  cursor: pointer;
+  background: none;
+  border-top: none;
+  border-left: none;
+  border-right: none;
+  white-space: nowrap;
+}
+
+.admin-tab:hover {
+  color: var(--admin-text);
+}
+
+.admin-tab.active {
+  color: var(--admin-accent);
+  border-bottom-color: var(--admin-accent);
+  font-weight: 600;
+}
+
+/* --- Accordion --- */
+.admin-accordion-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 1rem 1.25rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--admin-text);
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+  background: none;
+  border: none;
+  text-align: left;
+}
+
+.admin-accordion-trigger:hover {
+  background: var(--admin-hover);
+}
+
+/* --- Permission Matrix Grid --- */
+.admin-permission-grid {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.admin-permission-parent {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 0.75rem;
+  background: hsl(var(--muted) / 0.3);
+  border-radius: calc(var(--radius) * 0.75);
+  font-weight: 600;
+  font-size: 0.8125rem;
+  color: var(--admin-text);
+}
+
+.admin-permission-children {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  padding: 0.5rem 0.75rem 0.5rem 2.25rem;
+}
+
+.admin-permission-child {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.625rem;
+  border-radius: calc(var(--radius) * 0.5);
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--admin-text-secondary);
+  border: 1px solid var(--admin-border);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  background: var(--admin-card);
+}
+
+.admin-permission-child:hover {
+  border-color: var(--admin-accent);
+  color: var(--admin-accent);
+}
+
+.admin-permission-child.selected {
+  background: var(--admin-accent-light);
+  border-color: var(--admin-accent);
+  color: var(--admin-accent);
+}
+
+/* --- Color Picker Swatch --- */
+.admin-color-swatch {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: calc(var(--radius) * 0.75);
+  border: 2px solid var(--admin-border);
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+  overflow: hidden;
+}
+
+.admin-color-swatch:hover {
+  border-color: var(--admin-accent);
+}
+
+.admin-color-swatch input[type="color"] {
+  width: 150%;
+  height: 150%;
+  border: none;
+  cursor: pointer;
+  transform: translate(-16%, -16%);
+}
+
+/* --- Responsive Tables and Elements --- */
+.admin-table-wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.admin-table-wrapper::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.admin-table-wrapper::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.admin-table-wrapper::-webkit-scrollbar-thumb {
+  background-color: hsl(var(--muted-foreground) / 0.3);
+  border-radius: 3px;
+}
+
+.admin-table-wrapper::-webkit-scrollbar-thumb:hover {
+  background-color: hsl(var(--muted-foreground) / 0.5);
+}
+
+@media (max-width: 768px) {
+  .admin-table thead th,
+  .admin-table tbody td {
+    padding: 0.625rem 0.75rem;
+  }
+}
