@@ -97,7 +97,7 @@ export function TemporalCrimePlayback({
   return (
     <div
       className={cn(
-        "flex flex-col sm:flex-row sm:items-center bg-card/90 backdrop-blur-md border border-border rounded-lg p-3.5 shadow-lg gap-3 sm:gap-4",
+        "flex flex-col sm:flex-row sm:items-center bg-card/90 backdrop-blur-md border border-border rounded-lg p-3.5  gap-3 sm:gap-4",
         className,
       )}
       role="region"
