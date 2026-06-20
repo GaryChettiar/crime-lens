@@ -14,6 +14,7 @@ export interface CrimeIncident {
   description: string;
   location: string; // E.g., "Mysore / Sector 3"
   district: string;  // Matches GeoJSON exactly
+  policeStation?: string; // Assigned police station
   coordinates: [number, number]; // [lat, lng]
   timestamp: string; // YYYY-MM-DD HH:MM
   severity: Severity;

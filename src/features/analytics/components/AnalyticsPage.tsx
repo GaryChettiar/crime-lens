@@ -239,7 +239,7 @@ export function AnalyticsPage() {
 
   return (
     <DashboardLayout title="Crime Intelligence Analytics">
-      <div className="space-y-8 max-w-7xl mx-auto pb-16 px-1">
+      <div className=" pb-16 px-1">
 
         {/* ── 1. Page Header ── */}
         <div className="pb-4 border-b border-border flex flex-col md:flex-row md:items-end md:justify-between gap-4">

@@ -63,21 +63,22 @@ export const DISTRICT_METRICS: DistrictMetric[] = Object.keys(DISTRICT_CENTERS).
   };
 });
 
-// Generate 800 incidents spread over the past 30 days
+// Generate 1200 incidents spread over the timeline (Jan 2022 to Dec 2026)
 export const generateMockIncidents = (): CrimeIncident[] => {
   const incidents: CrimeIncident[] = [];
   const districts = Object.keys(DISTRICT_CENTERS);
+  
+  const startTimestamp = new Date(2022, 0, 1).getTime();
+  const endTimestamp = new Date(2026, 11, 31).getTime();
 
-  // Generate for past 30 days (1 to 30)
-  for (let i = 0; i < 800; i++) {
+  for (let i = 0; i < 1200; i++) {
     const district = districts[Math.floor(Math.random() * districts.length)];
     const center = DISTRICT_CENTERS[district];
     const isBangalore = district === 'Bangalore';
 
-    // Random day (1 to 30)
-    const dayOffset = Math.floor(Math.random() * 30);
-    const date = new Date();
-    date.setDate(date.getDate() - dayOffset);
+    // Random date between Jan 1, 2022 and Dec 31, 2026
+    const randomTimestamp = startTimestamp + Math.random() * (endTimestamp - startTimestamp);
+    const date = new Date(randomTimestamp);
     const dateStr = date.toISOString().split('T')[0];
     const timeStr = `${String(Math.floor(Math.random() * 24)).padStart(2, '0')}:${String(Math.floor(Math.random() * 60)).padStart(2, '0')}`;
 
@@ -90,13 +91,18 @@ export const generateMockIncidents = (): CrimeIncident[] => {
     const severity = SEVERITIES[Math.floor(Math.random() * SEVERITIES.length)];
     const status = STATUSES[Math.floor(Math.random() * STATUSES.length)];
 
+    const stations = MOCK_POLICE_STATIONS[district] || [];
+    const station = stations[Math.floor(Math.random() * stations.length)];
+    const policeStation = station ? station.name : undefined;
+
     incidents.push({
       id: `inc-${i}`,
-      caseNumber: `KA-${2026}-${String(10000 + i).slice(1)}`,
+      caseNumber: `KA-${date.getFullYear()}-${String(10000 + i).slice(1)}`,
       type,
       description: `Reported incident of ${type} at Sector ${Math.floor(Math.random() * 8) + 1} zone in ${district} jurisdiction. Operational units dispatched.`,
       location: `${district} / Area Node ${Math.floor(Math.random() * 10) + 1}`,
       district,
+      policeStation,
       coordinates: [lat, lng],
       timestamp: `${dateStr} ${timeStr}`,
       severity,

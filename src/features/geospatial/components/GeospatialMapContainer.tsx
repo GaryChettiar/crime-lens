@@ -37,6 +37,9 @@ export interface GeospatialMapContainerProps {
   showIntelHotspots?: boolean;
   heatmapRadius: number;
   className?: string;
+  // Lifted temporal playback props
+  currentDayOffset?: number;
+  timeWindow?: number | 'cumulative';
 }
 
 // Custom Leaflet DivIcon creator for festival events
@@ -91,6 +94,10 @@ export function GeospatialMapContainer({
   showIntelHotspots = false,
   heatmapRadius,
   className,
+  
+  // Lifted temporal playback props
+  currentDayOffset: propCurrentDayOffset,
+  timeWindow: propTimeWindow,
 }: GeospatialMapContainerProps) {
   const dispatch = useAppDispatch();
   const globalFilters = useAppSelector((state) => state.globalFilters);
@@ -102,8 +109,11 @@ export function GeospatialMapContainer({
   const { data: festivalEvents = [] } = useGetFestivalEventsQuery();
 
   // Playback timeline states
-  const [currentDayOffset, setCurrentDayOffset] = useState(30);
-  const [timeWindow, setTimeWindow] = useState<number | 'cumulative'>('cumulative');
+  const [localCurrentDayOffset] = useState(30);
+  const [localTimeWindow] = useState<number | 'cumulative'>('cumulative');
+
+  const currentDayOffset = propCurrentDayOffset !== undefined ? propCurrentDayOffset : localCurrentDayOffset;
+  const timeWindow = propTimeWindow !== undefined ? propTimeWindow : localTimeWindow;
 
   // Sync prop changes with Redux if necessary
   const activeDistrict = globalFilters.district || (selectedDistrict !== 'all' ? selectedDistrict : null) || 'all';
@@ -223,18 +233,10 @@ export function GeospatialMapContainer({
   return (
     <div className={cn("flex flex-col w-full gap-4", className)}>
       {/* ROW 1: Playback Timeline  Slider */}
-      <TemporalCrimePlayback
-        startDate={startDateStr}
-        endDate={endDateStr}
-        currentDayOffset={currentDayOffset}
-        onDayOffsetChange={setCurrentDayOffset}
-        timeWindow={timeWindow}
-        onTimeWindowChange={setTimeWindow}
-        className="w-full shrink-0 border border-border"
-      />
+     
       {/* ROW 2: Map Viewport Container */}
 
-      <div className="relative w-full h-[450px] md:h-[65vh] border border-border rounded-lg overflow-hidden bg-slate-950">
+      <div className="relative w-full  md:h-[55vh] border border-border rounded-lg overflow-hidden bg-slate-950">
         <style dangerouslySetInnerHTML={{__html: `
           @keyframes pulse-animation {
             0% { transform: scale(0.9); opacity: 0.9; }

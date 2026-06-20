@@ -19,9 +19,23 @@ interface BrandingState {
   isPreviewing: boolean;
 }
 
+const getSavedBranding = (): BrandingConfig => {
+  try {
+    const saved = localStorage.getItem('crimelens_branding');
+    if (saved) {
+      return JSON.parse(saved);
+    }
+  } catch (e) {
+    console.error('Failed to parse branding from localStorage:', e);
+  }
+  return DEFAULT_BRANDING;
+};
+
+const savedBranding = getSavedBranding();
+
 const initialState: BrandingState = {
-  active: DEFAULT_BRANDING,
-  staged: DEFAULT_BRANDING,
+  active: savedBranding,
+  staged: savedBranding,
   hasUnsavedChanges: false,
   isPreviewing: false,
 };
@@ -73,6 +87,11 @@ const brandingSlice = createSlice({
       state.active = { ...state.staged };
       state.hasUnsavedChanges = false;
       state.isPreviewing = false;
+      try {
+        localStorage.setItem('crimelens_branding', JSON.stringify(state.active));
+      } catch (e) {
+        console.error('Failed to save branding to localStorage:', e);
+      }
     },
 
     /** Reset branding to defaults */
@@ -81,6 +100,11 @@ const brandingSlice = createSlice({
       state.staged = { ...DEFAULT_BRANDING };
       state.hasUnsavedChanges = false;
       state.isPreviewing = false;
+      try {
+        localStorage.removeItem('crimelens_branding');
+      } catch (e) {
+        console.error('Failed to remove branding from localStorage:', e);
+      }
     },
   },
 });

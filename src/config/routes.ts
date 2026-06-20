@@ -170,15 +170,40 @@ export function shouldShowFilterBar(pathname: string): boolean {
   return route?.showFilterBar ?? false;
 }
 
-/**
- * Primary nav items for the top navigation bar.
- */
-export const PRIMARY_NAV_ITEMS = [
-  { label: 'Dashboard', path: '/dashboard' },
-  { label: 'Analytics', path: '/analytics' },
-  { label: 'Heatmap', path: '/heatmap' },
-  { label: 'Network', path: '/network' },
-  { label: 'Risk', path: '/risk' },
-  { label: 'Alerts', path: '/alerts' },
-  { label: 'E-FIR', path: '/efir' },
+export interface NavGroup {
+  label: string;
+  path: string;
+  activePaths: string[];
+  items?: { label: string; path: string; icon?: string }[];
+}
+
+export const NAV_GROUPS: NavGroup[] = [
+  {
+    label: 'Overview',
+    path: '/dashboard',
+    activePaths: ['/dashboard', '/analytics'],
+    items: [
+      { label: 'Dashboard', path: '/dashboard', icon: 'dashboard' },
+      { label: 'Analytics', path: '/analytics', icon: 'analytics' },
+    ],
+  },
+  {
+    label: 'Network',
+    path: '/network',
+    activePaths: ['/network'],
+  },
+  {
+    label: 'Forecast',
+    path: '/risk',
+    activePaths: ['/risk', '/alerts'],
+    items: [
+      { label: 'Risk Assessment', path: '/risk', icon: 'risk' },
+      { label: 'Alerts', path: '/alerts', icon: 'alerts' },
+    ],
+  },
+  {
+    label: 'FIR',
+    path: '/efir',
+    activePaths: ['/efir'],
+  },
 ];

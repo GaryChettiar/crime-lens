@@ -45,28 +45,34 @@ export function SettingsPage() {
 
   const handleApplyBranding = async () => {
     try {
+      // For now, apply branding locally. Later we will persist via BE endpoint.
+      dispatch(applyBranding());
+
+      /*
       await updateConfigurations({
         name: 'branding',
         config: branding.staged,
       }).unwrap();
-      dispatch(applyBranding());
+      */
     } catch (err: any) {
-      console.error(err);
-      alert('Failed to save configurations: ' + (err?.data?.message || err?.message || 'Unknown error'));
+      console.error('Failed to sync branding to backend:', err);
     }
   };
 
   const handleResetBranding = async () => {
     if (window.confirm('Are you sure you want to reset all branding colors to system defaults?')) {
       try {
+        // For now, reset branding locally. Later we will persist via BE endpoint.
+        dispatch(resetBranding());
+
+        /*
         await updateConfigurations({
           name: 'branding',
           config: DEFAULT_BRANDING,
         }).unwrap();
-        dispatch(resetBranding());
+        */
       } catch (err: any) {
-        console.error(err);
-        alert('Failed to reset configurations: ' + (err?.data?.message || err?.message || 'Unknown error'));
+        console.error('Failed to sync reset branding to backend:', err);
       }
     }
   };
