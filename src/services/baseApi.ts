@@ -15,7 +15,7 @@ import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 export const baseApi = createApi({
   reducerPath: 'api',
   baseQuery: fetchBaseQuery({
-    baseUrl: import.meta.env.VITE_API_BASE_URL || 'https://crimelens-60074096850.development.catalystserverless.in/server/crimeLens',
+    baseUrl: import.meta.env.VITE_API_BASE_URL,
     credentials: 'include', // Important: Ensures Catalyst session cookies are sent!
     prepareHeaders: (headers) => {
       // Legacy token check, catalyst mainly relies on cookies
@@ -48,6 +48,8 @@ export const baseApi = createApi({
     'Network',
     'Report',
     'Alert',
+    'CriminalProfile',
+    'CriminalRiskFactors',
   ],
   endpoints: () => ({}),
 });

@@ -7,6 +7,8 @@ import {
   LayoutDashboard,
   LineChart,
   AlertTriangle,
+  Shield,
+  User,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Icon } from "@/components/atoms/Icon";
@@ -38,6 +40,8 @@ const iconMap: Record<string, React.ComponentType<any>> = {
   analytics: LineChart,
   risk: AlertTriangle,
   alerts: Bell,
+  officers: Shield,
+  criminals: User,
 };
 
 interface PrimaryTopNavProps {

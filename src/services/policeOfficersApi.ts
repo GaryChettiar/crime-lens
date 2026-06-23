@@ -139,6 +139,32 @@ export const policeOfficersApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: ['PoliceOfficer'],
     }),
+
+    getAllPoliceOfficers: builder.query<PoliceOfficerResponse[], void>({
+      query: () => ({
+        url: '/police/officers/getAll',
+      }),
+      transformResponse: (response: any) => {
+        const list = response.data ?? response ?? [];
+        return list.map((o: any) => ({
+          id: o.ROWID || o.id,
+          userId: o.user_id,
+          badgeNumber: o.badge_number,
+          rankId: o.rank_id,
+          stationId: o.station_id,
+          phone: o.contact_number,
+          status: o.operational_status,
+          isArchived: o.is_archived === true || o.is_archived === 'true',
+        }));
+      },
+      providesTags: (result) =>
+        result
+          ? [
+              ...result.map((o) => ({ type: 'PoliceOfficer' as const, id: o.id })),
+              { type: 'PoliceOfficer', id: 'LIST' },
+            ]
+          : [{ type: 'PoliceOfficer', id: 'LIST' }],
+    }),
   }),
 });
 
@@ -148,4 +174,5 @@ export const {
   useGetOfficerByIdQuery,
   useUpdateOfficerMutation,
   useDeleteOfficerMutation,
+  useGetAllPoliceOfficersQuery,
 } = policeOfficersApi;

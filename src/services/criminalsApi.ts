@@ -6,10 +6,13 @@ import { baseApi } from './baseApi';
 
 export interface CriminalResponse {
   id: string;
+  criminalNumber?: string;
   name: string;
   alias?: string;
   age?: number;
   gender?: string;
+  nationality?: string;
+  districtId?: string;
   address?: string;
   phone?: string;
   description?: string;
@@ -80,10 +83,13 @@ const decodeCriminal = (s: any): CriminalResponse => {
 
   return {
     id: s.ROWID || s.id,
+    criminalNumber: s.criminal_number || '',
     name: s.full_name || s.name || 'Unknown Criminal',
     alias: alias,
     age: age,
     gender: s.gender || 'Male',
+    nationality: s.nationality || 'Indian',
+    districtId: s.district_id_of_criminal || '',
     address: address,
     phone: phone,
     description: description,
@@ -127,7 +133,7 @@ export const criminalsApi = baseApi.injectEndpoints({
 
     getCriminals: builder.query<CriminalResponse[], { search?: string; status?: string } | void>({
       query: (params) => ({
-        url: '/criminals',
+        url: '/criminals/',
         params: params || undefined,
       }),
       transformResponse: (response: any) => {
@@ -185,6 +191,50 @@ export const criminalsApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: ['Criminal'],
     }),
+
+    getAllCriminals: builder.query<CriminalResponse[], void>({
+      query: () => ({
+        url: '/criminals',
+      }),
+      transformResponse: (response: any) => {
+        const list = response.data ?? response ?? [];
+        return list.map(decodeCriminal);
+      },
+      providesTags: (result) =>
+        result
+          ? [
+              ...result.map((c) => ({ type: 'Criminal' as const, id: c.id })),
+              { type: 'Criminal', id: 'LIST' },
+            ]
+          : [{ type: 'Criminal', id: 'LIST' }],
+    }),
+
+    generateCriminalProfile: builder.mutation<{ success: boolean; message: string; criminal: any; profile: any; riskFactors: any[] }, string>({
+      query: (criminalId) => ({
+        url: `/criminal-profiling/${criminalId}/generate`,
+        method: 'POST',
+      }),
+      invalidatesTags: (_result, _error, criminalId) => [
+        { type: 'CriminalProfile', id: criminalId },
+        { type: 'CriminalRiskFactors', id: criminalId }
+      ],
+    }),
+
+    getCriminalProfile: builder.query<any, string>({
+      query: (criminalId) => `/criminal-profiling/${criminalId}`,
+      transformResponse: (response: any) => {
+        return response.data ?? response;
+      },
+      providesTags: (_result, _error, criminalId) => [{ type: 'CriminalProfile', id: criminalId }],
+    }),
+
+    getCriminalRiskFactors: builder.query<{ profile: any; riskFactors: any[] }, string>({
+      query: (criminalId) => `/criminal-profiling/${criminalId}/risk-factors`,
+      transformResponse: (response: any) => {
+        return response.data ?? response;
+      },
+      providesTags: (_result, _error, criminalId) => [{ type: 'CriminalRiskFactors', id: criminalId }],
+    }),
   }),
 });
 
@@ -194,4 +244,8 @@ export const {
   useGetCriminalByIdQuery,
   useUpdateCriminalMutation,
   useDeleteCriminalMutation,
+  useGetAllCriminalsQuery,
+  useGenerateCriminalProfileMutation,
+  useGetCriminalProfileQuery,
+  useGetCriminalRiskFactorsQuery,
 } = criminalsApi;

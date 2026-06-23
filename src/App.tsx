@@ -22,7 +22,13 @@ import {
   CriminalsPage,
   CrimesPage,
   FirsPage,
+  CriminalProfilePage,
 } from '@/features/admin';
+import {
+  PoliceOfficersPage as EntitiesOfficersPage,
+  CriminalsPage as EntitiesCriminalsPage,
+  CriminalProfilePage as EntitiesCriminalProfilePage,
+} from '@/features/entities';
 
 /**
  * CrimeLens Main Router Setup
@@ -42,12 +48,18 @@ function App() {
         {/* Operations */}
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/criminals/:criminalId" element={<CriminalProfilePage />} />
         <Route path="/analytics" element={<AnalyticsPage />} />
         <Route path="/heatmap" element={<HeatmapPage />} />
         <Route path="/risk" element={<RiskPage />} />
         <Route path="/network" element={<NetworkPage />} />
         <Route path="/alerts" element={<AlertsPage />} />
         <Route path="/efir" element={<EfirPage />} />
+
+        {/* Entities Module */}
+        <Route path="/entities/officers" element={<EntitiesOfficersPage />} />
+        <Route path="/entities/criminals" element={<EntitiesCriminalsPage />} />
+        <Route path="/entities/criminals/:criminalId" element={<EntitiesCriminalProfilePage />} />
 
         {/* Data Operations */}
         <Route path="/data/crime-records" element={<CrimeDataPage />} />

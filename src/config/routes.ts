@@ -149,6 +149,24 @@ export const ROUTES: RouteConfig[] = [
     title: 'Settings',
     showFilterBar: false,
   },
+  {
+    path: '/entities/officers',
+    title: 'Police Officers',
+    showFilterBar: false,
+    requiredPermission: 'police-officers.view',
+  },
+  {
+    path: '/entities/criminals',
+    title: 'Criminals',
+    showFilterBar: false,
+    requiredPermission: 'criminals.view',
+  },
+  {
+    path: '/entities/criminals/:criminalId',
+    title: 'Criminal Profile',
+    showFilterBar: false,
+    requiredPermission: 'criminals.view',
+  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -159,6 +177,10 @@ export const ROUTES: RouteConfig[] = [
  * Get route config by pathname. Handles exact match.
  */
 export function getRouteConfig(pathname: string): RouteConfig | undefined {
+  // Handle dynamic criminal profile path matching
+  if (pathname.startsWith('/entities/criminals/')) {
+    return ROUTES.find((r) => r.path === '/entities/criminals/:criminalId');
+  }
   return ROUTES.find((r) => r.path === pathname);
 }
 
@@ -185,6 +207,15 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { label: 'Dashboard', path: '/dashboard', icon: 'dashboard' },
       { label: 'Analytics', path: '/analytics', icon: 'analytics' },
+    ],
+  },
+  {
+    label: 'Entities',
+    path: '/entities/officers',
+    activePaths: ['/entities/officers', '/entities/criminals'],
+    items: [
+      { label: 'Officers', path: '/entities/officers', icon: 'officers' },
+      { label: 'Criminals', path: '/entities/criminals', icon: 'criminals' },
     ],
   },
   {

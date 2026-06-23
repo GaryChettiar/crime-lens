@@ -10,3 +10,5 @@ export { PoliceOfficersPage } from './components/PoliceOfficersPage';
 export { CriminalsPage } from './components/CriminalsPage';
 export { CrimesPage } from './components/CrimesPage';
 export { FirsPage } from './components/FirsPage';
+export { CriminalProfilePage } from './components/CriminalProfilePage';
+
