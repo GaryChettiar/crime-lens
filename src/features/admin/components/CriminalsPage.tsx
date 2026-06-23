@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { AdminLayout } from '@/components/templates/AdminLayout/AdminLayout';
 import {
   useGetCriminalsQuery,
@@ -10,6 +11,7 @@ import { TableSkeleton, EmptyState, ErrorState } from '@/components/molecules/Da
 import { Plus, Trash2, Edit2, User, Search, Eye, AlertOctagon, Check, Loader2 } from 'lucide-react';
 
 export function CriminalsPage() {
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = React.useState('');
   const [statusFilter, setStatusFilter] = React.useState('');
 
@@ -190,7 +192,7 @@ export function CriminalsPage() {
                 </div>
 
                 <div className="flex items-center gap-2 mt-4 pt-3 border-t border-border">
-                  <button className="admin-btn admin-btn-secondary text-xs flex-1" onClick={() => setViewingCriminal(c)}>
+                  <button className="admin-btn admin-btn-secondary text-xs flex-1" onClick={() => navigate(`/criminals/${c.id}`)}>
                     <Eye className="h-3.5 w-3.5 mr-1" /> View Profile
                   </button>
                   <button className="p-2 rounded-md border border-border hover:bg-primary/10 text-primary" onClick={() => setEditingCriminal(c)} title="Edit">
