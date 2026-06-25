@@ -4,7 +4,7 @@ import { DashboardLayout } from '@/components/templates/DashboardLayout';
 import { Typography } from '@/components/atoms/Typography';
 import { GeospatialMapContainer } from '@/features/geospatial';
 import { HotspotControlPanel, type MapLayerConfig } from '@/components/organisms/HotspotControlPanel';
-import { useGetFestivalEventsQuery } from '@/services/geospatialApi';
+import { useGetFestivalEventsQuery } from '@/services/riskApi';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/atoms/Badge';
 import { Separator } from '@/components/ui/separator';

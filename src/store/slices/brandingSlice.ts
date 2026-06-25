@@ -120,3 +120,30 @@ export const {
 } = brandingSlice.actions;
 
 export const brandingReducer = brandingSlice.reducer;
+
+/** Helper to determine if a hex color is dark */
+export const isHexColorDark = (hexColor: string): boolean => {
+  if (!hexColor) return true;
+  try {
+    let hex = hexColor.replace(/^#/, '');
+    if (hex.length === 3) {
+      hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
+    }
+    const r = parseInt(hex.slice(0, 2), 16) / 255;
+    const g = parseInt(hex.slice(2, 4), 16) / 255;
+    const b = parseInt(hex.slice(4, 6), 16) / 255;
+
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    const l = (max + min) / 2;
+    return l < 0.5;
+  } catch (e) {
+    return true;
+  }
+};
+
+/** Selector to check if the current branding background color is dark */
+export const selectIsDark = (state: { branding: BrandingState }) => {
+  const config = state.branding.isPreviewing ? state.branding.staged : state.branding.active;
+  return isHexColorDark(config.background);
+};

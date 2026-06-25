@@ -41,11 +41,9 @@ import {
   setDateRange,
   resetFilters,
 } from "@/store/slices/globalFiltersSlice";
-import {
-  useGetDistrictsQuery,
-  useGetIncidentsQuery,
-  useGetRiskForecastsQuery,
-} from "@/services/geospatialApi";
+import { useGetDistrictMetricsQuery } from "@/services/districtsApi";
+import { useGetIncidentsQuery } from "@/services/crimeApi";
+import { useGetRiskForecastsQuery } from "@/services/riskApi";
 
 const INITIAL_ALERTS: AlertData[] = [
   {
@@ -96,7 +94,7 @@ export function DashboardPage() {
 
   // RTK Query hooks
   const { data: districtsMetrics = [], isLoading: isLoadingDistricts } =
-    useGetDistrictsQuery();
+    useGetDistrictMetricsQuery();
   const { data: incidents = [], isLoading: isLoadingIncidents } =
     useGetIncidentsQuery();
   useGetRiskForecastsQuery();

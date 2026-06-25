@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { MapContainer, TileLayer, useMap, Marker, Popup, GeoJSON } from 'react-leaflet';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { setDistrict } from '@/store/slices/globalFiltersSlice';
+import { selectIsDark } from '@/store/slices/brandingSlice';
 import { DashboardLayout } from '@/components/templates/DashboardLayout';
 import { Typography } from '@/components/atoms/Typography';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -29,7 +30,8 @@ import {
   type Alert
 } from '../index';
 import { IntelligenceAlertList } from '@/features/intelligence';
-import geoJsonData from '@/features/geospatial/data/karnataka-districts.geojson';
+import { useGetDistrictsGeoJsonQuery } from '@/services/districtsApi';
+import { convertToGeoJson } from '@/utils/geoJsonHelper';
 import {
   ResponsiveContainer,
   BarChart,
@@ -97,6 +99,7 @@ function MapController({ selectedAlert }: { selectedAlert: any | null }) {
 export function AlertsPage() {
   const dispatch = useAppDispatch();
   const globalFilters = useAppSelector((state) => state.globalFilters);
+  const isDark = useAppSelector(selectIsDark);
   const activeDistrict = globalFilters.district;
 
   // Selected Alert State
@@ -154,13 +157,20 @@ export function AlertsPage() {
     }
   };
 
+  // Fetch live district geojson
+  const { data: geoJsonRecords } = useGetDistrictsGeoJsonQuery();
+console.log(geoJsonRecords)
+  const geoJsonData = useMemo(() => {
+    return geoJsonRecords ? convertToGeoJson(geoJsonRecords) : null;
+  }, [geoJsonRecords]);
+
   const mapStyle = (feature: any) => {
-    const dName = feature?.properties?.district;
+    const dName = feature?.properties?.name || feature?.properties?.district || feature?.properties?.NAME_2;
     const isSelected = selectedAlert?.district?.toLowerCase() === dName?.toLowerCase();
     return {
-      fillColor: '#1e293b',
-      fillOpacity: isSelected ? 0.3 : 0.1,
-      color: isSelected ? '#3B82F6' : '#334155',
+      fillColor: isDark ? '#1e293b' : '#f8fafc',
+      fillOpacity: isSelected ? 0.35 : 0.15,
+      color: isSelected ? '#3B82F6' : (isDark ? '#334155' : '#cbd5e1'),
       weight: isSelected ? 2.5 : 1,
     };
   };
@@ -299,13 +309,15 @@ export function AlertsPage() {
                 >
                   <MapController selectedAlert={selectedAlert} />
                   <TileLayer
-                    url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+                    url={isDark ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" : "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"}
                   />
-                  <GeoJSON
-                    data={geoJsonData as any}
-                    style={mapStyle}
-                    key={selectedAlert?.id || 'all'}
-                  />
+                  {geoJsonData && (
+                    <GeoJSON
+                      data={geoJsonData as any}
+                      style={mapStyle}
+                      key={`${selectedAlert?.id || 'all'}-${geoJsonRecords?.length || 0}`}
+                    />
+                  )}
                   {alertsList.filter(alt => alt.coordinates).map((alt) => (
                     <Marker
                       key={alt.id}

@@ -1,4 +1,27 @@
 import { baseApi } from './baseApi';
+import { generateRiskForecastZones } from '@/features/geospatial/data/mockGeospatialData';
+import type { RiskForecastZone } from '@/features/geospatial/types/geospatial';
+import karnatakaEvents from '@/features/intelligence/data/karnatakaEvents.json';
+
+const forecastsData = generateRiskForecastZones();
+
+export interface FestivalEvent {
+  id: string;
+  name: string;
+  type: "festival" | "political" | "sports" | "concert" | "religious";
+  district: string;
+  startDate: string;
+  endDate: string;
+  expectedAttendance: number;
+  latitude: number;
+  longitude: number;
+  riskLevel: "low" | "medium" | "high" | "critical";
+  historicalTheftIncrease: number;
+  historicalAssaultIncrease: number;
+  historicalCrowdIncidents: number;
+  predictedRiskScore: number;
+}
+
 
 /**
  * Risk API — Risk assessment and scoring endpoints.
@@ -96,6 +119,18 @@ export const riskApi = baseApi.injectEndpoints({
       },
       providesTags: ['Risk'],
     }),
+
+    getRiskForecasts: builder.query<RiskForecastZone[], void>({
+      queryFn: () => {
+        return { data: forecastsData };
+      },
+    }),
+
+    getFestivalEvents: builder.query<FestivalEvent[], void>({
+      queryFn: () => {
+        return { data: karnatakaEvents as FestivalEvent[] };
+      },
+    }),
   }),
 });
 
@@ -106,6 +141,8 @@ export const {
   useGetRiskDriversQuery,
   useGetResourceRecommendationsQuery,
   useGetRiskForecastPointsQuery,
+  useGetRiskForecastsQuery,
+  useGetFestivalEventsQuery,
 } = riskApi;
 
 // ---------------------------------------------------------------------------

@@ -1,4 +1,9 @@
 import { baseApi } from './baseApi';
+import { generateMockIncidents } from '@/features/geospatial/data/mockGeospatialData';
+import type { CrimeIncident } from '@/features/geospatial/types/geospatial';
+
+const incidentsData = generateMockIncidents();
+
 
 // ---------------------------------------------------------------------------
 // Types
@@ -219,6 +224,12 @@ export const crimeApi = baseApi.injectEndpoints({
       transformResponse: (response: any) => response.data ?? response,
       providesTags: ['Crime'],
     }),
+
+    getIncidents: builder.query<CrimeIncident[], void>({
+      queryFn: () => {
+        return { data: incidentsData };
+      },
+    }),
   }),
 });
 
@@ -230,4 +241,5 @@ export const {
   useDeleteCrimeMutation,
   useGetCrimeCategoriesQuery,
   useGetCrimeTrendsQuery,
+  useGetIncidentsQuery,
 } = crimeApi;

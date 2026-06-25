@@ -1,26 +1,16 @@
 import { useEffect, useState, useRef, useCallback } from "react";
-import { Play, Pause, FastForward, RotateCcw } from "lucide-react";
+import { Play, Pause, FastForward, RotateCcw, Calendar as CalendarIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
-import { useAppDispatch } from "@/store/hooks";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { setDateRange } from "@/store/slices/globalFiltersSlice";
+import { Calendar as ShadcnCalendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
-// Hardcoded date boundaries (will come from BE later)
+// Hardcoded date boundaries
 const MIN_DATE = new Date("2022-01-01");
 const MAX_DATE = new Date("2026-06-20");
-
-// Total days in the full range
-const TOTAL_DAYS = Math.round(
-  (MAX_DATE.getTime() - MIN_DATE.getTime()) / (1000 * 60 * 60 * 24)
-);
-
-/** Convert a day-offset from MIN_DATE to a Date object */
-const offsetToDate = (offset: number): Date => {
-  const d = new Date(MIN_DATE);
-  d.setDate(d.getDate() + offset);
-  return d;
-};
 
 /** Format a Date as "DD Mon YYYY" for display */
 const formatDateLabel = (d: Date): string =>
@@ -51,15 +41,6 @@ export interface TemporalCrimePlaybackProps {
   className?: string;
 }
 
-/**
- * TemporalCrimePlayback Organism
- *
- * Two modes:
- *  1. RANGE mode  – dual-thumb slider to pick a date range. Map updates live.
- *  2. PLAYER mode – single-thumb animated playback through the selected range.
- *
- * Transitions smoothly between modes with CSS animations.
- */
 export function TemporalCrimePlayback({
   currentDayOffset,
   onDayOffsetChange,
@@ -68,27 +49,71 @@ export function TemporalCrimePlayback({
   className,
 }: TemporalCrimePlaybackProps) {
   const dispatch = useAppDispatch();
+  const globalFilters = useAppSelector((state) => state.globalFilters);
 
-  // ── Mode state ──────────────────────────────────────────────
+  // ── Date Picker states ──────────────────────────────────────
+  const [dateMode, setDateMode] = useState<'single' | 'range'>('range');
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+
+  // Initialize local selections from Redux (fallback to default values)
+  const [selectedSingle, setSelectedSingle] = useState<Date>(() => {
+    if (globalFilters.dateRange.start) {
+      return new Date(globalFilters.dateRange.start);
+    }
+    return new Date("2026-06-20");
+  });
+
+  const [selectedRange, setSelectedRange] = useState<{ from: Date | null; to: Date | null }>(() => {
+    const from = globalFilters.dateRange.start ? new Date(globalFilters.dateRange.start) : new Date("2025-06-20");
+    const to = globalFilters.dateRange.end ? new Date(globalFilters.dateRange.end) : new Date("2026-06-20");
+    return { from, to };
+  });
+
+  // ── Mode and Playback states ───────────────────────────────
   type Mode = "range" | "playback";
   const [mode, setMode] = useState<Mode>("range");
-
-  // ── Range selection state (offsets from MIN_DATE) ───────────
-  // Default: last 365 days of the full range
-  const defaultStart = Math.max(0, TOTAL_DAYS - 365);
-  const [rangeStart, setRangeStart] = useState(defaultStart);
-  const [rangeEnd, setRangeEnd] = useState(TOTAL_DAYS);
-
-  // ── Playback state ─────────────────────────────────────────
   const [isPlaying, setIsPlaying] = useState(false);
   const [playSpeed, setPlaySpeed] = useState<1 | 2 | 5 | 10>(1);
   const [playbackOffset, setPlaybackOffset] = useState(0);
-  const playbackTotalDays = rangeEnd - rangeStart;
+
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const playbackOffsetRef = useRef(playbackOffset);
 
   const [isTimeWindowOpen, setIsTimeWindowOpen] = useState(false);
   const timeWindowDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Computed active range dates
+  const activeStart = dateMode === 'single' ? selectedSingle : (selectedRange.from || MIN_DATE);
+  const activeEnd = dateMode === 'single' ? selectedSingle : (selectedRange.to || selectedRange.from || MAX_DATE);
+
+  const playbackTotalDays = Math.max(
+    0,
+    Math.round((activeEnd.getTime() - activeStart.getTime()) / (1000 * 60 * 60 * 24))
+  );
+
+  useEffect(() => {
+    playbackOffsetRef.current = playbackOffset;
+  }, [playbackOffset]);
+
+  // Synchronize local states if global filters change from outside (e.g. presets)
+  useEffect(() => {
+    if (globalFilters.dateRange.start && globalFilters.dateRange.end) {
+      // If we are currently playing/scrubbing, do not overwrite the base range
+      if (isPlaying || mode === "playback") return;
+
+      const startD = new Date(globalFilters.dateRange.start);
+      const endD = new Date(globalFilters.dateRange.end);
+      const isSameDate = startD.getTime() === endD.getTime();
+
+      if (isSameDate) {
+        setDateMode('single');
+        setSelectedSingle(startD);
+      } else {
+        setDateMode('range');
+        setSelectedRange({ from: startD, to: endD });
+      }
+    }
+  }, [globalFilters.dateRange.start, globalFilters.dateRange.end, isPlaying, mode]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -105,18 +130,13 @@ export function TemporalCrimePlayback({
     };
   }, []);
 
-  // Keep ref in sync
-  useEffect(() => {
-    playbackOffsetRef.current = playbackOffset;
-  }, [playbackOffset]);
-
-  // ── Dispatch date range to Redux on range change ───────────
+  // ── Dispatch range to Redux ────────────────────────────────
   const dispatchRange = useCallback(
-    (start: number, end: number) => {
+    (start: Date, end: Date) => {
       dispatch(
         setDateRange({
-          start: formatDateISO(offsetToDate(start)),
-          end: formatDateISO(offsetToDate(end)),
+          start: formatDateISO(start),
+          end: formatDateISO(end),
         })
       );
     },
@@ -125,79 +145,63 @@ export function TemporalCrimePlayback({
 
   // Dispatch initial range on mount
   useEffect(() => {
-    dispatchRange(rangeStart, rangeEnd);
+    dispatchRange(activeStart, activeEnd);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Range slider change handler ────────────────────────────
-  const handleRangeChange = useCallback(
-    (values: number[]) => {
-      const [s, e] = values;
-      setRangeStart(s);
-      setRangeEnd(e);
-      dispatchRange(s, e);
-    },
-    [dispatchRange]
-  );
-
-  // ── Playback: dispatch the current playback date ───────────
+  // ── Playback: dispatch current playback subset ─────────────
   const dispatchPlaybackDate = useCallback(
     (offset: number) => {
-      const currentDay = rangeStart + offset;
-      // During playback, set the date range to start → current playback position
-      // so the map shows data up to where the playback cursor is
+      const currentDay = new Date(activeStart);
+      currentDay.setDate(currentDay.getDate() + offset);
+
       if (timeWindow === "cumulative") {
         dispatch(
           setDateRange({
-            start: formatDateISO(offsetToDate(rangeStart)),
-            end: formatDateISO(offsetToDate(currentDay)),
+            start: formatDateISO(activeStart),
+            end: formatDateISO(currentDay),
           })
         );
       } else {
-        const windowStart = Math.max(rangeStart, currentDay - timeWindow);
+        const windowStart = new Date(currentDay);
+        windowStart.setDate(windowStart.getDate() - timeWindow);
+        const finalStart = windowStart < activeStart ? activeStart : windowStart;
         dispatch(
           setDateRange({
-            start: formatDateISO(offsetToDate(windowStart)),
-            end: formatDateISO(offsetToDate(currentDay)),
+            start: formatDateISO(finalStart),
+            end: formatDateISO(currentDay),
           })
         );
       }
       onDayOffsetChange(offset);
     },
-    [dispatch, rangeStart, timeWindow, onDayOffsetChange]
+    [dispatch, activeStart, timeWindow, onDayOffsetChange]
   );
 
   // ── Play / Pause toggle ────────────────────────────────────
   const handleTogglePlay = useCallback(() => {
+    if (playbackTotalDays === 0) return;
+
     if (mode === "range") {
-      // Transition range → playback
       setPlaybackOffset(0);
       playbackOffsetRef.current = 0;
       setMode("playback");
       setIsPlaying(true);
       dispatchPlaybackDate(0);
     } else {
-      // Toggle play/pause within playback mode
       setIsPlaying((prev) => !prev);
     }
-  }, [mode, dispatchPlaybackDate]);
+  }, [mode, dispatchPlaybackDate, playbackTotalDays]);
 
-  // ── Reset button ───────────────────────────────────────────
+  // ── Reset ──────────────────────────────────────────────────
   const handleReset = useCallback(() => {
-    if (mode === "playback") {
-      // Reset to 0 and restart animation
-      setPlaybackOffset(0);
-      playbackOffsetRef.current = 0;
-      dispatchPlaybackDate(0);
-      setIsPlaying(true);
-    } else {
-      // In range mode, reset to default range
-      const defStart = Math.max(0, TOTAL_DAYS - 365);
-      setRangeStart(defStart);
-      setRangeEnd(TOTAL_DAYS);
-      dispatchRange(defStart, TOTAL_DAYS);
-    }
-  }, [mode, dispatchPlaybackDate, dispatchRange]);
+    setPlaybackOffset(0);
+    playbackOffsetRef.current = 0;
+    setIsPlaying(false);
+    setMode("range");
+    dispatchRange(activeStart, activeEnd);
+    onDayOffsetChange(0);
+  }, [activeStart, activeEnd, dispatchRange, onDayOffsetChange]);
 
   // ── Speed cycle ────────────────────────────────────────────
   const cycleSpeed = useCallback(() => {
@@ -211,17 +215,15 @@ export function TemporalCrimePlayback({
 
   // ── Playback interval timer ────────────────────────────────
   useEffect(() => {
-    if (isPlaying && mode === "playback") {
+    if (isPlaying && mode === "playback" && playbackTotalDays > 0) {
       const intervalMs = 1500 / playSpeed;
 
       intervalRef.current = setInterval(() => {
         const current = playbackOffsetRef.current;
         if (current >= playbackTotalDays) {
-          // Playback finished → transition back to range mode
           setIsPlaying(false);
           setMode("range");
-          // Restore the full selected range in Redux
-          dispatchRange(rangeStart, rangeEnd);
+          dispatchRange(activeStart, activeEnd);
         } else {
           const next = current + 1;
           setPlaybackOffset(next);
@@ -245,26 +247,18 @@ export function TemporalCrimePlayback({
     mode,
     playSpeed,
     playbackTotalDays,
-    rangeStart,
-    rangeEnd,
+    activeStart,
+    activeEnd,
     dispatchPlaybackDate,
     dispatchRange,
   ]);
 
-  // ── When leaving playback mode (e.g. paused then user moves range), restore range
-  const handleBackToRange = useCallback(() => {
-    setIsPlaying(false);
-    setMode("range");
-    dispatchRange(rangeStart, rangeEnd);
-  }, [rangeStart, rangeEnd, dispatchRange]);
+  const offsetToDate = (offset: number): Date => {
+    const d = new Date(activeStart);
+    d.setDate(d.getDate() + offset);
+    return d;
+  };
 
-  // ── Computed labels ────────────────────────────────────────
-  const rangeStartLabel = formatDateLabel(offsetToDate(rangeStart));
-  const rangeEndLabel = formatDateLabel(offsetToDate(rangeEnd));
-  const playbackCurrentLabel =
-    mode === "playback"
-      ? formatDateLabel(offsetToDate(rangeStart + playbackOffset))
-      : "";
   const playbackProgress =
     playbackTotalDays > 0
       ? Math.round((playbackOffset / playbackTotalDays) * 100)
@@ -273,98 +267,148 @@ export function TemporalCrimePlayback({
   return (
     <div
       className={cn(
-        "flex flex-col sm:flex-row sm:items-center bg-card/90 backdrop-blur-md border border-border rounded-lg p-3.5 gap-3 sm:gap-4",
+        "flex flex-col xl:flex-row xl:items-center bg-card/90 backdrop-blur-md border border-border rounded-lg p-3.5 gap-3 sm:gap-4",
         className
       )}
       role="region"
       aria-label="Temporal Crime Timeline Playback"
     >
-      {/* ── Slider Area ─────────────────────────────────── */}
-      <div className="flex items-center gap-4 py-1 flex-1 min-w-0 relative">
-        {/* Mode transition wrapper */}
-        <div
-          className={cn(
-            "flex items-center gap-3 w-full transition-all duration-300 ease-in-out",
-            mode === "playback" ? "opacity-0 scale-y-0 h-0 absolute pointer-events-none" : "opacity-100 scale-y-100"
-          )}
-        >
-          {/* RANGE MODE: Dual-thumb slider */}
-          <span className="text-[10px] font-bold font-data text-muted-foreground whitespace-nowrap">
-            {rangeStartLabel}
-          </span>
-          <div className="flex-1 min-w-0">
-            <Slider
-              id="timeline-range-slider"
-              min={0}
-              max={TOTAL_DAYS}
-              step={1}
-              value={[rangeStart, rangeEnd]}
-              onValueChange={handleRangeChange}
-              aria-label="Date range selection slider"
-            />
-          </div>
-          <span className="text-[10px] font-bold font-data text-muted-foreground whitespace-nowrap">
-            {rangeEndLabel}
-          </span>
-        </div>
+      {/* ── Date Picker Area ──────────────────────────────── */}
+      <div className="flex items-center shrink-0">
+        <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              className="text-xs font-semibold h-9 px-3 border border-border justify-start text-left gap-2 cursor-pointer font-data select-none min-w-[230px]"
+            >
+              <CalendarIcon className="h-4 w-4 text-muted-foreground shrink-0" />
+              <span className="truncate text-foreground">
+                {dateMode === 'single'
+                  ? formatDateLabel(selectedSingle)
+                  : selectedRange.from
+                    ? selectedRange.to
+                      ? `${formatDateLabel(selectedRange.from)} - ${formatDateLabel(selectedRange.to)}`
+                      : `${formatDateLabel(selectedRange.from)} - Select End`
+                    : "Select dates..."}
+              </span>
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="p-0 z-50 bg-card border border-border shadow-2xl rounded-lg flex flex-col">
+            {/* Mode selection toggle */}
+            <div className="flex border-b border-border/60 p-1.5 gap-1 bg-muted/20">
+              <button
+                type="button"
+                className={cn(
+                  "flex-1 text-[11px] font-bold py-1.5 px-2.5 rounded transition-all cursor-pointer",
+                  dateMode === 'single'
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
+                )}
+                onClick={() => setDateMode('single')}
+              >
+                Single Date
+              </button>
+              <button
+                type="button"
+                className={cn(
+                  "flex-1 text-[11px] font-bold py-1.5 px-2.5 rounded transition-all cursor-pointer",
+                  dateMode === 'range'
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
+                )}
+                onClick={() => setDateMode('range')}
+              >
+                Date Range
+              </button>
+            </div>
+            
+            {/* Calendar */}
+            <div className="p-1">
+              {dateMode === 'single' ? (
+                <ShadcnCalendar
+                  mode="single"
+                  selected={selectedSingle}
+                  onSelect={(date) => {
+                    if (date) {
+                      setSelectedSingle(date);
+                      setIsCalendarOpen(false);
+                      dispatchRange(date, date);
+                      setPlaybackOffset(0);
+                      setMode("range");
+                      setIsPlaying(false);
+                    }
+                  }}
+                  disabledDates={(d) => d < MIN_DATE || d > MAX_DATE}
+                />
+              ) : (
+                <ShadcnCalendar
+                  mode="range"
+                  selected={selectedRange}
+                  onSelect={(range) => {
+                    setSelectedRange(range || { from: null, to: null });
+                    if (range && range.from && range.to) {
+                      setIsCalendarOpen(false);
+                      dispatchRange(range.from, range.to);
+                      setPlaybackOffset(0);
+                      setMode("range");
+                      setIsPlaying(false);
+                    }
+                  }}
+                  disabledDates={(d) => d < MIN_DATE || d > MAX_DATE}
+                />
+              )}
+            </div>
+          </PopoverContent>
+        </Popover>
+      </div>
 
-        <div
-          className={cn(
-            "flex items-center gap-3 w-full transition-all duration-300 ease-in-out",
-            mode === "range" ? "opacity-0 scale-y-0 h-0 absolute pointer-events-none" : "opacity-100 scale-y-100"
-          )}
-        >
-          {/* PLAYBACK MODE: Single-thumb animated slider */}
-          <span className="text-[10px] font-bold font-data text-primary whitespace-nowrap">
-            {playbackCurrentLabel}
+      {/* ── Scrubber Slider Area ─────────────────────────── */}
+      <div className="flex items-center gap-3 py-1 flex-1 min-w-0">
+        {dateMode === 'single' ? (
+          <span className="text-[11px] font-medium text-muted-foreground italic select-none">
+            Single date selected. Choose 'Date Range' to enable timeline playback.
           </span>
-          <div className="flex-1 min-w-0">
-            <Slider
-              id="timeline-playback-scrubber"
-              min={0}
-              max={playbackTotalDays}
-              step={1}
-              value={[playbackOffset]}
-              onValueChange={([val]) => {
-                setPlaybackOffset(val);
-                dispatchPlaybackDate(val);
-              }}
-              aria-label="Timeline playback scrubber"
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] font-bold font-data text-muted-foreground whitespace-nowrap">
-              {formatDateLabel(offsetToDate(rangeEnd))}
+        ) : (
+          <>
+            <span className="text-[10px] font-bold font-data text-primary whitespace-nowrap min-w-[70px] text-right">
+              {formatDateLabel(offsetToDate(playbackOffset))}
             </span>
-            <span className="text-[9px] font-data text-muted-foreground/70 tabular-nums">
-              {playbackProgress}%
-            </span>
-          </div>
-        </div>
+            <div className="flex-1 min-w-0">
+              <Slider
+                id="timeline-playback-scrubber"
+                min={0}
+                max={playbackTotalDays}
+                step={1}
+                value={[playbackOffset]}
+                onValueChange={([val]) => {
+                  setPlaybackOffset(val);
+                  setMode("playback");
+                  dispatchPlaybackDate(val);
+                }}
+                aria-label="Timeline playback scrubber"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold font-data text-muted-foreground whitespace-nowrap">
+                {formatDateLabel(activeEnd)}
+              </span>
+              <span className="text-[9px] font-data text-muted-foreground/70 tabular-nums">
+                {playbackProgress}%
+              </span>
+            </div>
+          </>
+        )}
       </div>
 
       {/* ── Controls ────────────────────────────────────── */}
       <div className="flex items-center gap-1.5 flex-wrap shrink-0">
-        {/* Back to range (only in playback when paused) */}
-        {mode === "playback" && !isPlaying && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
-            onClick={handleBackToRange}
-            aria-label="Back to range selection"
-          >
-            Range
-          </Button>
-        )}
-
         {/* Reset */}
         <Button
           variant="ghost"
           size="icon"
-          className="h-8 w-8 text-muted-foreground hover:text-foreground"
+          className="h-8 w-8 text-muted-foreground hover:text-foreground cursor-pointer"
           onClick={handleReset}
-          aria-label={mode === "playback" ? "Restart playback from beginning" : "Reset date range"}
+          aria-label="Reset timeline playback"
         >
           <RotateCcw className="h-4 w-4" />
         </Button>
@@ -373,17 +417,12 @@ export function TemporalCrimePlayback({
         <Button
           variant="secondary"
           size="sm"
-          className="h-8 gap-1.5 px-3 bg-primary text-primary-foreground hover:bg-primary/95"
+          disabled={dateMode === 'single' || playbackTotalDays === 0}
+          className="h-8 gap-1.5 px-3 bg-primary text-primary-foreground hover:bg-primary/95 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           onClick={handleTogglePlay}
-          aria-label={
-            mode === "range"
-              ? "Start playback animation"
-              : isPlaying
-                ? "Pause simulation"
-                : "Resume simulation"
-          }
+          aria-label={isPlaying ? "Pause simulation" : "Start playback animation"}
         >
-          {mode === "playback" && isPlaying ? (
+          {isPlaying ? (
             <>
               <Pause className="h-3.5 w-3.5 fill-current" />
               <span>Pause</span>
@@ -400,7 +439,8 @@ export function TemporalCrimePlayback({
         <Button
           variant="outline"
           size="sm"
-          className="h-8 gap-1 px-2.5 font-data text-xs font-semibold"
+          disabled={dateMode === 'single'}
+          className="h-8 gap-1 px-2.5 font-data text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           onClick={cycleSpeed}
           aria-label={`Change speed (current: ${playSpeed}x)`}
         >
@@ -408,16 +448,17 @@ export function TemporalCrimePlayback({
           <span>{playSpeed}x</span>
         </Button>
 
-        {/* Time Window Dropdown Selector (styled) */}
+        {/* Time Window Dropdown Selector */}
         <div ref={timeWindowDropdownRef} className="relative shrink-0">
           <button
             onClick={() => setIsTimeWindowOpen(!isTimeWindowOpen)}
-            className="relative border border-border/80 rounded-lg px-3 py-1 bg-background text-[11px] font-semibold min-w-[160px] h-8 flex flex-col justify-center text-left cursor-pointer hover:border-border/100 transition-colors w-full"
+            disabled={dateMode === 'single'}
+            className="relative border border-border/80 rounded-lg px-3 py-1 bg-background text-[11px] font-semibold min-w-[160px] h-8 flex flex-col justify-center text-left cursor-pointer hover:border-border/100 transition-colors w-full disabled:opacity-50 disabled:cursor-not-allowed"
             aria-label="Select sliding time window"
           >
             <span className="absolute -top-2 left-2 px-1 text-[8px] bg-card text-muted-foreground font-bold uppercase tracking-wider">Time Window</span>
             <div className="flex items-center justify-between text-foreground w-full">
-              <span className="truncate pr-4">
+              <span className="pr-4 truncate">
                 {timeWindow === "cumulative"
                   ? "Cumulative (Full)"
                   : `${timeWindow} Day${timeWindow === 1 ? "" : "s"} Window`}
