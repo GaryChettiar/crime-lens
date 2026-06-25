@@ -7,6 +7,8 @@ interface MetricsGridProps {
   associateCount?: number | string;
   networkStrength?: number | string;
   districtSpread?: number | string;
+  onCrimeFrequencyClick?: () => void;
+  onDistrictSpreadClick?: () => void;
 }
 
 export function MetricsGrid({
@@ -14,6 +16,8 @@ export function MetricsGrid({
   associateCount,
   networkStrength,
   districtSpread,
+  onCrimeFrequencyClick,
+  onDistrictSpreadClick,
 }: MetricsGridProps) {
   const hasNetworkStrength = networkStrength !== undefined && networkStrength !== null && networkStrength !== '';
   const hasDistrictSpread = districtSpread !== undefined && districtSpread !== null && districtSpread !== '';
@@ -25,6 +29,8 @@ export function MetricsGrid({
       description: `${crimeFrequency || 0} active incidents`,
       icon: FileText,
       color: 'text-primary bg-primary/10 border border-primary/20',
+      onClick: onCrimeFrequencyClick,
+      clickable: !!onCrimeFrequencyClick,
     },
     {
       title: 'Associate Count',
@@ -32,6 +38,8 @@ export function MetricsGrid({
       description: `${associateCount || 0} known associates`,
       icon: Users,
       color: 'text-amber-500 bg-amber-500/10 border border-amber-500/20',
+      onClick: undefined,
+      clickable: false,
     },
     {
       title: 'Network Strength',
@@ -41,6 +49,8 @@ export function MetricsGrid({
       color: hasNetworkStrength
         ? 'text-amber-500 bg-amber-500/10 border border-amber-500/20'
         : 'text-muted-foreground bg-muted/10 border border-muted-foreground/10',
+      onClick: undefined,
+      clickable: false,
     },
     {
       title: 'District Spread',
@@ -50,6 +60,8 @@ export function MetricsGrid({
       color: hasDistrictSpread
         ? 'text-primary bg-primary/10 border border-primary/20'
         : 'text-muted-foreground bg-muted/10 border border-muted-foreground/10',
+      onClick: onDistrictSpreadClick,
+      clickable: hasDistrictSpread && !!onDistrictSpreadClick,
     },
   ];
 
@@ -58,12 +70,20 @@ export function MetricsGrid({
       {metrics.map((m) => {
         const IconComponent = m.icon;
         return (
-          <Card key={m.title} className="bg-card/45 border-border/80 backdrop-blur-sm p-5 relative overflow-hidden flex flex-col justify-between min-h-[120px] shadow-sm">
+          <Card
+            key={m.title}
+            onClick={m.onClick}
+            className={`bg-card/45 border-border/80 backdrop-blur-sm p-5 relative overflow-hidden flex flex-col justify-between min-h-[120px] shadow-sm transition-all duration-150 ${
+              m.clickable
+                ? 'cursor-pointer hover:border-primary/40 hover:shadow-md hover:bg-card/60 group'
+                : ''
+            }`}
+          >
             <div className="flex items-center justify-between">
               <span className="text-[10px] uppercase font-extrabold tracking-wider text-muted-foreground leading-none">
                 {m.title}
               </span>
-              <div className={`h-7 w-7 rounded-lg flex items-center justify-center ${m.color} shrink-0`}>
+              <div className={`h-7 w-7 rounded-lg flex items-center justify-center ${m.color} shrink-0 ${m.clickable ? 'group-hover:scale-110 transition-transform' : ''}`}>
                 <IconComponent className="h-4 w-4" />
               </div>
             </div>
@@ -75,6 +95,11 @@ export function MetricsGrid({
                 {m.description}
               </span>
             </div>
+            {m.clickable && (
+              <span className="absolute bottom-2 right-2.5 text-[9px] uppercase font-bold tracking-wider text-primary/50 group-hover:text-primary transition-colors">
+                View details →
+              </span>
+            )}
           </Card>
         );
       })}

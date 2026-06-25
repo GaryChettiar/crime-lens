@@ -52,9 +52,9 @@ export const rolesApi = baseApi.injectEndpoints({
 
     getAllRoles: builder.query<RoleResponse[], void>({
       query: () => '/roles/getAll',
-      transformResponse: (response: any) => response.data ?? response,
+      transformResponse: (response: any) => response.data?.roles ?? response.data ?? response,
       providesTags: (result) =>
-        result
+        Array.isArray(result)
           ? [
               ...result.map((r) => ({ type: 'Role' as const, id: r.id })),
               { type: 'Role', id: 'LIST' },

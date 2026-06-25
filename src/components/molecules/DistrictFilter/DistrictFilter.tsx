@@ -7,46 +7,13 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+import { useGetDistrictsQuery } from '@/services/districtsApi';
 
 export interface DistrictFilterProps extends React.HTMLAttributes<HTMLDivElement> {
   value?: string;
   onValueChange?: (value: string) => void;
   label?: string;
 }
-
-const DISTRICTS = [
-  { value: 'all', label: 'All Districts' },
-  { value: 'Bagalkot', label: 'Bagalkot' },
-  { value: 'Bangalore', label: 'Bangalore' },
-  { value: 'BangaloreRural', label: 'Bangalore Rural' },
-  { value: 'Belgaum', label: 'Belgaum' },
-  { value: 'Bellary', label: 'Bellary' },
-  { value: 'Bidar', label: 'Bidar' },
-  { value: 'Bijapur', label: 'Bijapur' },
-  { value: 'Chamrajnagar', label: 'Chamrajnagar' },
-  { value: 'Chikballapura', label: 'Chikballapura' },
-  { value: 'Chikmagalur', label: 'Chikmagalur' },
-  { value: 'Chitradurga', label: 'Chitradurga' },
-  { value: 'DakshinaKannada', label: 'Dakshina Kannada' },
-  { value: 'Davanagere', label: 'Davanagere' },
-  { value: 'Dharwad', label: 'Dharwad' },
-  { value: 'Gadag', label: 'Gadag' },
-  { value: 'Gulbarga', label: 'Gulbarga' },
-  { value: 'Hassan', label: 'Hassan' },
-  { value: 'Haveri', label: 'Haveri' },
-  { value: 'Kodagu', label: 'Kodagu' },
-  { value: 'Kolar', label: 'Kolar' },
-  { value: 'Koppal', label: 'Koppal' },
-  { value: 'Mandya', label: 'Mandya' },
-  { value: 'Mysore', label: 'Mysore' },
-  { value: 'Raichur', label: 'Raichur' },
-  { value: 'Ramanagara', label: 'Ramanagara' },
-  { value: 'Shimoga', label: 'Shimoga' },
-  { value: 'Tumkur', label: 'Tumkur' },
-  { value: 'Udupi', label: 'Udupi' },
-  { value: 'UttaraKannada', label: 'Uttara Kannada' },
-  { value: 'Yadgir', label: 'Yadgir' },
-];
 
 export function DistrictFilter({
   value = 'all',
@@ -55,6 +22,8 @@ export function DistrictFilter({
   className,
   ...props
 }: DistrictFilterProps) {
+  const { data: districts } = useGetDistrictsQuery();
+
   return (
     <div className={cn("flex flex-col gap-1.5 w-full", className)} {...props}>
       {label && (
@@ -67,9 +36,10 @@ export function DistrictFilter({
           <SelectValue placeholder="Select District" />
         </SelectTrigger>
         <SelectContent>
-          {DISTRICTS.map((district) => (
-            <SelectItem key={district.value} value={district.value}>
-              {district.label}
+          <SelectItem value="all">All Districts</SelectItem>
+          {districts?.map((district) => (
+            <SelectItem key={district.id} value={district.name}>
+              {district.name}
             </SelectItem>
           ))}
         </SelectContent>

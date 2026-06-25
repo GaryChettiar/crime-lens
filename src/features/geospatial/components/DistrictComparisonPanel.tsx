@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useGetDistrictComparisonQuery } from '@/services/geospatialApi';
+import { useGetDistrictComparisonQuery } from '@/services/districtsApi';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';

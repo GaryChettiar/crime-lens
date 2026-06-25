@@ -194,7 +194,7 @@ export const criminalsApi = baseApi.injectEndpoints({
 
     getAllCriminals: builder.query<CriminalResponse[], void>({
       query: () => ({
-        url: '/criminals',
+        url: '/criminals/getAll',
       }),
       transformResponse: (response: any) => {
         const list = response.data ?? response ?? [];
