@@ -69,11 +69,11 @@ export function CriminalsTable({ criminals, districts, isLoading, searchQuery }:
                 onClick={() => navigate(`/entities/criminals/${c.id}`)}
               >
                 <td className="font-mono font-bold text-xs text-primary">
-                  {c.id || c.id || '—'}
+                  {c.criminalNumber || c.id || '—'}
                 </td>
                 <td className="font-semibold text-foreground">
                   <div className="flex items-center gap-2">
-                    <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    {/* <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" /> */}
                     <span>{c.name}</span>
                   </div>
                 </td>

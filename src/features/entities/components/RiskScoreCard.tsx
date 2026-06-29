@@ -21,7 +21,7 @@ export function RiskScoreCard({ riskScore, threatLevel, onClick }: RiskScoreCard
   };
 
   return (
-    <Card className="bg-card/45 border-border/80 backdrop-blur-sm shadow-md overflow-hidden relative min-h-[140px] flex flex-col justify-between p-5">
+    <Card className="h-full bg-card/45 border-border/80 backdrop-blur-sm shadow-md overflow-hidden relative min-h-[140px] flex flex-col justify-between p-5">
       <div className="absolute top-0 right-0 p-4 opacity-5">
         <ShieldAlert className="h-24 w-24 text-red-500" />
       </div>

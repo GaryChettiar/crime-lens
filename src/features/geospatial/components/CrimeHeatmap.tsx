@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet.heat';
@@ -22,9 +22,32 @@ export function CrimeHeatmap({
 }: CrimeHeatmapProps) {
   const map = useMap();
   const heatLayerRef = useRef<any>(null);
+  const [containerReady, setContainerReady] = useState(false);
 
   useEffect(() => {
     if (!map) return;
+    const checkSize = () => {
+      const size = map.getSize();
+      return size.x > 0 && size.y > 0;
+    };
+
+    if (checkSize()) {
+      setContainerReady(true);
+      return;
+    }
+
+    const interval = setInterval(() => {
+      if (checkSize()) {
+        setContainerReady(true);
+        clearInterval(interval);
+      }
+    }, 100);
+
+    return () => clearInterval(interval);
+  }, [map]);
+
+  useEffect(() => {
+    if (!map || !containerReady) return;
 
     // Clean up previous layer
     if (heatLayerRef.current) {
@@ -60,7 +83,7 @@ export function CrimeHeatmap({
         map.removeLayer(heatLayerRef.current);
       }
     };
-  }, [map, points, radius, maxZoom, minOpacity]);
+  }, [map, containerReady, points, radius, maxZoom, minOpacity]);
 
   return null;
 }

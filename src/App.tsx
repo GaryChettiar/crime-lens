@@ -9,6 +9,8 @@ import { AlertsPage } from '@/features/alerts';
 import { EfirPage } from '@/features/efir/components/EfirPage';
 import { DesignSystemPreview } from '@/components/templates/DesignSystemPreview';
 import { LoginPage, ProtectedRoute, InviteOnboardPage } from '@/features/auth';
+import { CrimesListPage, CrimeDetailWorkspace } from '@/features/crimes';
+import { ForecastPage } from '@/features/forecast';
 import {
   ProfilePage,
   UsersPage,
@@ -55,6 +57,13 @@ function App() {
         <Route path="/network" element={<NetworkPage />} />
         <Route path="/alerts" element={<AlertsPage />} />
         <Route path="/efir" element={<EfirPage />} />
+
+        {/* Crimes Module */}
+        <Route path="/crimes" element={<CrimesListPage />} />
+        <Route path="/crimes/:id" element={<CrimeDetailWorkspace />} />
+
+        {/* Forecast */}
+        <Route path="/forecast" element={<ForecastPage />} />
 
         {/* Entities Module */}
         <Route path="/entities/officers" element={<EntitiesOfficersPage />} />

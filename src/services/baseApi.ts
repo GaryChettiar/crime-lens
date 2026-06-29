@@ -50,6 +50,10 @@ export const baseApi = createApi({
     'Alert',
     'CriminalProfile',
     'CriminalRiskFactors',
+    'CrimeSuspect',
+    'CrimeEvidence',
+    'CrimeLegalSection',
+    'CrimeActivity',
   ],
   endpoints: () => ({}),
 });

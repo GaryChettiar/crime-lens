@@ -2,6 +2,10 @@ import * as React from 'react';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import {
   setDistrict,
+  setPoliceStation,
+  setCrimeCategory,
+  setStatus,
+  setSingleDate,
   setCrimeTypes,
   setSeverities,
   setDateRange,
@@ -10,6 +14,9 @@ import {
   deleteSavedView,
   resetFilters,
 } from '@/store/slices/globalFiltersSlice';
+import { useGetStationsQuery } from '@/services/policeStationsApi';
+import { useGetOfficersQuery } from '@/services/policeOfficersApi';
+import { useGetAllUsersQuery } from '@/services/usersApi';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DISTRICT_CENTERS } from '@/features/geospatial/data/mockGeospatialData';
@@ -31,6 +38,20 @@ const CRIME_OPTIONS = [
   { value: 'narcotics', label: 'Narcotics' },
   { value: 'cyber', label: 'Cyber Crime' },
   { value: 'homicide', label: 'Homicide' },
+  { value: 'robbery', label: 'Robbery' },
+  { value: 'murder', label: 'Murder' },
+  { value: 'kidnapping', label: 'Kidnapping' },
+  { value: 'fraud', label: 'Fraud' },
+  { value: 'vehicle_theft', label: 'Vehicle Theft' },
+];
+
+const CRIME_STATUS_OPTIONS = [
+  { value: 'reported', label: 'Reported' },
+  { value: 'under_investigation', label: 'Under Investigation' },
+  { value: 'suspects_identified', label: 'Suspects Identified' },
+  { value: 'evidence_collected', label: 'Evidence Collected' },
+  { value: 'charge_sheet_filed', label: 'Charge Sheet Filed' },
+  { value: 'closed', label: 'Closed' },
 ];
 
 const SEVERITY_OPTIONS = [
@@ -43,6 +64,18 @@ const SEVERITY_OPTIONS = [
 export function GlobalFilterBar() {
   const dispatch = useAppDispatch();
   const filters = useAppSelector((state) => state.globalFilters);
+
+  const { data: stations } = useGetStationsQuery();
+  const { data: officers } = useGetOfficersQuery();
+  const { data: usersData } = useGetAllUsersQuery({ limit: 500 });
+
+  const officerOptions = React.useMemo(() => {
+    if (!officers) return [];
+    return officers.map((o: any) => {
+      const u = usersData?.users?.find((user: any) => user.id === o.userId);
+      return { id: o.id, name: u?.userInfo?.name || `Badge ${o.badgeNumber || o.id}` };
+    });
+  }, [officers, usersData]);
 
   const [activeDropdown, setActiveDropdown] = React.useState<'crime' | 'severity' | 'saved' | null>(null);
   const [newViewName, setNewViewName] = React.useState('');
@@ -117,18 +150,48 @@ export function GlobalFilterBar() {
       <div className="flex flex-col gap-0.5">
         <select
           value={filters.district || 'all'}
-          onChange={handleDistrictChange}
-          className="h-8.5 px-3 rounded-md border border-border bg-card text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary min-w-[150px] font-semibold cursor-pointer"
+          onChange={(e) => dispatch(setDistrict(e.target.value === 'all' ? null : e.target.value))}
+          className="h-8.5 px-3 rounded-md border border-border bg-card text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary min-w-[140px] font-semibold cursor-pointer"
           aria-label="Filter by district"
         >
           <option value="all">All Districts</option>
           {Object.keys(DISTRICT_CENTERS).sort().map((d) => (
-            <option key={d} value={d}>
-              {d}
-            </option>
+            <option key={d} value={d}>{d}</option>
           ))}
         </select>
       </div>
+
+      {/* Police Station Selector */}
+      <select
+        value={filters.policeStation || 'all'}
+        onChange={(e) => dispatch(setPoliceStation(e.target.value === 'all' ? null : e.target.value))}
+        className={cn(
+          "h-8.5 px-3 rounded-md border border-border bg-card text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary min-w-[160px] font-semibold cursor-pointer",
+          filters.policeStation && "border-primary/50 bg-primary/5"
+        )}
+        aria-label="Filter by police station"
+      >
+        <option value="all">All Stations</option>
+        {(stations ?? []).map((s: any) => (
+          <option key={s.id} value={s.id}>{s.name || s.id}</option>
+        ))}
+      </select>
+
+      {/* Status Selector */}
+      <select
+        value={filters.status || 'all'}
+        onChange={(e) => dispatch(setStatus(e.target.value === 'all' ? null : e.target.value))}
+        className={cn(
+          "h-8.5 px-3 rounded-md border border-border bg-card text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary min-w-[150px] font-semibold cursor-pointer",
+          filters.status && "border-primary/50 bg-primary/5"
+        )}
+        aria-label="Filter by status"
+      >
+        <option value="all">All Statuses</option>
+        {CRIME_STATUS_OPTIONS.map((s) => (
+          <option key={s.value} value={s.value}>{s.label}</option>
+        ))}
+      </select>
 
       {/* Crime Types Dropdown */}
       <div className="relative">
@@ -229,6 +292,19 @@ export function GlobalFilterBar() {
           </div>
         )}
       </div>
+
+      {/* Date Picker (single date) */}
+      <input
+        type="date"
+        value={filters.singleDate ?? ''}
+        onChange={(e) => dispatch(setSingleDate(e.target.value || null))}
+        className={cn(
+          "h-8.5 px-3 rounded-md border border-border bg-card text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer font-semibold",
+          filters.singleDate && "border-primary/50 bg-primary/5"
+        )}
+        aria-label="Filter by single date"
+        title="Single Date"
+      />
 
       {/* Date Range Selector */}
       <DateRangePicker
