@@ -1,10 +1,12 @@
 import * as React from 'react';
+import { Link } from 'react-router-dom';
 import { AdminLayout } from '@/components/templates/AdminLayout/AdminLayout';
 import {
   useGetCrimesQuery,
   useCreateCrimeMutation,
   useUpdateCrimeMutation,
   useDeleteCrimeMutation,
+  type CrimeStatus,
 } from '@/services/crimeApi';
 import { useGetDistrictsQuery } from '@/services/districtsApi';
 import { useGetStationsQuery } from '@/services/policeStationsApi';
@@ -44,20 +46,20 @@ export function CrimesPage() {
   const [lat, setLat] = React.useState('');
   const [lng, setLng] = React.useState('');
   const [selectedCriminalIds, setSelectedCriminalIds] = React.useState<string[]>([]);
-  const [status, setStatus] = React.useState<'open' | 'investigating' | 'resolved' | 'closed'>('investigating');
+  const [status, setStatus] = React.useState<CrimeStatus>('under_investigation');
 
   // Hydrate edit form
   React.useEffect(() => {
     if (editingCrime) {
       setTitle(editingCrime.title || '');
       setDescription(editingCrime.description || '');
-      setCategory(editingCrime.category || '');
+      setCategory(editingCrime.crimeCategory || editingCrime.category || '');
       setPoliceStationId(editingCrime.policeStationId || '');
       setDistrictId(editingCrime.location?.district || '');
       setLat(editingCrime.location?.coordinates?.[0]?.toString() || '');
       setLng(editingCrime.location?.coordinates?.[1]?.toString() || '');
       setSelectedCriminalIds(editingCrime.criminalIds || []);
-      setStatus(editingCrime.status || 'investigating');
+      setStatus((editingCrime.status as CrimeStatus) || 'under_investigation');
     } else {
       resetForm();
     }
@@ -72,7 +74,7 @@ export function CrimesPage() {
     setLat('');
     setLng('');
     setSelectedCriminalIds([]);
-    setStatus('investigating');
+    setStatus('under_investigation');
   };
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -82,6 +84,7 @@ export function CrimesPage() {
       await createCrime({
         title: title.trim(),
         description: description.trim() || undefined,
+        crimeCategory: category,
         category,
         policeStationId: policeStationId || undefined,
         location: {
@@ -104,6 +107,7 @@ export function CrimesPage() {
         body: {
           title: title.trim(),
           description: description.trim() || undefined,
+          crimeCategory: category,
           category,
           policeStationId: policeStationId || undefined,
           location: {
@@ -222,7 +226,7 @@ export function CrimesPage() {
                         </div>
                       </td>
                       <td>
-                        <span className="admin-badge admin-badge-role">{c.category}</span>
+                        <span className="admin-badge admin-badge-role">{c.crimeCategory}</span>
                       </td>
                       <td>
                         <span className="text-sm text-muted-foreground">
@@ -236,9 +240,9 @@ export function CrimesPage() {
                       </td>
                       <td>
                         <div className="flex items-center gap-1">
-                          <button className="p-1.5 rounded-md hover:bg-primary/10 text-primary" onClick={() => setViewingCrime(c)} title="Details">
+                          <Link to={`/crimes/${c.id}`} className="p-1.5 rounded-md hover:bg-primary/10 text-primary block" title="Workspace Details">
                             <Eye className="h-4 w-4" />
-                          </button>
+                          </Link>
                           <button className="p-1.5 rounded-md hover:bg-primary/10 text-primary" onClick={() => setEditingCrime(c)} title="Edit">
                             <Edit2 className="h-4 w-4" />
                           </button>
@@ -283,8 +287,11 @@ export function CrimesPage() {
                 <div>
                   <label className="block text-xs font-semibold mb-1.5 text-muted-foreground">Status</label>
                   <select className="admin-input" value={status} onChange={(e: any) => setStatus(e.target.value)}>
-                    <option value="investigating">Investigating</option>
-                    <option value="resolved">Resolved</option>
+                    <option value="reported">Reported</option>
+                    <option value="under_investigation">Under Investigation</option>
+                    <option value="suspects_identified">Suspects Identified</option>
+                    <option value="evidence_collected">Evidence Collected</option>
+                    <option value="charge_sheet_filed">Charge Sheet Filed</option>
                     <option value="closed">Closed</option>
                   </select>
                 </div>
@@ -359,83 +366,7 @@ export function CrimesPage() {
         </div>
       )}
 
-      {/* View Incident details */}
-      {viewingCrime && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
-          <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-lg p-6" onClick={(e) => e.stopPropagation()}>
-            <div className="flex justify-between items-start border-b border-border pb-4 mb-4">
-              <div className="flex items-center gap-3">
-                <div className="h-12 w-12 rounded-lg flex items-center justify-center bg-danger/15 border border-danger/25 shrink-0">
-                  <AlertOctagon className="h-5 w-5 text-danger" />
-                </div>
-                <div>
-                  <h2 className="text-base font-bold text-foreground">{viewingCrime.title}</h2>
-                  <p className="text-xs text-muted-foreground font-mono">{viewingCrime.caseNumber}</p>
-                </div>
-              </div>
-              <span className={`admin-badge uppercase text-[10px] ${viewingCrime.status === 'closed' ? 'bg-success/15 text-success' : 'bg-warning/15 text-warning'}`}>
-                {viewingCrime.status}
-              </span>
-            </div>
 
-            <div className="space-y-4 text-xs max-h-[350px] overflow-y-auto pr-1 leading-normal">
-              <div className="grid grid-cols-2 gap-4 bg-muted/20 p-4 rounded-xl border border-border/40">
-                <div>
-                  <span className="text-[10px] uppercase font-bold text-muted-foreground block">Category</span>
-                  <span className="text-foreground font-semibold">{viewingCrime.category}</span>
-                </div>
-                <div>
-                  <span className="text-[10px] uppercase font-bold text-muted-foreground block">District</span>
-                  <span className="text-foreground font-semibold">
-                    {districts?.find((d) => d.id === viewingCrime.location?.district)?.name || '—'}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-[10px] uppercase font-bold text-muted-foreground block">Police Station</span>
-                  <span className="text-foreground font-semibold">
-                    {stations?.find((s) => s.id === viewingCrime.policeStationId)?.name || 'Unassigned'}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-[10px] uppercase font-bold text-muted-foreground block">Coordinates</span>
-                  <span className="text-foreground font-semibold font-mono">
-                    {viewingCrime.location?.coordinates?.[0] ? `${viewingCrime.location.coordinates[0]}, ${viewingCrime.location.coordinates[1]}` : '—'}
-                  </span>
-                </div>
-              </div>
-
-              <div>
-                <h4 className="text-xs uppercase font-bold text-muted-foreground mb-1">Incident Narrative</h4>
-                <p className="text-slate-300 bg-muted/10 p-3 rounded-lg border border-border/40 leading-relaxed whitespace-pre-line">
-                  {viewingCrime.description || 'No case log details provided.'}
-                </p>
-              </div>
-
-              <div>
-                <h4 className="text-xs uppercase font-bold text-muted-foreground mb-2">Involved Suspects</h4>
-                {viewingCrime.criminalIds && viewingCrime.criminalIds.length > 0 ? (
-                  <div className="flex flex-wrap gap-2">
-                    {viewingCrime.criminalIds.map((cid: string) => {
-                      const crim = criminals?.find((cr) => cr.id === cid);
-                      return (
-                        <span key={cid} className="admin-badge admin-badge-role">
-                          {crim ? `${crim.name} (${crim.alias || 'No Alias'})` : `Offender Profile #${cid}`}
-                        </span>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <p className="text-xs text-muted-foreground italic">No criminal profiles linked to this incident record.</p>
-                )}
-              </div>
-            </div>
-
-            <div className="flex justify-end pt-4 border-t border-border mt-5">
-              <button className="admin-btn admin-btn-secondary" onClick={() => setViewingCrime(null)}>Close</button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Delete Confirmation Modal */}
       {confirmDeleteId && (

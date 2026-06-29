@@ -234,6 +234,7 @@ export function CrimeDataPage() {
     try {
       await createCrime({
         title: `${crimeType} Incident at ${location}`,
+        crimeCategory: crimeType,
         category: crimeType,
         description: description,
         policeStationId: policeStation,
@@ -424,10 +425,10 @@ export function CrimeDataPage() {
     return liveCrimes.filter(rec => {
       const term = searchQuery.toLowerCase();
       const distName = getDistrictName(rec.location?.district);
-      const psName = getStationName(rec.policeStationId);
+      const psName = getStationName(rec.assignedStationId);
       return (
-        (rec.caseNumber || '').toLowerCase().includes(term) ||
-        (rec.type || '').toLowerCase().includes(term) ||
+        (rec.crimeNumber || rec.caseNumber || '').toLowerCase().includes(term) ||
+        (rec.crimeCategory || '').toLowerCase().includes(term) ||
         distName.toLowerCase().includes(term) ||
         psName.toLowerCase().includes(term) ||
         (rec.location?.address || '').toLowerCase().includes(term) ||
@@ -1405,17 +1406,17 @@ export function CrimeDataPage() {
 
                         return (
                           <tr key={rec.id} className="hover:bg-muted/20 transition-colors">
-                            <td className="p-3 font-semibold text-foreground font-data">{rec.caseNumber}</td>
-                            <td className="p-3 font-medium">{rec.type}</td>
+                            <td className="p-3 font-semibold text-foreground font-data">{rec.crimeNumber || rec.caseNumber}</td>
+                            <td className="p-3 font-medium">{rec.crimeCategory}</td>
                             <td className="p-3 text-muted-foreground">{getDistrictName(rec.location?.district)}</td>
-                            <td className="p-3 font-data text-muted-foreground">{rec.timestamp}</td>
+                            <td className="p-3 font-data text-muted-foreground">{rec.incidentDate || rec.createdAt}</td>
                             <td className="p-3">
-                              <Badge variant={severityMap[rec.severity || 'medium'] || 'default'} size="sm" className="capitalize">
-                                {rec.severity || 'medium'}
+                              <Badge variant={severityMap[((rec as any).severity || 'medium') as 'low' | 'medium' | 'high' | 'critical'] || 'default'} size="sm" className="capitalize">
+                                {(rec as any).severity || 'medium'}
                               </Badge>
                             </td>
-                            <td className="p-3 truncate max-w-[120px] text-muted-foreground" title={getStationName(rec.policeStationId)}>
-                              {getStationName(rec.policeStationId)}
+                            <td className="p-3 truncate max-w-[120px] text-muted-foreground" title={getStationName(rec.assignedStationId)}>
+                              {getStationName(rec.assignedStationId)}
                             </td>
                           </tr>
                         );

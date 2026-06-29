@@ -64,6 +64,27 @@ export const ROUTES: RouteConfig[] = [
     requiredPermission: 'efir.view',
   },
 
+  // === Crimes ===
+  {
+    path: '/crimes',
+    title: 'Crimes',
+    showFilterBar: true,
+    requiredPermission: 'crimes.view',
+  },
+  {
+    path: '/crimes/:id',
+    title: 'Crime Details',
+    showFilterBar: false,
+    requiredPermission: 'crimes.view',
+  },
+
+  // === Forecast ===
+  {
+    path: '/forecast',
+    title: 'Forecast',
+    showFilterBar: false,
+  },
+
   // === Data Operations (Internal routes) ===
   {
     path: '/data/crime-records',
@@ -174,12 +195,15 @@ export const ROUTES: RouteConfig[] = [
 // ---------------------------------------------------------------------------
 
 /**
- * Get route config by pathname. Handles exact match.
+ * Get route config by pathname. Handles exact match and dynamic segments.
  */
 export function getRouteConfig(pathname: string): RouteConfig | undefined {
-  // Handle dynamic criminal profile path matching
+  // Handle dynamic paths
   if (pathname.startsWith('/entities/criminals/')) {
     return ROUTES.find((r) => r.path === '/entities/criminals/:criminalId');
+  }
+  if (/^\/crimes\/[^/]+/.test(pathname)) {
+    return ROUTES.find((r) => r.path === '/crimes/:id');
   }
   return ROUTES.find((r) => r.path === pathname);
 }
@@ -210,6 +234,11 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    label: 'Crimes',
+    path: '/crimes',
+    activePaths: ['/crimes'],
+  },
+  {
     label: 'Entities',
     path: '/entities/officers',
     activePaths: ['/entities/officers', '/entities/criminals'],
@@ -225,9 +254,10 @@ export const NAV_GROUPS: NavGroup[] = [
   },
   {
     label: 'Forecast',
-    path: '/risk',
-    activePaths: ['/risk', '/alerts'],
+    path: '/forecast',
+    activePaths: ['/forecast', '/risk', '/alerts'],
     items: [
+      { label: 'Crime Forecast', path: '/forecast', icon: 'forecast' },
       { label: 'Risk Assessment', path: '/risk', icon: 'risk' },
       { label: 'Alerts', path: '/alerts', icon: 'alerts' },
     ],

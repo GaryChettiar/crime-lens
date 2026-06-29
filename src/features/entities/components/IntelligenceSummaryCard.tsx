@@ -8,8 +8,8 @@ interface IntelligenceSummaryCardProps {
 
 export function IntelligenceSummaryCard({ summary }: IntelligenceSummaryCardProps) {
   return (
-    <Card className="bg-red-500/5 border border-red-500/20 rounded-lg overflow-hidden shadow-md">
-      <CardContent className="p-4 flex gap-3.5 items-start">
+    <Card className="h-full bg-red-500/5 border border-red-500/20 rounded-lg overflow-hidden shadow-md">
+      <CardContent className="p-4 flex gap-3.5 items-center h-full">
         <div className="h-8 w-8 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-500 shrink-0 mt-0.5 animate-pulse">
           <ShieldAlert className="h-4 w-4" />
         </div>

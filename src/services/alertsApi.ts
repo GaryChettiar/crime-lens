@@ -115,7 +115,7 @@ export interface Alert {
 
 export interface AlertFilters {
   severity?: string;
-  status?: string;
+  status?: string | null;
   district?: string | null;
 }
 

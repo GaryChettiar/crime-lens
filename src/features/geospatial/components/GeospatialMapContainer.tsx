@@ -508,14 +508,12 @@ export function GeospatialMapContainer({
 
           {/* Police Stations Layer */}
           {showStations &&
-            (policeStationsData as any).features.map((station: any) => {
+            (policeStationsData as any).features.map((station: any, idx: number) => {
               const coords = station.geometry.coordinates;
               // Note: GeoJSON is [lng, lat], Leaflet wants [lat, lng]
               return (
                 <CircleMarker
-                  key={
-                    station.properties.KGISCode || station.properties.OBJECTID
-                  }
+                  key={`station-${station.properties.KGISCode || ""}-${station.properties.OBJECTID || ""}-${idx}`}
                   center={[coords[1], coords[0]]}
                   radius={4}
                   pathOptions={{
