@@ -5,6 +5,7 @@ import { uiReducer } from './uiSlice';
 import { globalFiltersReducer } from './slices/globalFiltersSlice';
 import { brandingReducer } from './slices/brandingSlice';
 import { crimeDetailsReducer } from './slices/crimeDetailsSlice';
+import { tablesReducer } from './slices/tablesSlice';
 
 /**
  * CrimeLens Redux Store
@@ -24,6 +25,7 @@ export const store = configureStore({
     globalFilters: globalFiltersReducer,
     branding: brandingReducer,
     crimeDetails: crimeDetailsReducer,
+    tables: tablesReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware().concat(baseApi.middleware, newsApi.middleware),

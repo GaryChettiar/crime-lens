@@ -87,7 +87,7 @@ export function CrimeDetailWorkspace() {
             <Button variant="outline" size="sm" className="text-xs gap-1.5" onClick={() => refetch()}>
               <RefreshCw className="h-3.5 w-3.5" /> Retry
             </Button>
-            <Link to="/crimes">
+            <Link to="/entities/crimes">
               <Button size="sm" className="text-xs gap-1.5">
                 <ArrowLeft className="h-3.5 w-3.5" /> Back to Crimes
               </Button>
@@ -108,7 +108,7 @@ export function CrimeDetailWorkspace() {
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <Link
-              to="/crimes"
+              to="/entities/crimes"
               className="text-xs font-semibold text-primary hover:text-primary/80 transition-colors flex items-center gap-1.5"
             >
               <ArrowLeft className="h-3.5 w-3.5" />

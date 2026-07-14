@@ -24,8 +24,8 @@ export function CrimesPage() {
   const [searchQuery, setSearchQuery] = React.useState('');
 
   const { data: crimes, isLoading, isError, refetch } = useGetCrimesQuery({
-    category: categoryFilter || undefined,
-    district: districtFilter || undefined,
+    categoryId: categoryFilter || undefined,
+    districtId: districtFilter || undefined,
   });
 
   const [createCrime, { isLoading: isCreating }] = useCreateCrimeMutation();
@@ -137,8 +137,8 @@ export function CrimesPage() {
   };
 
   const filteredCrimes = React.useMemo(() => {
-    if (!crimes) return [];
-    return crimes.filter((c) => {
+    if (!crimes?.data) return [];
+    return crimes.data.filter((c) => {
       const matchSearch =
         c.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         c.caseNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||

@@ -67,7 +67,7 @@ export function GlobalFilterBar() {
 
   const { data: stations } = useGetStationsQuery();
   const { data: officers } = useGetOfficersQuery();
-  const { data: usersData } = useGetAllUsersQuery({ limit: 500 });
+  const { data: usersData } = useGetAllUsersQuery({  limit: 200 });
 
   const officerOptions = React.useMemo(() => {
     if (!officers) return [];
