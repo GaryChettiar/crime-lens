@@ -422,7 +422,7 @@ export function CrimeDataPage() {
   // Filter records
   const filteredRecords = React.useMemo(() => {
     if (!liveCrimes) return [];
-    return liveCrimes.filter(rec => {
+    return liveCrimes.data?.filter(rec => {
       const term = searchQuery.toLowerCase();
       const distName = getDistrictName(rec.location?.district);
       const psName = getStationName(rec.assignedStationId);
@@ -462,7 +462,7 @@ export function CrimeDataPage() {
             </div>
             <div className="flex items-center gap-2 pr-4 border-r border-border font-data">
               <span className="text-muted-foreground">Total Ingested:</span>
-              <span className="text-foreground font-semibold">{(liveCrimes?.length || 0) + 12400}</span>
+              <span className="text-foreground font-semibold">{(liveCrimes?.data?.length || 0) + 12400}</span>
             </div>
             <div className="flex items-center gap-2 font-data">
               <span className="text-muted-foreground">Last Action:</span>
