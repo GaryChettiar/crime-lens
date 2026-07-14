@@ -66,13 +66,13 @@ export const ROUTES: RouteConfig[] = [
 
   // === Crimes ===
   {
-    path: '/crimes',
+    path: '/entities/crimes',
     title: 'Crimes',
     showFilterBar: true,
     requiredPermission: 'crimes.view',
   },
   {
-    path: '/crimes/:id',
+    path: '/entities/crimes/:id',
     title: 'Crime Details',
     showFilterBar: false,
     requiredPermission: 'crimes.view',
@@ -202,8 +202,8 @@ export function getRouteConfig(pathname: string): RouteConfig | undefined {
   if (pathname.startsWith('/entities/criminals/')) {
     return ROUTES.find((r) => r.path === '/entities/criminals/:criminalId');
   }
-  if (/^\/crimes\/[^/]+/.test(pathname)) {
-    return ROUTES.find((r) => r.path === '/crimes/:id');
+  if (/^\/entities\/crimes\/[^/]+/.test(pathname)) {
+    return ROUTES.find((r) => r.path === '/entities/crimes/:id');
   }
   return ROUTES.find((r) => r.path === pathname);
 }
@@ -234,15 +234,11 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    label: 'Crimes',
-    path: '/crimes',
-    activePaths: ['/crimes'],
-  },
-  {
     label: 'Entities',
-    path: '/entities/officers',
-    activePaths: ['/entities/officers', '/entities/criminals'],
+    path: '/entities/crimes',
+    activePaths: ['/entities/crimes', '/entities/officers', '/entities/criminals'],
     items: [
+      { label: 'Crimes', path: '/entities/crimes', icon: 'crimes' },
       { label: 'Officers', path: '/entities/officers', icon: 'officers' },
       { label: 'Criminals', path: '/entities/criminals', icon: 'criminals' },
     ],

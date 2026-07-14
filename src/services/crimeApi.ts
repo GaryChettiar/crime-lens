@@ -1,6 +1,7 @@
 import { baseApi } from './baseApi';
 import { generateMockIncidents } from '@/features/geospatial/data/mockGeospatialData';
 import type { CrimeIncident } from '@/features/geospatial/types/geospatial';
+import type { CrimeQuery, PaginatedResponse } from '@/types/pagination';
 
 const incidentsData = generateMockIncidents();
 
@@ -176,6 +177,10 @@ export interface UpdateCrimePayload extends Partial<CreateCrimePayload> {
   status?: CrimeStatus;
 }
 
+/**
+ * @deprecated Use CrimeQuery from '@/types/pagination' instead.
+ * Kept for any legacy callers still using the old shape.
+ */
 export interface CrimeFilters {
   page?: number;
   limit?: number;
@@ -330,28 +335,62 @@ const setLocalData = <T>(key: string, data: T[]) => {
 
 export const crimeApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    getCrimes: builder.query<CrimeRecord[], CrimeFilters | void>({
-      query: (filters) => ({
+    getCrimes: builder.query<PaginatedResponse<CrimeRecord>, CrimeQuery | void>({
+      query: (params) => ({
         url: '/crimes',
-        params: filters
+        params: params
           ? {
-              category: filters.crimeCategory || filters.category,
-              status: filters.status,
-              district: filters.district,
+              page: params.page,
+              pageSize: params.pageSize,
+              search: params.search || undefined,
+              districtId: params.districtId || undefined,
+              stationId: params.stationId || undefined,
+              categoryId: params.categoryId || undefined,
+              status: params.status || undefined,
+              date: params.date || undefined,
+              from: params.from || undefined,
+              to: params.to || undefined,
+              sortBy: params.sortBy || undefined,
+              sortOrder: params.sortOrder || undefined,
             }
           : undefined,
       }),
-      transformResponse: (response: any) => {
-        const list = response.data ?? response ?? [];
-        return Array.isArray(list) ? list.map(decodeCrime) : [];
+      // Per-page cache keys: crimes?page=1, crimes?page=2, etc.
+      serializeQueryArgs: ({ queryArgs }) => {
+        if (!queryArgs) return 'crimes-all';
+        const { page, pageSize, search, districtId, stationId, categoryId, status, date, from, to, sortBy, sortOrder } = queryArgs;
+        return JSON.stringify({ page, pageSize, search, districtId, stationId, categoryId, status, date, from, to, sortBy, sortOrder });
       },
-      providesTags: (result) =>
-        result
-          ? [
-              ...result.map((c) => ({ type: 'Crime' as const, id: c.id })),
-              { type: 'Crime', id: 'LIST' },
-            ]
-          : [{ type: 'Crime', id: 'LIST' }],
+      transformResponse: (response: any): PaginatedResponse<CrimeRecord> => {
+        // Backend returns: { success: true, data: { data: [...], pagination: { ... } } }
+        const nestedData = response?.data ?? response;
+        const rawList = Array.isArray(nestedData?.data)
+          ? nestedData.data
+          : (Array.isArray(nestedData) ? nestedData : []);
+        const pagination = nestedData?.pagination ?? {
+          page: 1,
+          pageSize: 20,
+          totalRecords: rawList.length,
+          totalPages: 1,
+          hasNext: false,
+          hasPrevious: false,
+        };
+        return {
+          data: rawList.map(decodeCrime),
+          pagination,
+        };
+      },
+      providesTags: (result, _error, queryArgs) => {
+        const page = (queryArgs as CrimeQuery)?.page ?? 1;
+        const tags: Array<{ type: 'Crime'; id: string }> = [
+          { type: 'Crime', id: 'LIST' },
+          { type: 'Crime', id: `PAGE_${page}` },
+        ];
+        if (result) {
+          result.data.forEach((c) => tags.push({ type: 'Crime', id: c.id }));
+        }
+        return tags;
+      },
     }),
 
     getCrimeById: builder.query<CrimeRecord, string>({

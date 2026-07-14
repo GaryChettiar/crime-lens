@@ -62,7 +62,7 @@ export const districtsApi = baseApi.injectEndpoints({
     }),
 
     getDistricts: builder.query<DistrictResponse[], void>({
-      query: () => '/geo/districts',
+      query: () => '/geo/districts/getAll',
       transformResponse: (response: any) => response.data ?? response,
       providesTags: (result) =>
         result
