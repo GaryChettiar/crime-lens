@@ -21,7 +21,10 @@ import {
 } from '@/store/slices/globalFiltersSlice';
 import { MOCK_POLICE_STATIONS } from '@/features/geospatial/data/mockGeospatialData';
 import TemporalCrimePlayback from '@/features/geospatial/components/TemporalCrimePlayback';
-
+import { useGetDistrictsQuery } from '@/services/districtsApi';
+import { useGetStationsQuery } from '@/services/policeStationsApi';
+import { useGetCrimeCategoriesQuery } from '@/services/crimeCategoryApi';
+import { useAnalyticsFilters } from '@/hooks/useAnalyticsFilters';
 export interface AnalyticsHeaderProps extends React.HTMLAttributes<HTMLDivElement> {
   title: string;
   subtitle?: string;
@@ -40,22 +43,9 @@ export interface AnalyticsHeaderProps extends React.HTMLAttributes<HTMLDivElemen
   onTimeWindowChange?: (val: number | 'cumulative') => void;
 }
 
-const DISTRICTS = [
-  "Bagalkot", "Bangalore", "BangaloreRural", "Belgaum", "Bellary", "Bidar",
-  "Bijapur", "Chamrajnagar", "Chikballapura", "Chikmagalur", "Chitradurga",
-  "DakshinaKannada", "Davanagere", "Dharwad", "Gadag", "Gulbarga", "Hassan",
-  "Haveri", "Kodagu", "Kolar", "Koppal", "Mandya", "Mysore", "Raichur",
-  "Ramanagara", "Shimoga", "Tumkur", "Udupi", "UttaraKannada", "Yadgir"
-];
 
-const CRIME_TYPES = [
-  { value: "theft", label: "Theft" },
-  { value: "burglary", label: "Burglary" },
-  { value: "assault", label: "Assault" },
-  { value: "narcotics", label: "Narcotics" },
-  { value: "cyber", label: "Cyber Crime" },
-  { value: "homicide", label: "Homicide" }
-];
+
+// Removed hardcoded CRIME_TYPES in favor of dynamic fetched ones
 
 const formatDistrictName = (name: string): string => {
   if (name === 'all') return 'All Districts';
@@ -89,6 +79,55 @@ export function AnalyticsHeader({
   const dispatch = useAppDispatch();
   const globalFilters = useAppSelector((state) => state.globalFilters);
 
+  // Sync selections with Redux
+  const activeDistrict = globalFilters.district || 'all';
+  const activeStation = globalFilters.selectedPoliceStations[0] || null;
+  const activeCrimeType = globalFilters.crimeTypes[0] || 'all';
+
+  const {
+    setDistrict: setContextDistrict,
+    setCrimeCategory: setContextCrimeCategory,
+    setStartDate,
+    setEndDate,
+    setIsSingleDate
+  } = useAnalyticsFilters();
+
+  React.useEffect(() => {
+    setContextDistrict(activeDistrict === 'all' ? null : activeDistrict);
+    setContextCrimeCategory(activeCrimeType === 'all' ? null : activeCrimeType);
+    setStartDate(globalFilters.dateRange.start);
+    setEndDate(globalFilters.dateRange.end);
+    setIsSingleDate(globalFilters.singleDate !== null);
+  }, [activeDistrict, activeCrimeType, globalFilters.dateRange, globalFilters.singleDate, setContextDistrict, setContextCrimeCategory, setStartDate, setEndDate, setIsSingleDate]);
+
+  const { data: districtsData } = useGetDistrictsQuery();
+  const { data: stationsData } = useGetStationsQuery();
+  const { data: crimeCategoriesData } = useGetCrimeCategoriesQuery();
+
+  const crimeTypes = React.useMemo(() => {
+    if (!crimeCategoriesData) return [];
+    return crimeCategoriesData.map(c => ({
+      value: c.ROWID,
+      label: c.crime_category_name
+    }));
+  }, [crimeCategoriesData]);
+
+  const activeCrimeTypeLabel = activeCrimeType === 'all'
+    ? 'All Crime Types'
+    : (crimeTypes.find((c) => c.value === activeCrimeType)?.label || activeCrimeType);
+
+  const districts = React.useMemo(() => {
+    if (!districtsData) return [];
+    return Array.from(new Set(districtsData.map(d => d.name).filter(Boolean))).sort();
+  }, [districtsData]);
+
+  const currentDistrictObj = districtsData?.find(d => d.name === activeDistrict);
+  
+  const activeStations = React.useMemo(() => {
+    if (activeDistrict === 'all' || !currentDistrictObj || !stationsData) return [];
+    return stationsData.filter(s => s.districtId === currentDistrictObj.id);
+  }, [activeDistrict, currentDistrictObj, stationsData]);
+
   const [localCurrentDayOffset, setLocalCurrentDayOffset] = React.useState(30);
   const [localTimeWindow, setLocalTimeWindow] = React.useState<number | 'cumulative'>('cumulative');
 
@@ -118,13 +157,6 @@ export function AnalyticsHeader({
     };
   }, []);
 
-  // Sync selections with Redux
-  const activeDistrict = globalFilters.district || 'all';
-  const activeStation = globalFilters.selectedPoliceStations[0] || null;
-  const activeCrimeType = globalFilters.crimeTypes[0] || 'all';
-  const activeCrimeTypeLabel = activeCrimeType === 'all'
-    ? 'All Crime Types'
-    : (CRIME_TYPES.find((c) => c.value === activeCrimeType)?.label || activeCrimeType);
 
 
 
@@ -259,7 +291,7 @@ export function AnalyticsHeader({
                     All Crime Types
                   </span>
                 </button>
-                {CRIME_TYPES.map((type) => (
+                {crimeTypes.map((type) => (
                   <button
                     key={type.value}
                     onClick={() => { handleIndicatorChange(type.value); setIsCrimeTypeOpen(false); }}
@@ -315,9 +347,9 @@ export function AnalyticsHeader({
                   </span>
                 </button>
 
-                {DISTRICTS.map((d) => (
+                {districts.map((d, index) => (
                   <button
-                    key={d}
+                    key={d || `district-${index}`}
                     onClick={() => handleSelectDistrict(d)}
                     className="relative w-full text-left pl-7 pr-3 py-1 text-xs text-foreground hover:bg-muted/80 cursor-pointer transition-colors"
                   >
@@ -339,8 +371,12 @@ export function AnalyticsHeader({
                   <div className="pl-7 pr-3 py-1.5 text-[10px] text-muted-foreground italic">
                     Select a district to view stations
                   </div>
+                ) : activeStations.length === 0 ? (
+                  <div className="pl-7 pr-3 py-1.5 text-[10px] text-muted-foreground italic">
+                    No stations found
+                  </div>
                 ) : (
-                  (MOCK_POLICE_STATIONS[activeDistrict] || []).map((station) => (
+                  activeStations.map((station) => (
                     <button
                       key={station.id}
                       onClick={() => handleSelectStation(station.name)}

@@ -41,9 +41,49 @@ import {
   setDateRange,
   resetFilters,
 } from "@/store/slices/globalFiltersSlice";
+import { useAnalyticsFilters } from "@/hooks/useAnalyticsFilters";
+
 import { useGetDistrictMetricsQuery } from "@/services/districtsApi";
-import { useGetIncidentsQuery } from "@/services/crimeApi";
+import { useGetCrimesQuery } from "@/services/crimeApi";
+import { useGetCrimeCategoriesQuery } from "@/services/crimeCategoryApi";
 import { useGetRiskForecastsQuery } from "@/services/riskApi";
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Activity } from 'lucide-react';
+import { cn } from '@/lib/utils';
+
+const TREND_30D = Array.from({ length: 30 }, (_, i) => {
+  const base = 28 + Math.sin(i / 4) * 6;
+  return {
+    day: `Jun ${i + 1}`,
+    current: Math.round(base + Math.random() * 8),
+    previous: Math.round(base * 0.88 + Math.random() * 6),
+  };
+});
+
+const TREND_90D = Array.from({ length: 13 }, (_, i) => ({
+  day: `W${i + 1}`,
+  current: Math.round(190 + Math.sin(i / 3) * 30 + Math.random() * 20),
+  previous: Math.round(170 + Math.sin(i / 3) * 25 + Math.random() * 15),
+}));
+
+const CUSTOM_TOOLTIP_STYLE = {
+  backgroundColor: 'hsl(var(--card))',
+  border: '1px solid hsl(var(--border))',
+  borderRadius: '6px',
+  fontSize: '11px',
+  color: 'hsl(var(--foreground))',
+};
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-2.5">
+      <div className="size-1 rounded-full bg-primary" />
+      <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.15em]">{children}</span>
+      <div className="flex-1 h-px bg-border" />
+    </div>
+  );
+}
 
 const INITIAL_ALERTS: AlertData[] = [
   {
@@ -91,33 +131,71 @@ const INITIAL_ALERTS: AlertData[] = [
 export function DashboardPage() {
   const dispatch = useAppDispatch();
   const globalFilters = useAppSelector((state) => state.globalFilters);
+  const {
+    district: ctxDistrict,
+    crimeCategory,
+    startDate: ctxStart,
+    endDate: ctxEnd,
+    setDistrict: setCtxDistrict,
+    setCrimeCategory,
+    setStartDate,
+    setEndDate,
+  } = useAnalyticsFilters();
+
+
+  // Table state
+  const [pageSize, setPageSize] = React.useState(10);
+  const [currentPage, setCurrentPage] = React.useState(1);
+  const [searchQuery, setSearchQuery] = React.useState("");
 
   // RTK Query hooks
   const { data: districtsMetrics = [], isLoading: isLoadingDistricts } =
     useGetDistrictMetricsQuery();
-  const { data: incidents = [], isLoading: isLoadingIncidents } =
-    useGetIncidentsQuery();
+  const { data: crimesResponse, isLoading: isLoadingIncidents } =
+    useGetCrimesQuery({ page: currentPage, pageSize: pageSize, search: searchQuery || undefined });
+  const { data: categories = [] } = useGetCrimeCategoriesQuery();
+
+  const incidents  = React.useMemo(() => {
+    if (!crimesResponse?.data) return [];
+    return crimesResponse.data.map(c => {
+      const cat = categories.find((cat) => String(cat.ROWID) === String(c.crimeCategory));
+      const typeName = cat ? cat.crime_category_name : (c.crimeCategory || "Unknown");
+
+      return {
+        id: c.id,
+        caseNumber: c.crimeNumber || c.caseNumber || c.id,
+        type: typeName,
+        categoryId: c.crimeCategory,
+        location: c.crimeLocation || c.location?.address || c.district || "Unknown",
+        timestamp: c.incidentDate || c.createdAt || "",
+        severity: ((c as any).severity || "medium") as "low" | "medium" | "high" | "critical",
+        status: (c.status === "closed" ? "closed" : (c.status === "reported" ? "open" : "investigating")) as "closed" | "open" | "investigating" | "resolved",
+        description: c.description || c.title || "",
+        policeStation: c.assignedStationId || "",
+        district: c.district || "",
+      };
+    });
+  }, [crimesResponse, categories]);
   useGetRiskForecastsQuery();
 
-  // Filters read from Redux
-  const district = globalFilters.district || "all";
-  const crimeType = globalFilters.crimeTypes[0] || "all";
-  const startDate = globalFilters.dateRange.start || "";
-  const endDate = globalFilters.dateRange.end || "";
+  // Filters read from Context (and Redux for severities)
+  const district = ctxDistrict || "all";
+  const crimeType = crimeCategory || "all";
+  const startDate = ctxStart || "";
+  const endDate = ctxEnd || "";
   const selectedSeverities = globalFilters.severities;
 
-  // Search query (local to page search input)
-  const [searchQuery, setSearchQuery] = React.useState("");
+
+  // Search query (local to page search input) moved up
+
+  const [trendWindow, setTrendWindow] = React.useState<'30d' | '90d'>('30d');
+  const trendData = trendWindow === '30d' ? TREND_30D : TREND_90D;
 
   // Lifted temporal playback states
   const [currentDayOffset, setCurrentDayOffset] = React.useState(30);
   const [timeWindow, setTimeWindow] = React.useState<number | "cumulative">("cumulative");
 
-  // Table state
-  const [pageSize, setPageSize] = React.useState(10);
-  const [currentPage, setCurrentPage] = React.useState(1);
-
-  // Drawer states
+  // Table state moved up for RTK query
   const [isFiltersOpen, setIsFiltersOpen] = React.useState(false);
   const [isAlertsOpen, setIsAlertsOpen] = React.useState(false);
 
@@ -160,11 +238,15 @@ export function DashboardPage() {
     }, 1000);
   }, []);
 
-  // Filter actions bound to Redux dispatches
+  // Filter actions bound to Redux & Context
   const handleResetFilters = React.useCallback(() => {
+    setCtxDistrict(null);
+    setCrimeCategory(null);
+    setStartDate(null);
+    setEndDate(null);
     dispatch(resetFilters());
     setSearchQuery("");
-  }, [dispatch]);
+  }, [dispatch, setCtxDistrict, setCrimeCategory, setStartDate, setEndDate]);
 
   const handleSeverityToggle = React.useCallback(
     (sev: string) => {
@@ -179,43 +261,40 @@ export function DashboardPage() {
 
   const handleRemoveFilter = React.useCallback(
     (id: string) => {
-      if (id === "district") dispatch(setDistrict(null));
-      if (id === "crimeType") dispatch(setCrimeTypes([]));
+      if (id === "district") setCtxDistrict(null);
+      if (id === "crimeType") setCrimeCategory(null);
       if (id === "dateRange") {
-        dispatch(setDateRange({ start: null, end: null }));
+        setStartDate(null);
+        setEndDate(null);
       }
       if (id.startsWith("sev-")) {
         const sevVal = id.split("sev-")[1];
         dispatch(setSeverities(selectedSeverities.filter((s) => s !== sevVal)));
       }
     },
-    [dispatch, selectedSeverities],
+    [dispatch, selectedSeverities, setCtxDistrict, setCrimeCategory, setStartDate, setEndDate],
   );
 
   const handleDistrictChangeLocal = React.useCallback(
     (val: string) => {
-      dispatch(setDistrict(val === "all" ? null : val));
+      setCtxDistrict(val === "all" ? null : val);
     },
-    [dispatch],
+    [setCtxDistrict],
   );
 
   const handleCrimeTypeChangeLocal = React.useCallback(
     (val: string) => {
-      dispatch(setCrimeTypes(val === "all" ? [] : [val]));
+      setCrimeCategory(val === "all" ? null : val);
     },
-    [dispatch],
+    [setCrimeCategory],
   );
 
   const handleDateChangeLocal = React.useCallback(
     (field: "start" | "end", val: string) => {
-      dispatch(
-        setDateRange({
-          start: field === "start" ? val || null : startDate || null,
-          end: field === "end" ? val || null : endDate || null,
-        }),
-      );
+      if (field === "start") setStartDate(val || null);
+      if (field === "end") setEndDate(val || null);
     },
-    [dispatch, startDate, endDate],
+    [setStartDate, setEndDate],
   );
 
   // Pre-compute active filter badges
@@ -225,7 +304,9 @@ export function DashboardPage() {
       list.push({ id: "district", label: "District", value: district });
     }
     if (crimeType !== "all") {
-      list.push({ id: "crimeType", label: "Type", value: crimeType });
+      const cat = categories.find((cat) => String(cat.ROWID) === String(crimeType));
+      const catName = cat ? cat.crime_category_name : crimeType;
+      list.push({ id: "crimeType", label: "Type", value: catName });
     }
     if (startDate || endDate) {
       list.push({
@@ -238,18 +319,18 @@ export function DashboardPage() {
       list.push({ id: `sev-${sev}`, label: "Severity", value: sev });
     });
     return list;
-  }, [district, crimeType, startDate, endDate, selectedSeverities]);
+  }, [district, crimeType, startDate, endDate, selectedSeverities, categories]);
 
   // Compute filtered incidents
   const filteredIncidents = React.useMemo(() => {
     return incidents.filter((inc) => {
       // District check
-      if (globalFilters.district) {
+      if (ctxDistrict) {
         const matchesDistrict = inc.district
-          ? inc.district.toLowerCase() === globalFilters.district.toLowerCase()
+          ? inc.district.toLowerCase() === ctxDistrict.toLowerCase()
           : inc.location
               .toLowerCase()
-              .includes(globalFilters.district.toLowerCase());
+              .includes(ctxDistrict.toLowerCase());
         if (!matchesDistrict) return false;
       }
       // Police Station check
@@ -266,8 +347,8 @@ export function DashboardPage() {
       }
       // Type check
       if (
-        globalFilters.crimeTypes.length > 0 &&
-        !globalFilters.crimeTypes.includes(inc.type)
+        crimeCategory &&
+        (inc as any).categoryId !== crimeCategory
       ) {
         return false;
       }
@@ -290,25 +371,24 @@ export function DashboardPage() {
       }
       // Date bounds
       if (
-        globalFilters.dateRange.start &&
-        inc.timestamp < globalFilters.dateRange.start
+        ctxStart &&
+        inc.timestamp < ctxStart
       )
         return false;
       if (
-        globalFilters.dateRange.end &&
-        inc.timestamp > `${globalFilters.dateRange.end} 23:59`
+        ctxEnd &&
+        inc.timestamp > `${ctxEnd} 23:59`
       )
         return false;
 
       return true;
     });
-  }, [incidents, globalFilters, searchQuery]);
+  }, [incidents, globalFilters, searchQuery, ctxDistrict, crimeCategory, ctxStart, ctxEnd]);
 
-  // Paginated incidents slice
+  // Paginated incidents slice (server paginates, so we just use filteredIncidents)
   const paginatedIncidents = React.useMemo(() => {
-    const startIndex = (currentPage - 1) * pageSize;
-    return filteredIncidents.slice(startIndex, startIndex + pageSize);
-  }, [filteredIncidents, currentPage, pageSize]);
+    return filteredIncidents;
+  }, [filteredIncidents]);
 
   // Alert actions
   const handleMarkAlertRead = React.useCallback((id: string) => {
@@ -422,7 +502,59 @@ export function DashboardPage() {
               timeWindow={timeWindow}
             />
           )}
-            <ExternalIntelligenceWidget />
+            {/* <ExternalIntelligenceWidget /> */}
+        </div>
+
+        {/* ── Crime Trend Analysis ── */}
+        <div className="mt-4">
+          <div className="flex items-center justify-between mb-3">
+            <SectionLabel>Crime Trend Analysis</SectionLabel>
+            <div className="flex items-center gap-1 bg-card border border-border rounded-md p-0.5">
+              {(['30d', '90d'] as const).map(w => (
+                <button key={w} onClick={() => setTrendWindow(w)}
+                  className={cn(
+                    'px-3 py-1 text-[10px] font-bold uppercase rounded-sm transition-all',
+                    trendWindow === w ? 'bg-primary text-white' : 'text-muted-foreground hover:text-foreground'
+                  )}>
+                  {w === '30d' ? 'Last 30 Days' : 'Last 90 Days'}
+                </button>
+              ))}
+            </div>
+          </div>
+          <Card className="border-border bg-card">
+            <CardHeader className="p-4 pb-2 border-b border-border flex flex-row items-center justify-between">
+              <CardTitle className="text-sm font-bold text-foreground flex items-center gap-1.5">
+                <Activity className="size-4 text-primary" />
+                Crime Volume — {trendWindow === '30d' ? 'Daily (Last 30 Days)' : 'Weekly (Last 90 Days)'}
+              </CardTitle>
+              <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+                <div className="flex items-center gap-1"><div className="size-2 rounded-full bg-primary" /> Current Period</div>
+                <div className="flex items-center gap-1"><div className="size-2 rounded-full bg-slate-500" /> Previous Period</div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-4 pt-3">
+              <ResponsiveContainer width="100%" height={280}>
+                <AreaChart data={trendData} margin={{ top: 4, right: 8, bottom: 0, left: -16 }}>
+                  <defs>
+                    <linearGradient id="gradCurrent" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%"  stopColor="#3B82F6" stopOpacity={0.35} />
+                      <stop offset="95%" stopColor="#3B82F6" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="gradPrev" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%"  stopColor="#64748B" stopOpacity={0.2} />
+                      <stop offset="95%" stopColor="#64748B" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.5} />
+                  <XAxis dataKey="day" tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} tickLine={false} />
+                  <YAxis tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} tickLine={false} axisLine={false} />
+                  <RechartsTooltip contentStyle={CUSTOM_TOOLTIP_STYLE} />
+                  <Area type="monotone" dataKey="previous" stroke="#64748B" strokeWidth={1.5} fill="url(#gradPrev)" strokeDasharray="4 2" dot={false} name="Previous Period" />
+                  <Area type="monotone" dataKey="current"  stroke="#3B82F6" strokeWidth={2} fill="url(#gradCurrent)" dot={false} name="Current Period" />
+                </AreaChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
         </div>
 
         {/* External Intelligence Layer */}
@@ -437,11 +569,11 @@ export function DashboardPage() {
             data={paginatedIncidents}
             isLoading={isLoadingIncidents}
             currentPage={currentPage}
-            totalPages={Math.ceil(filteredIncidents.length / pageSize) || 1}
+            totalPages={crimesResponse?.pagination?.totalPages || 1}
             pageSize={pageSize}
             onPageChange={setCurrentPage}
             onPageSizeChange={setPageSize}
-            totalRecords={filteredIncidents.length}
+            totalRecords={crimesResponse?.pagination?.totalRecords || 0}
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
             activeFilters={activeFilters}

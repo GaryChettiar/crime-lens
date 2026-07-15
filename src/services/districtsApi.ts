@@ -63,7 +63,18 @@ export const districtsApi = baseApi.injectEndpoints({
 
     getDistricts: builder.query<DistrictResponse[], void>({
       query: () => '/geo/districts/getAll',
-      transformResponse: (response: any) => response.data ?? response,
+      transformResponse: (response: any) => {
+        const data = response.data ?? response;
+        if (Array.isArray(data)) {
+          return data.map((d: any) => ({
+            id: d.id || d.ROWID,
+            name: d.name || d.district_name,
+            code: d.code || d.district_code,
+            ...d
+          }));
+        }
+        return data;
+      },
       providesTags: (result) =>
         result
           ? [

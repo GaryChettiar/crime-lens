@@ -8,25 +8,22 @@ import {
   Popup,
   CircleMarker,
 } from "react-leaflet";
-import L from "leaflet";
 import { useIntelligence } from "@/features/intelligence";
 import { KarnatakaChoroplethMap } from "./KarnatakaChoroplethMap";
-import { CrimeHeatmap } from "./CrimeHeatmap";
-import { CrimeClusterMap } from "./CrimeClusterMap";
-import { RiskForecastMap } from "./RiskForecastMap";
 import { TemporalCrimePlayback } from "./TemporalCrimePlayback";
 import { useGetDistrictMetricsQuery } from "@/services/districtsApi";
 import { useGetIncidentsQuery } from "@/services/crimeApi";
-import {
-  useGetRiskForecastsQuery,
-  useGetFestivalEventsQuery,
-} from "@/services/riskApi";
 import { DISTRICT_CENTERS } from "../data/mockGeospatialData";
-import policeStationsData from "../data/police_stations.geojson";
+import { useGetStationsQuery } from "@/services/policeStationsApi";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Typography } from "@/components/atoms/Typography";
-import { ArrowLeft, Layers } from "lucide-react";
+import { ArrowLeft, Layers, BarChart2 } from "lucide-react";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Icon } from "@/components/atoms/Icon";
 import { Badge } from "@/components/atoms/Badge";
 import { Separator } from "@/components/ui/separator";
@@ -49,25 +46,6 @@ export interface GeospatialMapContainerProps {
   currentDayOffset?: number;
   timeWindow?: number | "cumulative";
 }
-
-// Custom Leaflet DivIcon creator for festival events
-const createFestivalIcon = (risk: string) => {
-  const color =
-    risk === "critical"
-      ? "#EF4444"
-      : risk === "high"
-        ? "#F59E0B"
-        : risk === "medium"
-          ? "#3B82F6"
-          : "#10B981";
-
-  return L.divIcon({
-    html: `<div style="background-color: ${color}; width: 14px; height: 14px; border-radius: 50%; border: 2.5px solid #ffffff; box-shadow: 0 0 10px ${color}; animation: pulse-animation 1.5s infinite;"></div>`,
-    className: "festival-map-marker",
-    iconSize: [14, 14],
-    iconAnchor: [7, 7],
-  });
-};
 
 // Controller to handle programmatic zoom resetting
 function MapController({ selectedDistrict }: { selectedDistrict: string }) {
@@ -116,9 +94,7 @@ export function GeospatialMapContainer({
   const { districtSummaries } = useIntelligence();
   const { data: districtsMetrics = [] } = useGetDistrictMetricsQuery();
   const { data: incidents = [] } = useGetIncidentsQuery();
-  const { data: forecasts = [] } = useGetRiskForecastsQuery();
-  const { data: festivalEvents = [] } = useGetFestivalEventsQuery();
-
+  const { data: policeStations = [] } = useGetStationsQuery();
   // Playback timeline states
   const [localCurrentDayOffset] = useState(30);
   const [localTimeWindow] = useState<number | "cumulative">("cumulative");
@@ -207,43 +183,6 @@ export function GeospatialMapContainer({
     return true;
   });
 
-  // Filter festival events overlapping the active playback date ranges
-  const activeEvents = festivalEvents.filter((evt) => {
-    const evtStart = new Date(evt.startDate);
-    const evtEnd = new Date(evt.endDate);
-
-    const timelineMax = new Date(startDate);
-    timelineMax.setDate(timelineMax.getDate() + currentDayOffset);
-
-    let timelineMin = new Date(startDate);
-    if (timeWindow !== "cumulative") {
-      timelineMin = new Date(timelineMax);
-      timelineMin.setDate(timelineMin.getDate() - timeWindow);
-    }
-
-    // Check overlaps
-    const overlaps = evtStart <= timelineMax && evtEnd >= timelineMin;
-    const matchesDistrict =
-      !globalFilters.district ||
-      evt.district.toLowerCase() === globalFilters.district.toLowerCase();
-
-    return overlaps && matchesDistrict;
-  });
-
-  // Format heatmap points format: [lat, lng, intensity]
-  const heatmapPoints: [number, number, number][] =
-    filteredIncidentsByTimeline.map((inc) => [
-      inc.coordinates[0],
-      inc.coordinates[1],
-      inc.severity === "critical"
-        ? 1.0
-        : inc.severity === "high"
-          ? 0.75
-          : inc.severity === "medium"
-            ? 0.5
-            : 0.25,
-    ]);
-
   // Compute summary values for the floating district summary card
   const activeSummary = React.useMemo(() => {
     if (activeDistrict === "all") {
@@ -281,7 +220,12 @@ export function GeospatialMapContainer({
 
       {/* ROW 2: Map Viewport Container */}
 
-      <div className={cn("relative w-full md:h-[55vh] border border-border rounded-lg overflow-hidden", isDark ? "bg-[#090d16]" : "bg-white")}>
+      <div
+        className={cn(
+          "relative w-full md:h-[55vh] border border-border rounded-lg overflow-hidden",
+          isDark ? "bg-[#090d16]" : "bg-white",
+        )}
+      >
         <style
           dangerouslySetInnerHTML={{
             __html: `
@@ -311,9 +255,11 @@ export function GeospatialMapContainer({
 
           {/* Premium CartoDB tile set matching branding theme */}
           <TileLayer
-            url={isDark 
-              ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" 
-              : "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"}
+            url={
+              isDark
+                ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+                : "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+            }
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
           />
 
@@ -324,28 +270,6 @@ export function GeospatialMapContainer({
             onDistrictSelect={handleDistrictSelect}
             isDark={isDark}
           />
-
-          {/* Density Heatmap Overlay Layer */}
-          {showHeatmap && (
-            <CrimeHeatmap
-              points={heatmapPoints}
-              radius={heatmapRadius}
-              minOpacity={0.4}
-            />
-          )}
-
-          {/* Marker Clusters Overlay Layer */}
-          {showClusters && (
-            <CrimeClusterMap
-              incidents={filteredIncidentsByTimeline}
-              onIncidentClick={(inc) => {
-                console.log("Incident selected:", inc);
-              }}
-            />
-          )}
-
-          {/* AI Risk Forecast Warning Overlays */}
-          {showPredictions && <RiskForecastMap forecasts={forecasts} />}
 
           {/* OSINT External Intelligence Hotspots overlay */}
           {showIntelHotspots &&
@@ -441,80 +365,20 @@ export function GeospatialMapContainer({
                 );
               })}
 
-          {/* Festival Events Indicators */}
-          {activeEvents.map((evt) => (
-            <Marker
-              key={evt.id}
-              position={[evt.latitude, evt.longitude]}
-              icon={createFestivalIcon(evt.riskLevel)}
-            >
-              <Popup>
-                <div className="p-1 text-slate-200 min-w-[160px] font-sans">
-                  <div className="font-bold text-xs text-foreground flex items-center gap-1.5 mb-1 text-slate-100">
-                    <span className="inline-block w-2.5 h-2.5 rounded-full bg-amber-500 animate-ping" />
-                    {evt.name}
-                  </div>
-                  <div className="space-y-1 text-[10px] text-slate-300">
-                    <div>
-                      Type:{" "}
-                      <span className="font-semibold capitalize text-foreground">
-                        {evt.type}
-                      </span>
-                    </div>
-                    <div>
-                      District:{" "}
-                      <span className="font-semibold text-foreground">
-                        {evt.district}
-                      </span>
-                    </div>
-                    <div>
-                      Expected Crowd:{" "}
-                      <span className="font-semibold text-foreground font-data">
-                        {evt.expectedAttendance.toLocaleString()}
-                      </span>
-                    </div>
-                    <div>
-                      Predicted Risk Score:{" "}
-                      <span
-                        className={cn(
-                          "font-bold font-data",
-                          evt.riskLevel === "critical"
-                            ? "text-red-400"
-                            : "text-amber-400",
-                        )}
-                      >
-                        {evt.predictedRiskScore}%
-                      </span>
-                    </div>
-                    <div className="border-t border-slate-700/50 pt-1 mt-1 text-slate-400">
-                      <div>
-                        Historical Theft:{" "}
-                        <span className="text-red-400 font-bold font-data">
-                          +{evt.historicalTheftIncrease}%
-                        </span>
-                      </div>
-                      <div>
-                        Historical Assault:{" "}
-                        <span className="text-red-400 font-bold font-data">
-                          +{evt.historicalAssaultIncrease}%
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </Popup>
-            </Marker>
-          ))}
-
           {/* Police Stations Layer */}
+
           {showStations &&
-            (policeStationsData as any).features.map((station: any, idx: number) => {
-              const coords = station.geometry.coordinates;
-              // Note: GeoJSON is [lng, lat], Leaflet wants [lat, lng]
+            policeStations.map((station, idx) => {
+              if (
+                station.latitude === undefined ||
+                station.longitude === undefined
+              )
+                return null;
+
               return (
                 <CircleMarker
-                  key={`station-${station.properties.KGISCode || ""}-${station.properties.OBJECTID || ""}-${idx}`}
-                  center={[coords[1], coords[0]]}
+                  key={`station-${station.code || ""}-${station.id || ""}-${idx}`}
+                  center={[station.latitude, station.longitude]}
                   radius={4}
                   pathOptions={{
                     fillColor: "#60A5FA", // Blue-400
@@ -526,12 +390,12 @@ export function GeospatialMapContainer({
                   <Popup>
                     <div className="p-1 font-sans text-xs">
                       <div className="font-bold border-b pb-1 mb-1">
-                        {station.properties.POL_STAName}
+                        {station.name}
                       </div>
-                      <div>Code: {station.properties.KGISPSCode}</div>
-                      <div>
-                        Department ID: {station.properties.DepartmentCode}
-                      </div>
+                      {station.code && <div>Code: {station.code}</div>}
+                      {station.districtName && (
+                        <div>District: {station.districtName}</div>
+                      )}
                     </div>
                   </Popup>
                 </CircleMarker>
@@ -554,156 +418,182 @@ export function GeospatialMapContainer({
           )}
 
           {/* Floating District/State Summary Card */}
-          <Card className="p-3 bg-card/85 backdrop-blur-md border border-border w-[220px] shadow-lg">
-            <Typography
-              variant="caption"
-              color="muted"
-              className="font-bold uppercase tracking-wider block mb-1"
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="secondary"
+                size="sm"
+                className="flex items-center gap-2 shadow-md bg-card/95 border border-border text-foreground hover:bg-card w-fit font-bold"
+              >
+                <BarChart2 className="h-4 w-4" />
+                <span>Overview</span>
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent
+              className="w-auto p-0 border-none bg-transparent shadow-none ring-0"
+              side="bottom"
+              align="start"
             >
-              {activeDistrict === "all"
-                ? "State Overview"
-                : "District Insights"}
-            </Typography>
-            <Typography
-              variant="body-sm"
-              className="font-bold text-foreground capitalize truncate"
-            >
-              {activeDistrict === "all" ? "Karnataka State" : activeDistrict}
-            </Typography>
-            <Separator className="my-1.5" />
-            <div className="space-y-1.5 text-xs">
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground font-medium">
-                  Crimes (30d):
-                </span>
-                <span className="font-data font-bold text-foreground">
-                  {activeSummary.crimeCount}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground font-medium">
-                  Risk Index:
-                </span>
-                <Badge
-                  variant={
-                    activeSummary.riskScore >= 75
-                      ? "risk-critical"
-                      : activeSummary.riskScore >= 50
-                        ? "risk-high"
-                        : "secondary"
-                  }
-                  size="sm"
-                  className="py-0 px-1 text-[10px]"
+              <Card className="p-3 bg-card/95 backdrop-blur-md border border-border w-[220px] shadow-lg">
+                <Typography
+                  variant="caption"
+                  color="muted"
+                  className="font-bold uppercase tracking-wider block mb-1"
                 >
-                  {activeSummary.riskScore}/100
-                </Badge>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground font-medium">
-                  Trend:
-                </span>
-                <Badge
-                  variant={
-                    activeSummary.trend === "increasing"
-                      ? "risk-high"
-                      : activeSummary.trend === "decreasing"
-                        ? "success"
-                        : "secondary"
-                  }
-                  dot
-                  size="sm"
-                  className="py-0 px-1 text-[10px] capitalize"
+                  {activeDistrict === "all"
+                    ? "State Overview"
+                    : "District Insights"}
+                </Typography>
+                <Typography
+                  variant="body-sm"
+                  className="font-bold text-foreground capitalize truncate"
                 >
-                  {activeSummary.trend}
-                </Badge>
-              </div>
-            </div>
-          </Card>
+                  {activeDistrict === "all"
+                    ? "Karnataka State"
+                    : activeDistrict}
+                </Typography>
+                <Separator className="my-1.5" />
+                <div className="space-y-1.5 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground font-medium">
+                      Crimes (30d):
+                    </span>
+                    <span className="font-data font-bold text-foreground">
+                      {activeSummary.crimeCount}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground font-medium">
+                      Risk Index:
+                    </span>
+                    <Badge
+                      variant={
+                        activeSummary.riskScore >= 75
+                          ? "risk-critical"
+                          : activeSummary.riskScore >= 50
+                            ? "risk-high"
+                            : "secondary"
+                      }
+                      size="sm"
+                      className="py-0 px-1 text-[10px]"
+                    >
+                      {activeSummary.riskScore}/100
+                    </Badge>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground font-medium">
+                      Trend:
+                    </span>
+                    <Badge
+                      variant={
+                        activeSummary.trend === "increasing"
+                          ? "risk-high"
+                          : activeSummary.trend === "decreasing"
+                            ? "success"
+                            : "secondary"
+                      }
+                      dot
+                      size="sm"
+                      className="py-0 px-1 text-[10px] capitalize"
+                    >
+                      {activeSummary.trend}
+                    </Badge>
+                  </div>
+                </div>
+              </Card>
+            </PopoverContent>
+          </Popover>
         </div>
 
         {/* Floating Legend / Quick Controls Overlay */}
-        <Card className="absolute top-4 right-4 z-10 p-3 bg-card/85 backdrop-blur-md border border-border max-w-[200px] text-xs pointer-events-auto">
-          <Typography
-            variant="body-sm"
-            className="font-bold text-foreground border-b pb-1 mb-1.5 flex items-center gap-1"
-          >
-            <Icon icon={Layers} size="sm" />
-            <span>Active Layers</span>
-          </Typography>
-          <div className="space-y-1">
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">Choropleth</span>
-              <span className="font-semibold text-success">Active</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">Heatmap</span>
-              <span
-                className={
-                  showHeatmap
-                    ? "text-success font-semibold"
-                    : "text-muted-foreground font-semibold"
-                }
+        <div className="absolute top-4 right-4 z-10 pointer-events-auto">
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="secondary"
+                size="sm"
+                className="flex items-center gap-2 shadow-md bg-card/95 border border-border text-foreground hover:bg-card w-fit font-bold"
               >
-                {showHeatmap ? "On" : "Off"}
-              </span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">Clusters</span>
-              <span
-                className={
-                  showClusters
-                    ? "text-success font-semibold"
-                    : "text-muted-foreground font-semibold"
-                }
-              >
-                {showClusters ? "On" : "Off"}
-              </span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">Forecasts</span>
-              <span
-                className={
-                  showPredictions
-                    ? "text-danger font-bold animate-pulse"
-                    : "text-muted-foreground font-semibold"
-                }
-              >
-                {showPredictions ? "Warning" : "Off"}
-              </span>
-            </div>
-            <div
-              className="flex items-center justify-between cursor-pointer hover:bg-muted/20 p-0.5 rounded transition-colors"
-              onClick={() => setShowStations(!showStations)}
+                <Layers className="h-4 w-4" />
+                <span>Layers</span>
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent
+              className="w-auto p-0 border-none bg-transparent shadow-none ring-0"
+              side="bottom"
+              align="end"
             >
-              <span className="text-muted-foreground select-none">
-                Police Stations
-              </span>
-              <span
-                className={
-                  showStations
-                    ? "text-blue-400 font-semibold select-none"
-                    : "text-muted-foreground font-semibold select-none"
-                }
-              >
-                {showStations ? "On" : "Off"}
-              </span>
-            </div>
-            {activeEvents.length > 0 && (
-              <div className="flex items-center justify-between border-t border-border/40 pt-1 mt-1 text-[10px]">
-                <span className="text-muted-foreground font-bold">
-                  Public Events:
-                </span>
-                <Badge
-                  variant="outline"
-                  size="sm"
-                  className="bg-amber-500/10 text-amber-400 border-amber-500/20 py-0 scale-90"
+              <Card className="p-3 bg-card/95 backdrop-blur-md border border-border w-[200px] text-xs mt-2">
+                <Typography
+                  variant="body-sm"
+                  className="font-bold text-foreground border-b pb-1 mb-1.5 flex items-center gap-1"
                 >
-                  {activeEvents.length} Active
-                </Badge>
-              </div>
-            )}
-          </div>
-        </Card>
+                  <Icon icon={Layers} size="sm" />
+                  <span>Active Layers</span>
+                </Typography>
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Choropleth</span>
+                    <span className="font-semibold text-success">Active</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Heatmap</span>
+                    <span
+                      className={
+                        showHeatmap
+                          ? "text-success font-semibold"
+                          : "text-muted-foreground font-semibold"
+                      }
+                    >
+                      {showHeatmap ? "On" : "Off"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Clusters</span>
+                    <span
+                      className={
+                        showClusters
+                          ? "text-success font-semibold"
+                          : "text-muted-foreground font-semibold"
+                      }
+                    >
+                      {showClusters ? "On" : "Off"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Forecasts</span>
+                    <span
+                      className={
+                        showPredictions
+                          ? "text-danger font-bold animate-pulse"
+                          : "text-muted-foreground font-semibold"
+                      }
+                    >
+                      {showPredictions ? "Warning" : "Off"}
+                    </span>
+                  </div>
+                  <div
+                    className="flex items-center justify-between cursor-pointer hover:bg-muted/20 p-0.5 rounded transition-colors"
+                    onClick={() => setShowStations(!showStations)}
+                  >
+                    <span className="text-muted-foreground select-none">
+                      Police Stations
+                    </span>
+                    <span
+                      className={
+                        showStations
+                          ? "text-blue-400 font-semibold select-none"
+                          : "text-muted-foreground font-semibold select-none"
+                      }
+                    >
+                      {showStations ? "On" : "Off"}
+                    </span>
+                  </div>
+                </div>
+              </Card>
+            </PopoverContent>
+          </Popover>
+        </div>
       </div>
     </div>
   );

@@ -7,6 +7,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+import { useGetCrimeCategoriesQuery } from '@/services/crimeCategoryApi';
+
 
 export interface CrimeTypeFilterProps extends React.HTMLAttributes<HTMLDivElement> {
   value?: string;
@@ -14,15 +16,6 @@ export interface CrimeTypeFilterProps extends React.HTMLAttributes<HTMLDivElemen
   label?: string;
 }
 
-const CRIME_TYPES = [
-  { value: 'all', label: 'All Categories' },
-  { value: 'theft', label: 'Theft / Larceny' },
-  { value: 'burglary', label: 'Burglary' },
-  { value: 'assault', label: 'Assault' },
-  { value: 'narcotics', label: 'Narcotics' },
-  { value: 'cyber', label: 'Cyber Crime' },
-  { value: 'homicide', label: 'Homicide' },
-];
 
 export function CrimeTypeFilter({
   value = 'all',
@@ -31,6 +24,8 @@ export function CrimeTypeFilter({
   className,
   ...props
 }: CrimeTypeFilterProps) {
+  const { data: categories = [], isLoading } = useGetCrimeCategoriesQuery();
+
   return (
     <div className={cn("flex flex-col gap-1.5 w-full", className)} {...props}>
       {label && (
@@ -40,12 +35,13 @@ export function CrimeTypeFilter({
       )}
       <Select value={value} onValueChange={onValueChange}>
         <SelectTrigger className="w-full bg-card h-8" aria-label="Crime Type Filter">
-          <SelectValue placeholder="Select Crime Type" />
+          <SelectValue placeholder={isLoading ? "Loading..." : "Select Crime Type"} />
         </SelectTrigger>
         <SelectContent>
-          {CRIME_TYPES.map((type) => (
-            <SelectItem key={type.value} value={type.value}>
-              {type.label}
+          <SelectItem value="all">All Categories</SelectItem>
+          {categories.map((type) => (
+            <SelectItem key={type.ROWID} value={String(type.ROWID)}>
+              {type.crime_category_name}
             </SelectItem>
           ))}
         </SelectContent>
