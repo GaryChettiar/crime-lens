@@ -51,7 +51,7 @@ export function AppLayout({ children, className }: AppLayoutProps) {
       </main>
 
       {/* Global conversational AI FAB */}
-      <CrimeLensAssistant />
+      {/* <CrimeLensAssistant /> */}
     </div>
   );
 }
