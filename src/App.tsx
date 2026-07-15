@@ -35,6 +35,8 @@ import {
   CriminalProfilePage as EntitiesCriminalProfilePage,
 } from '@/features/entities';
 
+import { AnalyticsFiltersProvider } from '@/hooks/useAnalyticsFilters';
+
 /**
  * CrimeLens Main Router Setup
  *
@@ -43,7 +45,8 @@ import {
  */
 function App() {
   return (
-    <Routes>
+    <AnalyticsFiltersProvider>
+      <Routes>
       {/* Public Routes */}
       <Route path="/login" element={<LoginPage />} />
       <Route path="/invite/onboard" element={<InviteOnboardPage />} />
@@ -113,7 +116,8 @@ function App() {
 
       {/* Fallback Catch-all Route */}
       <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+      </Routes>
+    </AnalyticsFiltersProvider>
   );
 }
 

@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import {
-  AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Cell,
 } from 'recharts';
 import { DashboardLayout } from '@/components/templates/DashboardLayout';
@@ -36,22 +36,6 @@ const KARNATAKA_DISTRICTS = [
   { name: 'Tumakuru',         riskScore: 35, growth: -4.3, hotspots: 0, trend: 'decreasing' as const, crimeCount: 71 },
 ];
 
-// 30-day daily trend data
-const TREND_30D = Array.from({ length: 30 }, (_, i) => {
-  const base = 28 + Math.sin(i / 4) * 6;
-  return {
-    day: `Jun ${i + 1}`,
-    current: Math.round(base + Math.random() * 8),
-    previous: Math.round(base * 0.88 + Math.random() * 6),
-  };
-});
-
-// 90-day weekly trend data
-const TREND_90D = Array.from({ length: 13 }, (_, i) => ({
-  day: `W${i + 1}`,
-  current: Math.round(190 + Math.sin(i / 3) * 30 + Math.random() * 20),
-  previous: Math.round(170 + Math.sin(i / 3) * 25 + Math.random() * 15),
-}));
 
 const CRIME_CATEGORIES = [
   { category: 'Theft',             count: 487, growth: 18.4, color: '#F43F5E', icon: '🔓' },
@@ -205,10 +189,7 @@ const CUSTOM_TOOLTIP_STYLE = {
 
 export function AnalyticsPage() {
   const globalFilters = useAppSelector((state) => state.globalFilters);
-  const [trendWindow, setTrendWindow] = React.useState<'30d' | '90d'>('30d');
   const [search, setSearch] = React.useState('');
-
-  const trendData = trendWindow === '30d' ? TREND_30D : TREND_90D;
 
   const filteredIncidents = INCIDENTS.filter((inc) => {
     // 1. Global District Filter
@@ -273,57 +254,6 @@ export function AnalyticsPage() {
           </div>
         </div>
 
-        {/* ── 3. Crime Trend Analysis ── */}
-        <div>
-          <div className="flex items-center justify-between mb-3">
-            <SectionLabel>Crime Trend Analysis</SectionLabel>
-            <div className="flex items-center gap-1 bg-card border border-border rounded-md p-0.5">
-              {(['30d', '90d'] as const).map(w => (
-                <button key={w} onClick={() => setTrendWindow(w)}
-                  className={cn(
-                    'px-3 py-1 text-[10px] font-bold uppercase rounded-sm transition-all',
-                    trendWindow === w ? 'bg-primary text-white' : 'text-muted-foreground hover:text-foreground'
-                  )}>
-                  {w === '30d' ? 'Last 30 Days' : 'Last 90 Days'}
-                </button>
-              ))}
-            </div>
-          </div>
-          <Card className="border-border bg-card">
-            <CardHeader className="p-4 pb-2 border-b border-border flex flex-row items-center justify-between">
-              <CardTitle className="text-sm font-bold text-foreground flex items-center gap-1.5">
-                <Activity className="size-4 text-primary" />
-                Crime Volume — {trendWindow === '30d' ? 'Daily (Last 30 Days)' : 'Weekly (Last 90 Days)'}
-              </CardTitle>
-              <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
-                <div className="flex items-center gap-1"><div className="size-2 rounded-full bg-primary" /> Current Period</div>
-                <div className="flex items-center gap-1"><div className="size-2 rounded-full bg-slate-500" /> Previous Period</div>
-              </div>
-            </CardHeader>
-            <CardContent className="p-4 pt-3">
-              <ResponsiveContainer width="100%" height={280}>
-                <AreaChart data={trendData} margin={{ top: 4, right: 8, bottom: 0, left: -16 }}>
-                  <defs>
-                    <linearGradient id="gradCurrent" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%"  stopColor="#3B82F6" stopOpacity={0.35} />
-                      <stop offset="95%" stopColor="#3B82F6" stopOpacity={0} />
-                    </linearGradient>
-                    <linearGradient id="gradPrev" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%"  stopColor="#64748B" stopOpacity={0.2} />
-                      <stop offset="95%" stopColor="#64748B" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.5} />
-                  <XAxis dataKey="day" tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} tickLine={false} />
-                  <YAxis tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} tickLine={false} axisLine={false} />
-                  <Tooltip contentStyle={CUSTOM_TOOLTIP_STYLE} />
-                  <Area type="monotone" dataKey="previous" stroke="#64748B" strokeWidth={1.5} fill="url(#gradPrev)" strokeDasharray="4 2" dot={false} name="Previous Period" />
-                  <Area type="monotone" dataKey="current"  stroke="#3B82F6" strokeWidth={2} fill="url(#gradCurrent)" dot={false} name="Current Period" />
-                </AreaChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        </div>
 
         {/* ── 4. Crime Category Analysis ── */}
         <div>

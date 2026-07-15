@@ -264,7 +264,7 @@ const decodeCrime = (c: any): CrimeRecord => {
     caseNumber: c.crime_number || `CRIME-${String(c.ROWID || c.id).padStart(6, '0')}`,
     title: c.title || 'Untitled Crime Incident',
     description: c.description || '',
-    crimeCategory: c.crime_category || c.category || 'General',
+    crimeCategory: c.crime_category_id || c.crime_category || c.category || 'General',
     status: (c.status as CrimeStatus) || 'under_investigation',
     incidentDate: c.crime_occured_date_time || c.incident_date || c.createdAt,
     crimeLocation: c.crime_location || c.location || '',
