@@ -171,6 +171,9 @@ export interface CreateCrimePayload {
   policeStationId?: string;
   criminalIds?: string[];
   severity?: 'low' | 'medium' | 'high' | 'critical';
+  firId?: string;
+  incidentRegisteredDate?: string;
+  evidences?: { evidence_type: string; file_url?: string; description?: string }[];
 }
 
 export interface UpdateCrimePayload extends Partial<CreateCrimePayload> {
@@ -414,9 +417,12 @@ export const crimeApi = baseApi.injectEndpoints({
           crime_happended_at_district_id: body.district || body.location?.district,
           crime_location_latitude: body.location?.coordinates?.[0],
           crime_location_longitude: body.location?.coordinates?.[1],
-          status: 'under_investigation',
+          status: 'UNDER_INVESTIGATION',
           crime_occured_date_time: body.incidentDate || new Date().toISOString().replace('T', ' ').slice(0, 16),
+          incident_registered_date: body.incidentRegisteredDate,
+          fir_id: body.firId,
           criminal_ids: body.criminalIds,
+          evidences: body.evidences,
         },
       }),
       invalidatesTags: [{ type: 'Crime', id: 'LIST' }],

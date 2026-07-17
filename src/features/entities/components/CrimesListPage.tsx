@@ -12,12 +12,14 @@ import {
   type DataTableColumn,
 } from '@/components/common/DataTable';
 import { CRIME_STATUS_COLORS, CRIME_STATUS_STEPS } from '../types';
-import { Plus, FolderOpen, Eye, Trash2, RefreshCw } from 'lucide-react';
+import { Plus, FolderOpen, Eye, Trash2, RefreshCw, Check, X, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Link } from 'react-router-dom';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { useGetDistrictsQuery } from '@/services/districtsApi';
+import { useGetStationsQuery } from '@/services/policeStationsApi';
+import { useGetCrimeCategoriesQuery } from '@/services/crimeCategoryApi';
 import type { CreateCrimePayload, CrimeRecord } from '@/services/crimeApi';
 import type { GlobalFiltersState } from '@/store/slices/globalFiltersSlice';
 
@@ -27,18 +29,13 @@ import type { GlobalFiltersState } from '@/store/slices/globalFiltersSlice';
 
 const TABLE_ID = 'crimes';
 
-const CRIME_CATEGORIES = [
-  'Theft', 'Robbery', 'Assault', 'Murder', 'Kidnapping', 'Fraud',
-  'Cyber Crime', 'Narcotics', 'Vehicle Theft', 'Burglary',
-  'Sexual Assault', 'Terrorism', 'Money Laundering', 'Extortion', 'Arson', 'Other',
-];
-
 // ---------------------------------------------------------------------------
 // Column definitions — the only Crimes-specific part of this file
 // ---------------------------------------------------------------------------
 
 function buildColumns(
   districts: Array<{ id: string; name: string }> | undefined,
+  categories: Array<{ ROWID: string; crime_category_name: string }> | undefined,
   onView: (c: CrimeRecord) => void,
   onDelete: (id: string) => void
 ): DataTableColumn<CrimeRecord>[] {
@@ -70,7 +67,7 @@ function buildColumns(
       sortKey: undefined,
       cell: (c) => (
         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-primary/10 text-primary">
-          {c.crimeCategory}
+          {categories?.find((cat) => cat.ROWID === c.crimeCategory)?.crime_category_name || c.crimeCategory}
         </span>
       ),
     },
@@ -140,6 +137,8 @@ function buildColumns(
 export function CrimesListPage() {
   const navigate = useNavigate();
   const { data: districts } = useGetDistrictsQuery();
+  const { data: stations } = useGetStationsQuery();
+  const { data: categories } = useGetCrimeCategoriesQuery();
   const globalFilters = useAppSelector((s) => s.globalFilters);
   const prevFiltersRef = React.useRef<GlobalFiltersState | null>(null);
 
@@ -163,7 +162,13 @@ export function CrimesListPage() {
   const [categoryFilter, setCategoryFilter] = React.useState('');
   const [showCreate, setShowCreate] = React.useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = React.useState<string | null>(null);
-  const [form, setForm] = React.useState<Partial<CreateCrimePayload>>({ crimeCategory: '' });
+  type AfisMatch = { criminal_id: string; name: string; score: number };
+  type EvidenceItem = { id: string; evidence_type: string; file?: File; file_url?: string; isConfirmed?: boolean; afisLoading?: boolean; afisResult?: AfisMatch[] | null; afisError?: string };
+  const [form, setForm] = React.useState<Omit<Partial<CreateCrimePayload>, 'evidences'> & { evidences?: EvidenceItem[] }>({ crimeCategory: '', evidences: [] });
+
+  const AFIS_URL = 'https://crimelens-60074096850.development.catalystserverless.in/server/Fingerprint-AFIS/execute';
+  const MODEL_URL = (model: string) => `https://models-50043087097.development.catalystappsail.in/identify/${model}`;
+  const MODEL_ADMIN_KEY = '7f1d6e82d9b149f5a1c0f3c87b92e4d61f8e3c5a9b7d2e1f';
 
   // ---------------------------------------------------------------------------
   // Global filters → reset page if anything crime-relevant changed
@@ -229,8 +234,8 @@ export function CrimesListPage() {
   // Column definitions
   // ---------------------------------------------------------------------------
   const columns = React.useMemo(
-    () => buildColumns(districts, (c) => navigate(`/entities/crimes/${c.id}`), setConfirmDeleteId),
-    [districts, navigate]
+    () => buildColumns(districts, categories, (c) => navigate(`/entities/crimes/${c.id}`), setConfirmDeleteId),
+    [districts, categories, navigate]
   );
 
   // ---------------------------------------------------------------------------
@@ -243,10 +248,18 @@ export function CrimesListPage() {
     e.preventDefault();
     if (!form.title?.trim() || !form.crimeCategory) return;
     try {
-      const result = await createCrime(form as CreateCrimePayload).unwrap();
+      const payload = {
+        ...(form as CreateCrimePayload),
+        evidences: form.evidences?.filter(e => e.isConfirmed).map(e => ({
+          evidence_type: e.evidence_type,
+          file_url: e.file_url,
+          description: 'Added from incident form'
+        }))
+      };
+      const result = await createCrime(payload).unwrap();
       const newId = result.data?.id;
       setShowCreate(false);
-      setForm({ crimeCategory: '' });
+      setForm({ crimeCategory: '', evidences: [] });
       if (newId) navigate(`/entities/crimes/${newId}`);
     } catch (err) {
       console.error('Create crime failed:', err);
@@ -342,7 +355,7 @@ export function CrimesListPage() {
             aria-label="Filter by category"
           >
             <option value="">All Categories</option>
-            {CRIME_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+            {(categories ?? []).map((c: any) => <option key={c.ROWID} value={c.ROWID}>{c.crime_category_name}</option>)}
           </select>
         </DataTableToolbar>
 
@@ -394,7 +407,7 @@ export function CrimesListPage() {
                     <label className="text-[10px] font-semibold uppercase text-muted-foreground">Crime Category *</label>
                     <select required value={form.crimeCategory || ''} onChange={(e) => setForm((f) => ({ ...f, crimeCategory: e.target.value }))} className="w-full h-8.5 px-3 text-xs rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50">
                       <option value="">Select Category</option>
-                      {CRIME_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                      {(categories ?? []).map((c: any) => <option key={c.ROWID} value={c.ROWID}>{c.crime_category_name}</option>)}
                     </select>
                   </div>
                   <div className="space-y-1">
@@ -411,8 +424,31 @@ export function CrimesListPage() {
                     </select>
                   </div>
                   <div className="space-y-1">
+                    <label className="text-[10px] font-semibold uppercase text-muted-foreground">Police Station *</label>
+                    <select required value={form.assignedStationId || ''} onChange={(e) => setForm((f) => ({ ...f, assignedStationId: e.target.value }))} className="w-full h-8.5 px-3 text-xs rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50">
+                      <option value="">Select Station</option>
+                      {(stations ?? []).map((s: any) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-semibold uppercase text-muted-foreground">FIR ID</label>
+                    <Input placeholder="e.g. FIR/2023/1234" value={form.firId || ''} onChange={(e) => setForm((f) => ({ ...f, firId: e.target.value }))} className="h-8.5 text-xs" />
+                  </div>
+                  <div className="space-y-1">
                     <label className="text-[10px] font-semibold uppercase text-muted-foreground">Weapon (Optional)</label>
                     <Input placeholder="e.g. Firearm, Knife, None" value={form.weaponUsed || ''} onChange={(e) => setForm((f) => ({ ...f, weaponUsed: e.target.value }))} className="h-8.5 text-xs" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-semibold uppercase text-muted-foreground">Latitude</label>
+                    <Input type="number" step="any" placeholder="e.g. 12.9716" value={form.location?.coordinates?.[0] ?? ''} onChange={(e) => setForm((f) => ({ ...f, location: { ...f.location, coordinates: [parseFloat(e.target.value) || 0, f.location?.coordinates?.[1] || 0] } }))} className="h-8.5 text-xs" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-semibold uppercase text-muted-foreground">Longitude</label>
+                    <Input type="number" step="any" placeholder="e.g. 77.5946" value={form.location?.coordinates?.[1] ?? ''} onChange={(e) => setForm((f) => ({ ...f, location: { ...f.location, coordinates: [f.location?.coordinates?.[0] || 0, parseFloat(e.target.value) || 0] } }))} className="h-8.5 text-xs" />
                   </div>
                 </div>
                 <div className="space-y-1">
@@ -422,6 +458,207 @@ export function CrimesListPage() {
                 <div className="space-y-1">
                   <label className="text-[10px] font-semibold uppercase text-muted-foreground">Description / Case Details</label>
                   <textarea placeholder="Provide detailed operational details..." value={form.description || ''} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} className="w-full h-20 p-2.5 text-xs rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50 resize-none" />
+                </div>
+
+                {/* Evidence Repeater Section */}
+                <div className="space-y-2 pt-2 border-t border-border">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] font-semibold uppercase text-muted-foreground">Evidences</label>
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      size="sm" 
+                      className="h-6 text-[10px] px-2 py-0 gap-1"
+                      onClick={() => setForm(f => ({ ...f, evidences: [...(f.evidences || []), { id: Date.now().toString(), evidence_type: 'fingerprint' }] }))}
+                    >
+                      <Plus className="h-3 w-3" /> Add Evidence
+                    </Button>
+                  </div>
+                  {(form.evidences || []).map((ev, index) => (
+                    <div key={ev.id} className={`grid grid-cols-[100px_1fr_auto] gap-2 items-center p-2 rounded-lg border ${ev.isConfirmed ? 'border-primary/40 bg-primary/5' : 'border-border'}`}>
+                      <select 
+                        value={ev.evidence_type} 
+                        onChange={(e) => setForm(f => ({
+                          ...f,
+                          evidences: f.evidences?.map(item => item.id === ev.id ? { ...item, evidence_type: e.target.value } : item)
+                        }))}
+                        className="h-7 px-2 text-xs rounded-md border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
+                        disabled={ev.isConfirmed}
+                      >
+                        <option value="fingerprint">Fingerprint</option>
+                        <option value="face">Face</option>
+                        <option value="footprint">Footprint</option>
+                      </select>
+                      
+                      <div className="flex items-center gap-2">
+                        {ev.file_url ? (
+                          <div className="flex items-center gap-2 text-[10px] text-muted-foreground bg-background border border-border rounded px-2 h-7 flex-1">
+                            <span className="truncate flex-1">Image uploaded</span>
+                            {!ev.isConfirmed && (
+                              <button 
+                                type="button" 
+                                className="text-destructive hover:bg-destructive/10 p-0.5 rounded"
+                                onClick={() => setForm(f => ({
+                                  ...f,
+                                  evidences: f.evidences?.map(item => item.id === ev.id ? { ...item, file_url: undefined } : item)
+                                }))}
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            )}
+                          </div>
+                        ) : (
+                          <input 
+                            type="file" 
+                            accept="image/*"
+                            disabled={ev.isConfirmed}
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                const reader = new FileReader();
+                                reader.onloadend = () => {
+                                  setForm(f => ({
+                                    ...f,
+                                    evidences: f.evidences?.map(item => item.id === ev.id ? { ...item, file, file_url: reader.result as string } : item)
+                                  }));
+                                };
+                                reader.readAsDataURL(file);
+                              }
+                            }}
+                            className="block w-full text-xs text-muted-foreground
+                              file:mr-2 file:py-1 file:px-2 file:h-7
+                              file:rounded-md file:border-0
+                              file:text-[10px] file:font-semibold
+                              file:bg-primary/10 file:text-primary
+                              hover:file:bg-primary/20
+                              cursor-pointer bg-background border border-border rounded-md h-7 items-center flex"
+                          />
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-1">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className={`h-7 w-7 ${ev.isConfirmed ? 'text-primary' : 'text-muted-foreground hover:text-primary'}`}
+                          disabled={ev.afisLoading}
+                          onClick={async () => {
+                            // If already confirmed, toggle back to editable
+                            if (ev.isConfirmed) {
+                              setForm(f => ({
+                                ...f,
+                                evidences: f.evidences?.map(item => item.id === ev.id ? { ...item, isConfirmed: false, afisResult: undefined, afisError: undefined } : item)
+                              }));
+                              return;
+                            }
+
+                            if (ev.evidence_type === 'fingerprint' && ev.file_url) {
+                              // ── Fingerprint: base64 JSON → AFIS ──────────────────────────────
+                              const base64 = ev.file_url.replace(/^data:[^;]+;base64,/, '');
+                              const filename = `evidence_${ev.id}.jpg`;
+                              setForm(f => ({
+                                ...f,
+                                evidences: f.evidences?.map(item => item.id === ev.id ? { ...item, afisLoading: true, afisError: undefined } : item)
+                              }));
+                              try {
+                                const resp = await fetch(AFIS_URL, {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ action: 'identify', filename, topN: 5, image: base64 }),
+                                });
+                                const data = await resp.json();
+                                const matches: AfisMatch[] = data?.matches ?? data?.results ?? [];
+                                setForm(f => ({
+                                  ...f,
+                                  evidences: f.evidences?.map(item => item.id === ev.id ? { ...item, afisLoading: false, afisResult: matches, isConfirmed: true } : item)
+                                }));
+                              } catch {
+                                setForm(f => ({
+                                  ...f,
+                                  evidences: f.evidences?.map(item => item.id === ev.id ? { ...item, afisLoading: false, afisError: 'AFIS API call failed', isConfirmed: true } : item)
+                                }));
+                              }
+
+                            } else if ((ev.evidence_type === 'face' || ev.evidence_type === 'footprint') && ev.file) {
+                              // ── Face / Footprint: FormData → AppSail model ────────────────────
+                              const model = ev.evidence_type; // 'face' | 'footprint'
+                              setForm(f => ({
+                                ...f,
+                                evidences: f.evidences?.map(item => item.id === ev.id ? { ...item, afisLoading: true, afisError: undefined } : item)
+                              }));
+                              try {
+                                const fd = new FormData();
+                                fd.append('image', ev.file!);
+                                const resp = await fetch(MODEL_URL(model), {
+                                  method: 'POST',
+                                  headers: { 'X-Admin-Key': MODEL_ADMIN_KEY },
+                                  body: fd,
+                                });
+                                const data = await resp.json();
+                                const matches: AfisMatch[] = data?.matches ?? data?.results ?? [];
+                                setForm(f => ({
+                                  ...f,
+                                  evidences: f.evidences?.map(item => item.id === ev.id ? { ...item, afisLoading: false, afisResult: matches, isConfirmed: true } : item)
+                                }));
+                              } catch {
+                                setForm(f => ({
+                                  ...f,
+                                  evidences: f.evidences?.map(item => item.id === ev.id ? { ...item, afisLoading: false, afisError: `${model} model API call failed`, isConfirmed: true } : item)
+                                }));
+                              }
+
+                            } else {
+                              // No file or unrecognised type → just confirm
+                              setForm(f => ({
+                                ...f,
+                                evidences: f.evidences?.map(item => item.id === ev.id ? { ...item, isConfirmed: true } : item)
+                              }));
+                            }
+                          }}
+                          title={ev.isConfirmed ? 'Edit Evidence' : ev.file_url ? `Identify ${ev.evidence_type.charAt(0).toUpperCase() + ev.evidence_type.slice(1)} & Confirm` : 'Confirm Evidence'}
+                        >
+                          {ev.afisLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-destructive hover:bg-destructive/15"
+                          onClick={() => setForm(f => ({
+                            ...f,
+                            evidences: f.evidences?.filter(item => item.id !== ev.id)
+                          }))}
+                          title="Remove Evidence"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                      {/* Identification Result Panel */}
+                      {ev.isConfirmed && (ev.afisResult !== undefined || ev.afisError) && (
+                        <div className="col-span-3 mt-1 rounded-md border border-primary/20 bg-primary/5 p-2 text-[10px] space-y-1">
+                          {ev.afisError ? (
+                            <span className="text-destructive font-medium">{ev.afisError}</span>
+                          ) : ev.afisResult && ev.afisResult.length > 0 ? (
+                            <>
+                              <div className="font-semibold text-primary capitalize">{ev.evidence_type} Matches (Top {ev.afisResult.length})</div>
+                              {ev.afisResult.map((match, i) => (
+                                <div key={i} className="flex items-center justify-between text-muted-foreground">
+                                  <span className="font-medium text-foreground">{match.name || match.criminal_id}</span>
+                                  <span className="tabular-nums">Score: {typeof match.score === 'number' ? match.score.toFixed(4) : match.score}</span>
+                                </div>
+                              ))}
+                            </>
+                          ) : (
+                            <span className="text-muted-foreground">No {ev.evidence_type} matches found in the database.</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                  {form.evidences && form.evidences.length > 0 && form.evidences.some(e => !e.isConfirmed) && (
+                    <div className="text-[10px] text-amber-500 font-medium">Please confirm (tick) the evidence items before submitting.</div>
+                  )}
                 </div>
                 <DialogFooter className="gap-2 pt-2">
                   <Button type="button" variant="outline" size="sm" onClick={() => setShowCreate(false)} disabled={isCreating}>Cancel</Button>
