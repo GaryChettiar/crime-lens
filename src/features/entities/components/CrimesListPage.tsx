@@ -1,33 +1,56 @@
-import * as React from 'react';
-import { useNavigate } from 'react-router-dom';
-import { AdminLayout } from '@/components/templates/AdminLayout/AdminLayout';
-import { crimeApi, useGetCrimesQuery, useCreateCrimeMutation, useDeleteCrimeMutation } from '@/services/crimeApi';
-import { useAppSelector } from '@/store/hooks';
-import { useTableQueryState } from '@/hooks/useTableQueryState';
-import { buildCrimeQuery, haveCrimeFiltersChanged } from '@/utils/buildQueryParams';
+import * as React from "react";
+import { useNavigate } from "react-router-dom";
+import { AdminLayout } from "@/components/templates/AdminLayout/AdminLayout";
+import {
+  crimeApi,
+  useGetCrimesQuery,
+  useCreateCrimeMutation,
+  useDeleteCrimeMutation,
+} from "@/services/crimeApi";
+import { useAppSelector } from "@/store/hooks";
+import { useTableQueryState } from "@/hooks/useTableQueryState";
+import {
+  buildCrimeQuery,
+  haveCrimeFiltersChanged,
+} from "@/utils/buildQueryParams";
 import {
   DataTable,
   DataTablePagination,
   DataTableToolbar,
   type DataTableColumn,
-} from '@/components/common/DataTable';
-import { CRIME_STATUS_COLORS, CRIME_STATUS_STEPS } from '../types';
-import { Plus, FolderOpen, Eye, Trash2, RefreshCw, Check, X, Loader2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Link } from 'react-router-dom';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { useGetDistrictsQuery } from '@/services/districtsApi';
-import { useGetStationsQuery } from '@/services/policeStationsApi';
-import { useGetCrimeCategoriesQuery } from '@/services/crimeCategoryApi';
-import type { CreateCrimePayload, CrimeRecord } from '@/services/crimeApi';
-import type { GlobalFiltersState } from '@/store/slices/globalFiltersSlice';
+} from "@/components/common/DataTable";
+import { CRIME_STATUS_COLORS, CRIME_STATUS_STEPS } from "../types";
+import {
+  Plus,
+  FolderOpen,
+  Eye,
+  Trash2,
+  RefreshCw,
+  Check,
+  X,
+  Loader2,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Link } from "react-router-dom";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { useGetDistrictsQuery } from "@/services/districtsApi";
+import { useGetStationsQuery } from "@/services/policeStationsApi";
+import { useGetCrimeCategoriesQuery } from "@/services/crimeCategoryApi";
+import type { CreateCrimePayload, CrimeRecord } from "@/services/crimeApi";
+import type { GlobalFiltersState } from "@/store/slices/globalFiltersSlice";
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
-const TABLE_ID = 'crimes';
+const TABLE_ID = "crimes";
 
 // ---------------------------------------------------------------------------
 // Column definitions — the only Crimes-specific part of this file
@@ -37,88 +60,116 @@ function buildColumns(
   districts: Array<{ id: string; name: string }> | undefined,
   categories: Array<{ ROWID: string; crime_category_name: string }> | undefined,
   onView: (c: CrimeRecord) => void,
-  onDelete: (id: string) => void
+  onDelete: (id: string) => void,
 ): DataTableColumn<CrimeRecord>[] {
   return [
     {
-      key: 'crimeNumber',
-      header: 'Crime ID',
-      sortKey: 'crime_number',
-      headerClassName: 'w-32',
+      key: "crimeNumber",
+      header: "Crime ID",
+      sortKey: "crime_number",
+      headerClassName: "w-32",
       cell: (c) => (
-        <span className="font-mono font-medium text-foreground">{c.crimeNumber}</span>
+        <span className="font-mono font-medium text-foreground">
+          {c.crimeNumber}
+        </span>
       ),
     },
     {
-      key: 'title',
-      header: 'Title',
+      key: "title",
+      header: "Title",
       cell: (c) => (
         <div>
           <div className="font-semibold text-foreground">{c.title}</div>
           {c.description && (
-            <div className="text-[10px] text-muted-foreground truncate max-w-xs">{c.description}</div>
+            <div className="text-[10px] text-muted-foreground truncate max-w-xs">
+              {c.description}
+            </div>
           )}
         </div>
       ),
     },
     {
-      key: 'crimeCategory',
-      header: 'Category',
+      key: "crimeCategory",
+      header: "Category",
       sortKey: undefined,
       cell: (c) => (
         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-primary/10 text-primary">
-          {categories?.find((cat) => cat.ROWID === c.crimeCategory)?.crime_category_name || c.crimeCategory}
+          {categories?.find((cat) => cat.ROWID === c.crimeCategory)
+            ?.crime_category_name || c.crimeCategory}
         </span>
       ),
     },
     {
-      key: 'district',
-      header: 'District',
+      key: "district",
+      header: "District",
       cell: (c) => (
         <span className="text-muted-foreground">
-          {districts?.find((d) => d.id === c.district)?.name || c.district || '—'}
+          {districts?.find((d) => d.id === c.district)?.name ||
+            c.district ||
+            "—"}
         </span>
       ),
     },
     {
-      key: 'status',
-      header: 'Status',
-      sortKey: 'status',
+      key: "status",
+      header: "Status",
+      sortKey: "status",
       cell: (c) => {
-        const label = CRIME_STATUS_STEPS.find((s) => s.value === c.status)?.label ?? c.status;
+        const label =
+          CRIME_STATUS_STEPS.find((s) => s.value === c.status)?.label ??
+          c.status;
         return (
-          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold border ${CRIME_STATUS_COLORS[c.status] || 'bg-muted/50 text-muted-foreground'}`}>
+          <span
+            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold border ${CRIME_STATUS_COLORS[c.status] || "bg-muted/50 text-muted-foreground"}`}
+          >
             {label}
           </span>
         );
       },
     },
     {
-      key: 'incidentDate',
-      header: 'Date',
-      sortKey: 'crime_occured_date_time',
+      key: "incidentDate",
+      header: "Date",
+      sortKey: "crime_occured_date_time",
       cell: (c) => (
         <span className="text-muted-foreground tabular-nums">
-          {c.incidentDate ? new Date(c.incidentDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
+          {c.incidentDate
+            ? new Date(c.incidentDate).toLocaleDateString("en-IN", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+              })
+            : "—"}
         </span>
       ),
     },
     {
-      key: '__actions__',
-      header: 'Actions',
-      headerClassName: 'text-right',
-      cellClassName: 'text-right',
+      key: "__actions__",
+      header: "Actions",
+      headerClassName: "text-right",
+      cellClassName: "text-right",
       cell: (c) => (
         <div className="flex items-center justify-end gap-1.5">
-          <Link to={`/entities/crimes/${c.id}`} onClick={(e) => e.stopPropagation()}>
-            <Button variant="ghost" size="icon" className="h-7 w-7 text-primary hover:bg-primary/15" title="View Details">
+          <Link
+            to={`/entities/crimes/${c.id}`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-primary hover:bg-primary/15"
+              title="View Details"
+            >
               <Eye className="h-3.5 w-3.5" />
             </Button>
           </Link>
           <Button
             variant="ghost"
             size="icon"
-            onClick={(e) => { e.stopPropagation(); onDelete(c.id); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete(c.id);
+            }}
             className="h-7 w-7 text-destructive hover:bg-destructive/15"
             title="Delete Record"
           >
@@ -158,17 +209,34 @@ export function CrimesListPage() {
   } = useTableQueryState(TABLE_ID);
 
   // Local UI state only
-  const [statusFilter, setStatusFilter] = React.useState('');
-  const [categoryFilter, setCategoryFilter] = React.useState('');
+  const [statusFilter, setStatusFilter] = React.useState("");
+  const [categoryFilter, setCategoryFilter] = React.useState("");
   const [showCreate, setShowCreate] = React.useState(false);
-  const [confirmDeleteId, setConfirmDeleteId] = React.useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = React.useState<string | null>(
+    null,
+  );
   type AfisMatch = { criminal_id: string; name: string; score: number };
-  type EvidenceItem = { id: string; evidence_type: string; file?: File; file_url?: string; isConfirmed?: boolean; afisLoading?: boolean; afisResult?: AfisMatch[] | null; afisError?: string };
-  const [form, setForm] = React.useState<Omit<Partial<CreateCrimePayload>, 'evidences'> & { evidences?: EvidenceItem[] }>({ crimeCategory: '', evidences: [] });
+  type EvidenceItem = {
+    id: string;
+    evidence_type: string;
+    file?: File;
+    file_url?: string;
+    isConfirmed?: boolean;
+    afisLoading?: boolean;
+    afisResult?: AfisMatch[] | null;
+    afisError?: string;
+  };
+  const [form, setForm] = React.useState<
+    Omit<Partial<CreateCrimePayload>, "evidences"> & {
+      evidences?: EvidenceItem[];
+    }
+  >({ crimeCategory: "", evidences: [] });
 
-  const AFIS_URL = 'https://crimelens-60074096850.development.catalystserverless.in/server/Fingerprint-AFIS/execute';
-  const MODEL_URL = (model: string) => `https://models-50043087097.development.catalystappsail.in/identify/${model}`;
-  const MODEL_ADMIN_KEY = '7f1d6e82d9b149f5a1c0f3c87b92e4d61f8e3c5a9b7d2e1f';
+  const AFIS_URL =
+    "https://crimelens-60074096850.development.catalystserverless.in/server/Fingerprint-AFIS/execute";
+  const MODEL_URL = (model: string) =>
+    `https://models-50043087097.development.catalystappsail.in/identify/${model}`;
+  const MODEL_ADMIN_KEY = "7f1d6e82d9b149f5a1c0f3c87b92e4d61f8e3c5a9b7d2e1f";
 
   // ---------------------------------------------------------------------------
   // Global filters → reset page if anything crime-relevant changed
@@ -192,50 +260,82 @@ export function CrimesListPage() {
 
   // Sync status/category filter from global filters on mount
   React.useEffect(() => {
-    if (globalFilters.status && !statusFilter) setStatusFilter(globalFilters.status);
-    if (globalFilters.crimeCategory && !categoryFilter) setCategoryFilter(globalFilters.crimeCategory);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (globalFilters.status && !statusFilter)
+      setStatusFilter(globalFilters.status);
+    if (globalFilters.crimeCategory && !categoryFilter)
+      setCategoryFilter(globalFilters.crimeCategory);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ---------------------------------------------------------------------------
   // Build the query
   // ---------------------------------------------------------------------------
   // Merge local inline filters into globalFilters-like shape for buildCrimeQuery
-  const effectiveFilters = React.useMemo(() => ({
-    ...globalFilters,
-    status: statusFilter || globalFilters.status,
-    crimeCategory: categoryFilter || globalFilters.crimeCategory,
-  } as GlobalFiltersState), [globalFilters, statusFilter, categoryFilter]);
-
-  const crimeQuery = React.useMemo(
-    () => buildCrimeQuery({ page, pageSize, sortBy, sortOrder }, effectiveFilters, debouncedSearch),
-    [page, pageSize, sortBy, sortOrder, effectiveFilters, debouncedSearch]
+  const effectiveFilters = React.useMemo(
+    () =>
+      ({
+        ...globalFilters,
+        status: statusFilter || globalFilters.status,
+        crimeCategory: categoryFilter || globalFilters.crimeCategory,
+      }) as GlobalFiltersState,
+    [globalFilters, statusFilter, categoryFilter],
   );
 
-  const { data: result, isLoading, isFetching, isError, refetch } = useGetCrimesQuery(crimeQuery);
+  const crimeQuery = React.useMemo(
+    () =>
+      buildCrimeQuery(
+        { page, pageSize, sortBy, sortOrder },
+        effectiveFilters,
+        debouncedSearch,
+      ),
+    [page, pageSize, sortBy, sortOrder, effectiveFilters, debouncedSearch],
+  );
+
+  const {
+    data: result,
+    isLoading,
+    isFetching,
+    isError,
+    refetch,
+  } = useGetCrimesQuery(crimeQuery);
 
   // ---------------------------------------------------------------------------
   // Prefetch next page after successful fetch (RTK Query cache warm-up)
   // ---------------------------------------------------------------------------
-  const prefetchCrimes = crimeApi.usePrefetch('getCrimes');
+  const prefetchCrimes = crimeApi.usePrefetch("getCrimes");
 
   React.useEffect(() => {
     if (result?.pagination.hasNext) {
       const nextQuery = buildCrimeQuery(
         { page: page + 1, pageSize, sortBy, sortOrder },
         effectiveFilters,
-        debouncedSearch
+        debouncedSearch,
       );
       prefetchCrimes(nextQuery);
     }
-  }, [result, page, pageSize, sortBy, sortOrder, effectiveFilters, debouncedSearch, prefetchCrimes]);
+  }, [
+    result,
+    page,
+    pageSize,
+    sortBy,
+    sortOrder,
+    effectiveFilters,
+    debouncedSearch,
+    prefetchCrimes,
+  ]);
 
   // ---------------------------------------------------------------------------
   // Column definitions
   // ---------------------------------------------------------------------------
   const columns = React.useMemo(
-    () => buildColumns(districts, categories, (c) => navigate(`/entities/crimes/${c.id}`), setConfirmDeleteId),
-    [districts, categories, navigate]
+    () =>
+      buildColumns(
+        districts,
+        categories,
+        (c) => navigate(`/entities/crimes/${c.id}`),
+        setConfirmDeleteId,
+      ),
+    [districts, categories, navigate],
   );
 
   // ---------------------------------------------------------------------------
@@ -250,19 +350,21 @@ export function CrimesListPage() {
     try {
       const payload = {
         ...(form as CreateCrimePayload),
-        evidences: form.evidences?.filter(e => e.isConfirmed).map(e => ({
-          evidence_type: e.evidence_type,
-          file_url: e.file_url,
-          description: 'Added from incident form'
-        }))
+        evidences: form.evidences
+          ?.filter((e) => e.isConfirmed)
+          .map((e) => ({
+            evidence_type: e.evidence_type,
+            file_url: e.file_url,
+            description: "Added from incident form",
+          })),
       };
       const result = await createCrime(payload).unwrap();
       const newId = result.data?.id;
       setShowCreate(false);
-      setForm({ crimeCategory: '', evidences: [] });
+      setForm({ crimeCategory: "", evidences: [] });
       if (newId) navigate(`/entities/crimes/${newId}`);
     } catch (err) {
-      console.error('Create crime failed:', err);
+      console.error("Create crime failed:", err);
     }
   };
 
@@ -272,7 +374,7 @@ export function CrimesListPage() {
       await deleteCrime(confirmDeleteId).unwrap();
       setConfirmDeleteId(null);
     } catch (err) {
-      console.error('Delete crime failed:', err);
+      console.error("Delete crime failed:", err);
     }
   };
 
@@ -282,9 +384,9 @@ export function CrimesListPage() {
   const hasActiveFilters = searchInput || statusFilter || categoryFilter;
 
   const clearFilters = () => {
-    setSearchInput('');
-    setStatusFilter('');
-    setCategoryFilter('');
+    setSearchInput("");
+    setStatusFilter("");
+    setCategoryFilter("");
     resetPage();
   };
 
@@ -297,7 +399,6 @@ export function CrimesListPage() {
   return (
     <AdminLayout>
       <div className="space-y-5 max-w-[1400px] mx-auto pb-10">
-
         {/* Header */}
         <div className="flex items-center justify-between gap-4">
           <div>
@@ -306,15 +407,26 @@ export function CrimesListPage() {
               Crimes
             </h1>
             <p className="text-xs text-muted-foreground mt-0.5">
-              {pagination ? `${pagination.totalRecords.toLocaleString()} crime${pagination.totalRecords !== 1 ? 's' : ''} found` : 'Loading...'}
+              {pagination
+                ? `${pagination.totalRecords.toLocaleString()} crime${pagination.totalRecords !== 1 ? "s" : ""} found`
+                : "Loading..."}
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => refetch()} className="h-8 px-3 text-xs gap-1.5">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => refetch()}
+              className="h-8 px-3 text-xs gap-1.5"
+            >
               <RefreshCw className="h-3.5 w-3.5" />
               Refresh
             </Button>
-            <Button size="sm" onClick={() => setShowCreate(true)} className="h-8 px-3 text-xs gap-1.5">
+            <Button
+              size="sm"
+              onClick={() => setShowCreate(true)}
+              className="h-8 px-3 text-xs gap-1.5"
+            >
               <Plus className="h-3.5 w-3.5" />
               New Crime
             </Button>
@@ -328,7 +440,12 @@ export function CrimesListPage() {
           searchPlaceholder="Search crimes... (min 2 chars)"
           actions={
             hasActiveFilters ? (
-              <Button variant="ghost" size="sm" onClick={clearFilters} className="h-8 text-xs text-muted-foreground hover:text-foreground">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearFilters}
+                className="h-8 text-xs text-muted-foreground hover:text-foreground"
+              >
                 Clear Filters
               </Button>
             ) : undefined
@@ -337,25 +454,37 @@ export function CrimesListPage() {
           {/* Status filter */}
           <select
             value={statusFilter}
-            onChange={(e) => { setStatusFilter(e.target.value); resetPage(); }}
+            onChange={(e) => {
+              setStatusFilter(e.target.value);
+              resetPage();
+            }}
             className="h-8 px-3 text-xs rounded-lg border border-border bg-background/60 text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
             aria-label="Filter by status"
           >
             <option value="">All Statuses</option>
             {CRIME_STATUS_STEPS.map((s) => (
-              <option key={s.value} value={s.value}>{s.label}</option>
+              <option key={s.value} value={s.value}>
+                {s.label}
+              </option>
             ))}
           </select>
 
           {/* Category filter */}
           <select
             value={categoryFilter}
-            onChange={(e) => { setCategoryFilter(e.target.value); resetPage(); }}
+            onChange={(e) => {
+              setCategoryFilter(e.target.value);
+              resetPage();
+            }}
             className="h-8 px-3 text-xs rounded-lg border border-border bg-background/60 text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
             aria-label="Filter by category"
           >
             <option value="">All Categories</option>
-            {(categories ?? []).map((c: any) => <option key={c.ROWID} value={c.ROWID}>{c.crime_category_name}</option>)}
+            {(categories ?? []).map((c: any) => (
+              <option key={c.ROWID} value={c.ROWID}>
+                {c.crime_category_name}
+              </option>
+            ))}
           </select>
         </DataTableToolbar>
 
@@ -373,7 +502,11 @@ export function CrimesListPage() {
           rowKey={(c) => c.id}
           emptyIcon={FolderOpen}
           emptyTitle="No Crimes Found"
-          emptyDescription={hasActiveFilters ? 'No crime incidents matched your filters.' : 'Click "New Crime" to log an incident.'}
+          emptyDescription={
+            hasActiveFilters
+              ? "No crime incidents matched your filters."
+              : 'Click "New Crime" to log an incident.'
+          }
           errorTitle="Failed to load crime incidents"
           errorMessage="Could not connect to the intel database. Please try again."
         />
@@ -399,89 +532,252 @@ export function CrimesListPage() {
               </DialogHeader>
               <form onSubmit={handleCreate} className="space-y-4 pt-1">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-semibold uppercase text-muted-foreground">Incident Title *</label>
-                  <Input required placeholder="e.g. Break-in at Sector 4 Commercial Complex" value={form.title || ''} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} className="h-8.5 text-xs" />
+                  <label className="text-[10px] font-semibold uppercase text-muted-foreground">
+                    Incident Title *
+                  </label>
+                  <Input
+                    required
+                    placeholder="e.g. Break-in at Sector 4 Commercial Complex"
+                    value={form.title || ""}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, title: e.target.value }))
+                    }
+                    className="h-8.5 text-xs"
+                  />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label className="text-[10px] font-semibold uppercase text-muted-foreground">Crime Category *</label>
-                    <select required value={form.crimeCategory || ''} onChange={(e) => setForm((f) => ({ ...f, crimeCategory: e.target.value }))} className="w-full h-8.5 px-3 text-xs rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50">
+                    <label className="text-[10px] font-semibold uppercase text-muted-foreground">
+                      Crime Category *
+                    </label>
+                    <select
+                      required
+                      value={form.crimeCategory || ""}
+                      onChange={(e) =>
+                        setForm((f) => ({
+                          ...f,
+                          crimeCategory: e.target.value,
+                        }))
+                      }
+                      className="w-full h-8.5 px-3 text-xs rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
+                    >
                       <option value="">Select Category</option>
-                      {(categories ?? []).map((c: any) => <option key={c.ROWID} value={c.ROWID}>{c.crime_category_name}</option>)}
+                      {(categories ?? []).map((c: any) => (
+                        <option key={c.ROWID} value={c.ROWID}>
+                          {c.crime_category_name}
+                        </option>
+                      ))}
                     </select>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-semibold uppercase text-muted-foreground">Incident Date/Time *</label>
-                    <Input type="datetime-local" required value={form.incidentDate || ''} onChange={(e) => setForm((f) => ({ ...f, incidentDate: e.target.value }))} className="h-8.5 text-xs" />
+                    <label className="text-[10px] font-semibold uppercase text-muted-foreground">
+                      Incident Date/Time *
+                    </label>
+                    <Input
+                      type="datetime-local"
+                      required
+                      value={form.incidentDate || ""}
+                      onChange={(e) =>
+                        setForm((f) => ({ ...f, incidentDate: e.target.value }))
+                      }
+                      className="h-8.5 text-xs"
+                    />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label className="text-[10px] font-semibold uppercase text-muted-foreground">District Zone *</label>
-                    <select required value={form.district || ''} onChange={(e) => setForm((f) => ({ ...f, district: e.target.value }))} className="w-full h-8.5 px-3 text-xs rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50">
+                    <label className="text-[10px] font-semibold uppercase text-muted-foreground">
+                      District Zone *
+                    </label>
+                    <select
+                      required
+                      value={form.district || ""}
+                      onChange={(e) =>
+                        setForm((f) => ({ ...f, district: e.target.value }))
+                      }
+                      className="w-full h-8.5 px-3 text-xs rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
+                    >
                       <option value="">Select District</option>
-                      {(districts ?? []).map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
+                      {(districts ?? []).map((d: any) => (
+                        <option key={d.id} value={d.id}>
+                          {d.name}
+                        </option>
+                      ))}
                     </select>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-semibold uppercase text-muted-foreground">Police Station *</label>
-                    <select required value={form.assignedStationId || ''} onChange={(e) => setForm((f) => ({ ...f, assignedStationId: e.target.value }))} className="w-full h-8.5 px-3 text-xs rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50">
+                    <label className="text-[10px] font-semibold uppercase text-muted-foreground">
+                      Police Station *
+                    </label>
+                    <select
+                      required
+                      value={form.assignedStationId || ""}
+                      onChange={(e) =>
+                        setForm((f) => ({
+                          ...f,
+                          assignedStationId: e.target.value,
+                        }))
+                      }
+                      className="w-full h-8.5 px-3 text-xs rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
+                    >
                       <option value="">Select Station</option>
-                      {(stations ?? []).map((s: any) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                      {(stations ?? []).map((s: any) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name}
+                        </option>
+                      ))}
                     </select>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label className="text-[10px] font-semibold uppercase text-muted-foreground">FIR ID</label>
-                    <Input placeholder="e.g. FIR/2023/1234" value={form.firId || ''} onChange={(e) => setForm((f) => ({ ...f, firId: e.target.value }))} className="h-8.5 text-xs" />
+                    <label className="text-[10px] font-semibold uppercase text-muted-foreground">
+                      FIR ID
+                    </label>
+                    <Input
+                      placeholder="e.g. FIR/2023/1234"
+                      value={form.firId || ""}
+                      onChange={(e) =>
+                        setForm((f) => ({ ...f, firId: e.target.value }))
+                      }
+                      className="h-8.5 text-xs"
+                    />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-semibold uppercase text-muted-foreground">Weapon (Optional)</label>
-                    <Input placeholder="e.g. Firearm, Knife, None" value={form.weaponUsed || ''} onChange={(e) => setForm((f) => ({ ...f, weaponUsed: e.target.value }))} className="h-8.5 text-xs" />
+                    <label className="text-[10px] font-semibold uppercase text-muted-foreground">
+                      Weapon (Optional)
+                    </label>
+                    <Input
+                      placeholder="e.g. Firearm, Knife, None"
+                      value={form.weaponUsed || ""}
+                      onChange={(e) =>
+                        setForm((f) => ({ ...f, weaponUsed: e.target.value }))
+                      }
+                      className="h-8.5 text-xs"
+                    />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label className="text-[10px] font-semibold uppercase text-muted-foreground">Latitude</label>
-                    <Input type="number" step="any" placeholder="e.g. 12.9716" value={form.location?.coordinates?.[0] ?? ''} onChange={(e) => setForm((f) => ({ ...f, location: { ...f.location, coordinates: [parseFloat(e.target.value) || 0, f.location?.coordinates?.[1] || 0] } }))} className="h-8.5 text-xs" />
+                    <label className="text-[10px] font-semibold uppercase text-muted-foreground">
+                      Latitude
+                    </label>
+                    <Input
+                      type="number"
+                      step="any"
+                      placeholder="e.g. 12.9716"
+                      value={form.location?.coordinates?.[0] ?? ""}
+                      onChange={(e) =>
+                        setForm((f) => ({
+                          ...f,
+                          location: {
+                            ...f.location,
+                            coordinates: [
+                              parseFloat(e.target.value) || 0,
+                              f.location?.coordinates?.[1] || 0,
+                            ],
+                          },
+                        }))
+                      }
+                      className="h-8.5 text-xs"
+                    />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-semibold uppercase text-muted-foreground">Longitude</label>
-                    <Input type="number" step="any" placeholder="e.g. 77.5946" value={form.location?.coordinates?.[1] ?? ''} onChange={(e) => setForm((f) => ({ ...f, location: { ...f.location, coordinates: [f.location?.coordinates?.[0] || 0, parseFloat(e.target.value) || 0] } }))} className="h-8.5 text-xs" />
+                    <label className="text-[10px] font-semibold uppercase text-muted-foreground">
+                      Longitude
+                    </label>
+                    <Input
+                      type="number"
+                      step="any"
+                      placeholder="e.g. 77.5946"
+                      value={form.location?.coordinates?.[1] ?? ""}
+                      onChange={(e) =>
+                        setForm((f) => ({
+                          ...f,
+                          location: {
+                            ...f.location,
+                            coordinates: [
+                              f.location?.coordinates?.[0] || 0,
+                              parseFloat(e.target.value) || 0,
+                            ],
+                          },
+                        }))
+                      }
+                      className="h-8.5 text-xs"
+                    />
                   </div>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-semibold uppercase text-muted-foreground">Crime Location Address</label>
-                  <Input placeholder="e.g. 42 Park Road, Indiranagar" value={form.crimeLocation || ''} onChange={(e) => setForm((f) => ({ ...f, crimeLocation: e.target.value }))} className="h-8.5 text-xs" />
+                  <label className="text-[10px] font-semibold uppercase text-muted-foreground">
+                    Crime Location Address
+                  </label>
+                  <Input
+                    placeholder="e.g. 42 Park Road, Indiranagar"
+                    value={form.crimeLocation || ""}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, crimeLocation: e.target.value }))
+                    }
+                    className="h-8.5 text-xs"
+                  />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-semibold uppercase text-muted-foreground">Description / Case Details</label>
-                  <textarea placeholder="Provide detailed operational details..." value={form.description || ''} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} className="w-full h-20 p-2.5 text-xs rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50 resize-none" />
+                  <label className="text-[10px] font-semibold uppercase text-muted-foreground">
+                    Description / Case Details
+                  </label>
+                  <textarea
+                    placeholder="Provide detailed operational details..."
+                    value={form.description || ""}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, description: e.target.value }))
+                    }
+                    className="w-full h-20 p-2.5 text-xs rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50 resize-none"
+                  />
                 </div>
 
                 {/* Evidence Repeater Section */}
                 <div className="space-y-2 pt-2 border-t border-border">
                   <div className="flex items-center justify-between">
-                    <label className="text-[10px] font-semibold uppercase text-muted-foreground">Evidences</label>
-                    <Button 
-                      type="button" 
-                      variant="outline" 
-                      size="sm" 
+                    <label className="text-[10px] font-semibold uppercase text-muted-foreground">
+                      Evidences
+                    </label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
                       className="h-6 text-[10px] px-2 py-0 gap-1"
-                      onClick={() => setForm(f => ({ ...f, evidences: [...(f.evidences || []), { id: Date.now().toString(), evidence_type: 'fingerprint' }] }))}
+                      onClick={() =>
+                        setForm((f) => ({
+                          ...f,
+                          evidences: [
+                            ...(f.evidences || []),
+                            {
+                              id: Date.now().toString(),
+                              evidence_type: "fingerprint",
+                            },
+                          ],
+                        }))
+                      }
                     >
                       <Plus className="h-3 w-3" /> Add Evidence
                     </Button>
                   </div>
                   {(form.evidences || []).map((ev, index) => (
-                    <div key={ev.id} className={`grid grid-cols-[100px_1fr_auto] gap-2 items-center p-2 rounded-lg border ${ev.isConfirmed ? 'border-primary/40 bg-primary/5' : 'border-border'}`}>
-                      <select 
-                        value={ev.evidence_type} 
-                        onChange={(e) => setForm(f => ({
-                          ...f,
-                          evidences: f.evidences?.map(item => item.id === ev.id ? { ...item, evidence_type: e.target.value } : item)
-                        }))}
+                    <div
+                      key={ev.id}
+                      className={`grid grid-cols-[100px_1fr_auto] gap-2 items-center p-2 rounded-lg border ${ev.isConfirmed ? "border-primary/40 bg-primary/5" : "border-border"}`}
+                    >
+                      <select
+                        value={ev.evidence_type}
+                        onChange={(e) =>
+                          setForm((f) => ({
+                            ...f,
+                            evidences: f.evidences?.map((item) =>
+                              item.id === ev.id
+                                ? { ...item, evidence_type: e.target.value }
+                                : item,
+                            ),
+                          }))
+                        }
                         className="h-7 px-2 text-xs rounded-md border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
                         disabled={ev.isConfirmed}
                       >
@@ -489,27 +785,35 @@ export function CrimesListPage() {
                         <option value="face">Face</option>
                         <option value="footprint">Footprint</option>
                       </select>
-                      
+
                       <div className="flex items-center gap-2">
                         {ev.file_url ? (
                           <div className="flex items-center gap-2 text-[10px] text-muted-foreground bg-background border border-border rounded px-2 h-7 flex-1">
-                            <span className="truncate flex-1">Image uploaded</span>
+                            <span className="truncate flex-1">
+                              Image uploaded
+                            </span>
                             {!ev.isConfirmed && (
-                              <button 
-                                type="button" 
+                              <button
+                                type="button"
                                 className="text-destructive hover:bg-destructive/10 p-0.5 rounded"
-                                onClick={() => setForm(f => ({
-                                  ...f,
-                                  evidences: f.evidences?.map(item => item.id === ev.id ? { ...item, file_url: undefined } : item)
-                                }))}
+                                onClick={() =>
+                                  setForm((f) => ({
+                                    ...f,
+                                    evidences: f.evidences?.map((item) =>
+                                      item.id === ev.id
+                                        ? { ...item, file_url: undefined }
+                                        : item,
+                                    ),
+                                  }))
+                                }
                               >
                                 <X className="h-3 w-3" />
                               </button>
                             )}
                           </div>
                         ) : (
-                          <input 
-                            type="file" 
+                          <input
+                            type="file"
                             accept="image/*"
                             disabled={ev.isConfirmed}
                             onChange={(e) => {
@@ -517,9 +821,17 @@ export function CrimesListPage() {
                               if (file) {
                                 const reader = new FileReader();
                                 reader.onloadend = () => {
-                                  setForm(f => ({
+                                  setForm((f) => ({
                                     ...f,
-                                    evidences: f.evidences?.map(item => item.id === ev.id ? { ...item, file, file_url: reader.result as string } : item)
+                                    evidences: f.evidences?.map((item) =>
+                                      item.id === ev.id
+                                        ? {
+                                            ...item,
+                                            file,
+                                            file_url: reader.result as string,
+                                          }
+                                        : item,
+                                    ),
                                   }));
                                 };
                                 reader.readAsDataURL(file);
@@ -541,128 +853,258 @@ export function CrimesListPage() {
                           type="button"
                           variant="ghost"
                           size="icon"
-                          className={`h-7 w-7 ${ev.isConfirmed ? 'text-primary' : 'text-muted-foreground hover:text-primary'}`}
+                          className={`h-7 w-7 ${ev.isConfirmed ? "text-primary" : "text-muted-foreground hover:text-primary"}`}
                           disabled={ev.afisLoading}
                           onClick={async () => {
                             // If already confirmed, toggle back to editable
                             if (ev.isConfirmed) {
-                              setForm(f => ({
+                              setForm((f) => ({
                                 ...f,
-                                evidences: f.evidences?.map(item => item.id === ev.id ? { ...item, isConfirmed: false, afisResult: undefined, afisError: undefined } : item)
+                                evidences: f.evidences?.map((item) =>
+                                  item.id === ev.id
+                                    ? {
+                                        ...item,
+                                        isConfirmed: false,
+                                        afisResult: undefined,
+                                        afisError: undefined,
+                                      }
+                                    : item,
+                                ),
                               }));
                               return;
                             }
 
-                            if (ev.evidence_type === 'fingerprint' && ev.file_url) {
+                            if (
+                              ev.evidence_type === "fingerprint" &&
+                              ev.file_url
+                            ) {
                               // ── Fingerprint: base64 JSON → AFIS ──────────────────────────────
-                              const base64 = ev.file_url.replace(/^data:[^;]+;base64,/, '');
+                              const base64 = ev.file_url.replace(
+                                /^data:[^;]+;base64,/,
+                                "",
+                              );
                               const filename = `evidence_${ev.id}.jpg`;
-                              setForm(f => ({
+                              setForm((f) => ({
                                 ...f,
-                                evidences: f.evidences?.map(item => item.id === ev.id ? { ...item, afisLoading: true, afisError: undefined } : item)
+                                evidences: f.evidences?.map((item) =>
+                                  item.id === ev.id
+                                    ? {
+                                        ...item,
+                                        afisLoading: true,
+                                        afisError: undefined,
+                                      }
+                                    : item,
+                                ),
                               }));
                               try {
                                 const resp = await fetch(AFIS_URL, {
-                                  method: 'POST',
-                                  headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify({ action: 'identify', filename, topN: 5, image: base64 }),
+                                  method: "POST",
+                                  headers: {
+                                    "Content-Type": "application/json",
+                                  },
+                                  body: JSON.stringify({
+                                    action: "identify",
+                                    filename,
+                                    topN: 5,
+                                    image: base64,
+                                  }),
                                 });
                                 const data = await resp.json();
-                                const matches: AfisMatch[] = data?.matches ?? data?.results ?? [];
-                                setForm(f => ({
+                                const matches: AfisMatch[] =
+                                  data?.matches ?? data?.results ?? [];
+                                setForm((f) => ({
                                   ...f,
-                                  evidences: f.evidences?.map(item => item.id === ev.id ? { ...item, afisLoading: false, afisResult: matches, isConfirmed: true } : item)
+                                  evidences: f.evidences?.map((item) =>
+                                    item.id === ev.id
+                                      ? {
+                                          ...item,
+                                          afisLoading: false,
+                                          afisResult: matches,
+                                          isConfirmed: true,
+                                        }
+                                      : item,
+                                  ),
                                 }));
                               } catch {
-                                setForm(f => ({
+                                setForm((f) => ({
                                   ...f,
-                                  evidences: f.evidences?.map(item => item.id === ev.id ? { ...item, afisLoading: false, afisError: 'AFIS API call failed', isConfirmed: true } : item)
+                                  evidences: f.evidences?.map((item) =>
+                                    item.id === ev.id
+                                      ? {
+                                          ...item,
+                                          afisLoading: false,
+                                          afisError: "AFIS API call failed",
+                                          isConfirmed: true,
+                                        }
+                                      : item,
+                                  ),
                                 }));
                               }
-
-                            } else if ((ev.evidence_type === 'face' || ev.evidence_type === 'footprint') && ev.file) {
+                            } else if (
+                              (ev.evidence_type === "face" ||
+                                ev.evidence_type === "footprint") &&
+                              ev.file
+                            ) {
                               // ── Face / Footprint: FormData → AppSail model ────────────────────
                               const model = ev.evidence_type; // 'face' | 'footprint'
-                              setForm(f => ({
+                              setForm((f) => ({
                                 ...f,
-                                evidences: f.evidences?.map(item => item.id === ev.id ? { ...item, afisLoading: true, afisError: undefined } : item)
+                                evidences: f.evidences?.map((item) =>
+                                  item.id === ev.id
+                                    ? {
+                                        ...item,
+                                        afisLoading: true,
+                                        afisError: undefined,
+                                      }
+                                    : item,
+                                ),
                               }));
                               try {
                                 const fd = new FormData();
-                                fd.append('image', ev.file!);
+                                fd.append("image", ev.file!);
                                 const resp = await fetch(MODEL_URL(model), {
-                                  method: 'POST',
-                                  headers: { 'X-Admin-Key': MODEL_ADMIN_KEY },
+                                  method: "POST",
+                                  headers: { "X-Admin-Key": MODEL_ADMIN_KEY },
                                   body: fd,
                                 });
                                 const data = await resp.json();
-                                const matches: AfisMatch[] = data?.matches ?? data?.results ?? [];
-                                setForm(f => ({
+                                const matches: AfisMatch[] =
+                                  data?.matches ?? data?.results ?? [];
+                                setForm((f) => ({
                                   ...f,
-                                  evidences: f.evidences?.map(item => item.id === ev.id ? { ...item, afisLoading: false, afisResult: matches, isConfirmed: true } : item)
+                                  evidences: f.evidences?.map((item) =>
+                                    item.id === ev.id
+                                      ? {
+                                          ...item,
+                                          afisLoading: false,
+                                          afisResult: matches,
+                                          isConfirmed: true,
+                                        }
+                                      : item,
+                                  ),
                                 }));
                               } catch {
-                                setForm(f => ({
+                                setForm((f) => ({
                                   ...f,
-                                  evidences: f.evidences?.map(item => item.id === ev.id ? { ...item, afisLoading: false, afisError: `${model} model API call failed`, isConfirmed: true } : item)
+                                  evidences: f.evidences?.map((item) =>
+                                    item.id === ev.id
+                                      ? {
+                                          ...item,
+                                          afisLoading: false,
+                                          afisError: `${model} model API call failed`,
+                                          isConfirmed: true,
+                                        }
+                                      : item,
+                                  ),
                                 }));
                               }
-
                             } else {
                               // No file or unrecognised type → just confirm
-                              setForm(f => ({
+                              setForm((f) => ({
                                 ...f,
-                                evidences: f.evidences?.map(item => item.id === ev.id ? { ...item, isConfirmed: true } : item)
+                                evidences: f.evidences?.map((item) =>
+                                  item.id === ev.id
+                                    ? { ...item, isConfirmed: true }
+                                    : item,
+                                ),
                               }));
                             }
                           }}
-                          title={ev.isConfirmed ? 'Edit Evidence' : ev.file_url ? `Identify ${ev.evidence_type.charAt(0).toUpperCase() + ev.evidence_type.slice(1)} & Confirm` : 'Confirm Evidence'}
+                          title={
+                            ev.isConfirmed
+                              ? "Edit Evidence"
+                              : ev.file_url
+                                ? `Identify ${ev.evidence_type.charAt(0).toUpperCase() + ev.evidence_type.slice(1)} & Confirm`
+                                : "Confirm Evidence"
+                          }
                         >
-                          {ev.afisLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                          {ev.afisLoading ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Check className="h-3.5 w-3.5" />
+                          )}
                         </Button>
                         <Button
                           type="button"
                           variant="ghost"
                           size="icon"
                           className="h-7 w-7 text-destructive hover:bg-destructive/15"
-                          onClick={() => setForm(f => ({
-                            ...f,
-                            evidences: f.evidences?.filter(item => item.id !== ev.id)
-                          }))}
+                          onClick={() =>
+                            setForm((f) => ({
+                              ...f,
+                              evidences: f.evidences?.filter(
+                                (item) => item.id !== ev.id,
+                              ),
+                            }))
+                          }
                           title="Remove Evidence"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                       </div>
                       {/* Identification Result Panel */}
-                      {ev.isConfirmed && (ev.afisResult !== undefined || ev.afisError) && (
-                        <div className="col-span-3 mt-1 rounded-md border border-primary/20 bg-primary/5 p-2 text-[10px] space-y-1">
-                          {ev.afisError ? (
-                            <span className="text-destructive font-medium">{ev.afisError}</span>
-                          ) : ev.afisResult && ev.afisResult.length > 0 ? (
-                            <>
-                              <div className="font-semibold text-primary capitalize">{ev.evidence_type} Matches (Top {ev.afisResult.length})</div>
-                              {ev.afisResult.map((match, i) => (
-                                <div key={i} className="flex items-center justify-between text-muted-foreground">
-                                  <span className="font-medium text-foreground">{match.name || match.criminal_id}</span>
-                                  <span className="tabular-nums">Score: {typeof match.score === 'number' ? match.score.toFixed(4) : match.score}</span>
+                      {ev.isConfirmed &&
+                        (ev.afisResult !== undefined || ev.afisError) && (
+                          <div className="col-span-3 mt-1 rounded-md border border-primary/20 bg-primary/5 p-2 text-[10px] space-y-1">
+                            {ev.afisError ? (
+                              <span className="text-destructive font-medium">
+                                {ev.afisError}
+                              </span>
+                            ) : ev.afisResult && ev.afisResult.length > 0 ? (
+                              <>
+                                <div className="font-semibold text-primary capitalize">
+                                  {ev.evidence_type} Matches (Top{" "}
+                                  {ev.afisResult.length})
                                 </div>
-                              ))}
-                            </>
-                          ) : (
-                            <span className="text-muted-foreground">No {ev.evidence_type} matches found in the database.</span>
-                          )}
-                        </div>
-                      )}
+                                {ev.afisResult.map((match, i) => (
+                                  <div
+                                    key={i}
+                                    className="flex items-center justify-between text-muted-foreground"
+                                  >
+                                    <span className="font-medium text-foreground">
+                                      {match.name || match.criminal_id}
+                                    </span>
+                                    <span className="tabular-nums">
+                                      Score:{" "}
+                                      {typeof match.score === "number"
+                                        ? match.score.toFixed(4)
+                                        : match.score}
+                                    </span>
+                                  </div>
+                                ))}
+                              </>
+                            ) : (
+                              <span className="text-muted-foreground">
+                                No {ev.evidence_type} matches found in the
+                                database.
+                              </span>
+                            )}
+                          </div>
+                        )}
                     </div>
                   ))}
-                  {form.evidences && form.evidences.length > 0 && form.evidences.some(e => !e.isConfirmed) && (
-                    <div className="text-[10px] text-amber-500 font-medium">Please confirm (tick) the evidence items before submitting.</div>
-                  )}
+                  {form.evidences &&
+                    form.evidences.length > 0 &&
+                    form.evidences.some((e) => !e.isConfirmed) && (
+                      <div className="text-[10px] text-amber-500 font-medium">
+                        Please confirm (tick) the evidence items before
+                        submitting.
+                      </div>
+                    )}
                 </div>
                 <DialogFooter className="gap-2 pt-2">
-                  <Button type="button" variant="outline" size="sm" onClick={() => setShowCreate(false)} disabled={isCreating}>Cancel</Button>
-                  <Button type="submit" size="sm" disabled={isCreating}>{isCreating ? 'Creating...' : 'Log Incident'}</Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowCreate(false)}
+                    disabled={isCreating}
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="submit" size="sm" disabled={isCreating}>
+                    {isCreating ? "Creating..." : "Log Incident"}
+                  </Button>
                 </DialogFooter>
               </form>
             </DialogContent>
@@ -674,19 +1116,29 @@ export function CrimesListPage() {
           <Dialog open onOpenChange={(o) => !o && setConfirmDeleteId(null)}>
             <DialogContent className="sm:max-w-sm bg-card border-border">
               <DialogHeader>
-                <DialogTitle className="text-sm font-semibold">Delete Incident Record</DialogTitle>
+                <DialogTitle className="text-sm font-semibold">
+                  Delete Incident Record
+                </DialogTitle>
               </DialogHeader>
               <div className="py-2 text-xs text-muted-foreground">
-                Are you sure you want to permanently delete this crime incident? This action is irreversible.
+                Are you sure you want to permanently delete this crime incident?
+                This action is irreversible.
               </div>
               <DialogFooter className="gap-2">
-                <Button size="sm" variant="outline" onClick={() => setConfirmDeleteId(null)}>Cancel</Button>
-                <Button size="sm" variant="destructive" onClick={handleDelete}>Delete</Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setConfirmDeleteId(null)}
+                >
+                  Cancel
+                </Button>
+                <Button size="sm" variant="destructive" onClick={handleDelete}>
+                  Delete
+                </Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
         )}
-
       </div>
     </AdminLayout>
   );
