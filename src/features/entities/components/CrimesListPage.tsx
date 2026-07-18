@@ -331,7 +331,7 @@ export function CrimesListPage() {
       const pathsForThisFile = ev.afisResult.map(m => m.metadata?.original_path || m.name || m.criminal_id);
       
       const fileMatchesWithCrimes = analysisData.data.filter(
-        d => pathsForThisFile.includes(d.path) && d.crimes && d.crimes.length > 0
+        d => pathsForThisFile.includes(d.path)
       );
       return fileMatchesWithCrimes.length > 0;
     }).map(ev => ({
@@ -493,7 +493,7 @@ export function CrimesListPage() {
                 <div>
                   <h3 className="font-semibold text-sm leading-tight text-foreground">Evidence Matches Found</h3>
                   <p className="text-[11px] text-muted-foreground mt-1">
-                    {filesWithRelatedCrimes.length} uploaded file(s) have matches in the database that are linked to existing crimes.
+                    {filesWithRelatedCrimes.length} uploaded file(s) have matches in the database.
                   </p>
                 </div>
               </div>
