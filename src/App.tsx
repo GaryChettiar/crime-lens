@@ -12,6 +12,7 @@ import { LoginPage, ProtectedRoute, InviteOnboardPage } from '@/features/auth';
 import {
   CrimesListPage,
   CrimeDetailWorkspace,
+  EvidenceMatchesPage,
 } from '@/features/entities';
 import { ForecastPage } from '@/features/forecast';
 import {
@@ -67,6 +68,7 @@ function App() {
         {/* Crimes Module */}
         <Route path="/entities/crimes" element={<CrimesListPage />} />
         <Route path="/entities/crimes/:id" element={<CrimeDetailWorkspace />} />
+        <Route path="/entities/evidence-matches" element={<EvidenceMatchesPage />} />
 
         {/* Forecast */}
         <Route path="/forecast" element={<ForecastPage />} />

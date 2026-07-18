@@ -405,6 +405,13 @@ export const crimeApi = baseApi.injectEndpoints({
       providesTags: (_result, _error, id) => [{ type: 'Crime', id }],
     }),
 
+    getCrimesByEvidencePaths: builder.query<{ success: boolean, data: { path: string, crimes: { ROWID: string, title: string }[] }[] }, string[]>({
+      query: (paths) => ({
+        url: '/evidence-analysis',
+        params: { paths: paths.join(',') },
+      }),
+    }),
+
     createCrime: builder.mutation<{ data: CrimeRecord; message: string }, CreateCrimePayload>({
       query: (body) => ({
         url: '/crimes',
@@ -812,6 +819,7 @@ export const crimeApi = baseApi.injectEndpoints({
 export const {
   useGetCrimesQuery,
   useGetCrimeByIdQuery,
+  useGetCrimesByEvidencePathsQuery,
   useCreateCrimeMutation,
   useUpdateCrimeMutation,
   useUpdateCrimeStatusMutation,

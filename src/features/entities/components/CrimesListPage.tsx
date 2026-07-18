@@ -6,6 +6,7 @@ import {
   useGetCrimesQuery,
   useCreateCrimeMutation,
   useDeleteCrimeMutation,
+  useGetCrimesByEvidencePathsQuery,
 } from "@/services/crimeApi";
 import { useAppSelector } from "@/store/hooks";
 import { useTableQueryState } from "@/hooks/useTableQueryState";
@@ -29,6 +30,7 @@ import {
   Check,
   X,
   Loader2,
+  ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -235,7 +237,7 @@ export function CrimesListPage() {
   const AFIS_URL =
     "https://crimelens-60074096850.development.catalystserverless.in/server/Fingerprint-AFIS/execute";
   const MODEL_URL = (model: string) =>
-    `https://models-50043087097.development.catalystappsail.in/identify/${model}`;
+    `http://localhost:3002/identify/${model}`;
   const MODEL_ADMIN_KEY = "7f1d6e82d9b149f5a1c0f3c87b92e4d61f8e3c5a9b7d2e1f";
 
   // ---------------------------------------------------------------------------
@@ -298,6 +300,52 @@ export function CrimesListPage() {
     isError,
     refetch,
   } = useGetCrimesQuery(crimeQuery);
+
+  // ---------------------------------------------------------------------------
+  // Evidence Analysis
+  // ---------------------------------------------------------------------------
+  // Collect all paths from confirmed evidences to check for related crimes
+  const matchedPathsToAnalyze = React.useMemo(() => {
+    const paths = new Set<string>();
+    form.evidences?.forEach(ev => {
+      if (ev.isConfirmed && ev.afisResult) {
+        ev.afisResult.forEach(match => {
+          if (match.name) paths.add(match.name);
+          if (match.criminal_id) paths.add(match.criminal_id);
+        });
+      }
+    });
+    return Array.from(paths);
+  }, [form.evidences]);
+
+  const { data: analysisData } = useGetCrimesByEvidencePathsQuery(matchedPathsToAnalyze, {
+    skip: matchedPathsToAnalyze.length === 0,
+  });
+
+  const filesWithRelatedCrimes = React.useMemo(() => {
+    if (!analysisData?.success || !analysisData.data) return [];
+    
+    return form.evidences?.filter(ev => {
+      if (!ev.isConfirmed || !ev.afisResult) return false;
+      const pathsForThisFile = ev.afisResult.map(m => m.name || m.criminal_id);
+      
+      const fileMatchesWithCrimes = analysisData.data.filter(
+        d => pathsForThisFile.includes(d.path) && d.crimes && d.crimes.length > 0
+      );
+      return fileMatchesWithCrimes.length > 0;
+    }).map(ev => ({
+      evidenceId: ev.id,
+      fileName: ev.file?.name || `${ev.evidence_type} uploaded`,
+      matches: analysisData.data.filter(
+        d => ev.afisResult!.map(m => m.name || m.criminal_id).includes(d.path)
+      )
+    })) || [];
+  }, [analysisData, form.evidences]);
+
+  const handleOpenAnalysis = () => {
+    localStorage.setItem("currentEvidenceAnalysis", JSON.stringify(filesWithRelatedCrimes));
+    window.open("/entities/evidence-matches", "_blank");
+  };
 
   // ---------------------------------------------------------------------------
   // Prefetch next page after successful fetch (RTK Query cache warm-up)
@@ -432,6 +480,28 @@ export function CrimesListPage() {
             </Button>
           </div>
         </div>
+
+        {/* Floating Evidence Match Card */}
+        {filesWithRelatedCrimes.length > 0 && showCreate && (
+          <div className="fixed bottom-6 right-6 z-[100] animate-in slide-in-from-bottom-5">
+            <div className="bg-card border-2 border-primary/40 shadow-xl rounded-xl p-4 flex flex-col gap-3 w-80">
+              <div className="flex items-start gap-3">
+                <div className="bg-primary/10 p-2 rounded-full mt-0.5 shrink-0">
+                  <FolderOpen className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-sm leading-tight text-foreground">Evidence Matches Found</h3>
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    {filesWithRelatedCrimes.length} uploaded file(s) have matches in the database that are linked to existing crimes.
+                  </p>
+                </div>
+              </div>
+              <Button size="sm" onClick={handleOpenAnalysis} className="w-full text-xs h-8">
+                View Related Crimes <ChevronRight className="h-3.5 w-3.5 ml-1" />
+              </Button>
+            </div>
+          </div>
+        )}
 
         {/* Toolbar */}
         <DataTableToolbar

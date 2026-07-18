@@ -6,6 +6,7 @@ export { PoliceOfficersPage } from './components/PoliceOfficersPage';
 export { CrimesListPage } from './components/CrimesListPage';
 export { CrimeDetailWorkspace } from './components/CrimeDetailWorkspace';
 export { CrimeStatusWorkflow } from './components/CrimeStatusWorkflow';
+export { EvidenceMatchesPage } from './components/EvidenceMatchesPage';
 
 // Tab components
 export { OverviewTab } from './components/tabs/OverviewTab';
