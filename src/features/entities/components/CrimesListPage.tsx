@@ -217,7 +217,7 @@ export function CrimesListPage() {
   const [confirmDeleteId, setConfirmDeleteId] = React.useState<string | null>(
     null,
   );
-  type AfisMatch = { criminal_id: string; name: string; score: number };
+  type AfisMatch = { criminal_id?: string; name?: string; score: number; metadata?: { original_path?: string, filename?: string } };
   type EvidenceItem = {
     id: string;
     evidence_type: string;
@@ -310,8 +310,9 @@ export function CrimesListPage() {
     form.evidences?.forEach(ev => {
       if (ev.isConfirmed && ev.afisResult) {
         ev.afisResult.forEach(match => {
-          if (match.name) paths.add(match.name);
-          if (match.criminal_id) paths.add(match.criminal_id);
+          if (match.metadata?.original_path) paths.add(match.metadata.original_path);
+          else if (match.name) paths.add(match.name);
+          else if (match.criminal_id) paths.add(match.criminal_id);
         });
       }
     });
@@ -327,7 +328,7 @@ export function CrimesListPage() {
     
     return form.evidences?.filter(ev => {
       if (!ev.isConfirmed || !ev.afisResult) return false;
-      const pathsForThisFile = ev.afisResult.map(m => m.name || m.criminal_id);
+      const pathsForThisFile = ev.afisResult.map(m => m.metadata?.original_path || m.name || m.criminal_id);
       
       const fileMatchesWithCrimes = analysisData.data.filter(
         d => pathsForThisFile.includes(d.path) && d.crimes && d.crimes.length > 0
@@ -337,7 +338,7 @@ export function CrimesListPage() {
       evidenceId: ev.id,
       fileName: ev.file?.name || `${ev.evidence_type} uploaded`,
       matches: analysisData.data.filter(
-        d => ev.afisResult!.map(m => m.name || m.criminal_id).includes(d.path)
+        d => ev.afisResult!.map(m => m.metadata?.original_path || m.name || m.criminal_id).includes(d.path)
       )
     })) || [];
   }, [analysisData, form.evidences]);
@@ -1132,7 +1133,7 @@ export function CrimesListPage() {
                                     className="flex items-center justify-between text-muted-foreground"
                                   >
                                     <span className="font-medium text-foreground">
-                                      {match.name || match.criminal_id}
+                                      {match.metadata?.filename || match.name || match.criminal_id}
                                     </span>
                                     <span className="tabular-nums">
                                       Score:{" "}
