@@ -237,7 +237,7 @@ export function CrimesListPage() {
   const AFIS_URL =
     "https://crimelens-60074096850.development.catalystserverless.in/server/Fingerprint-AFIS/execute";
   const MODEL_URL = (model: string) =>
-    `http://localhost:3002/identify/${model}`;
+    `https://models-50043087097.development.catalystappsail.in/identify/${model}`;
   const MODEL_ADMIN_KEY = "7f1d6e82d9b149f5a1c0f3c87b92e4d61f8e3c5a9b7d2e1f";
 
   // ---------------------------------------------------------------------------
