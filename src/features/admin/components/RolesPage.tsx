@@ -1,40 +1,62 @@
 import * as React from 'react';
 import { AdminLayout } from '@/components/templates/AdminLayout/AdminLayout';
-import { useGetAllRolesQuery, useDeleteRoleMutation, useRestoreRoleMutation } from '@/services/rolesApi';
+import {
+  useGetAllRolesQuery,
+  useDeleteRoleMutation,
+  type Role,
+} from '@/services/rolesApi';
 import { TableSkeleton, EmptyState, ErrorState } from '@/components/molecules/DataStates';
 import { RolePermissionModal } from './RolePermissionModal';
-import { Plus, Pencil, Trash2, Shield, Lock, RotateCcw } from 'lucide-react';
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  Shield,
+  Lock,
+  ChevronDown,
+  ChevronRight,
+  Users,
+  Key,
+  Search,
+  RefreshCw,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-/**
- * RolesPage — Enterprise RBAC role management.
- * All data from backend via RTK Query — no mock data.
- */
+const SYSTEM_ROLES = ['SUPER_ADMIN'];
+
 export function RolesPage() {
-  const { data: roles, isLoading, isError, refetch } = useGetAllRolesQuery();
-  const [deleteRole] = useDeleteRoleMutation();
-  const [restoreRole] = useRestoreRoleMutation();
+  const {
+    data: roles,
+    isLoading,
+    isError,
+    refetch,
+  } = useGetAllRolesQuery({ isDetailed: true });
+
+  const [deleteRole, { isLoading: isDeleting }] = useDeleteRoleMutation();
 
   const [editingRoleId, setEditingRoleId] = React.useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = React.useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = React.useState<string | null>(null);
+  const [expandedRoleId, setExpandedRoleId] = React.useState<string | null>(null);
+  const [search, setSearch] = React.useState('');
 
   const handleDelete = async (roleId: string) => {
     try {
       await deleteRole(roleId).unwrap();
       setConfirmDeleteId(null);
-    } catch (e) {
+    } catch (e: any) {
       console.error('Failed to delete role:', e);
     }
   };
 
-  const handleRestore = async (roleId: string) => {
-    try {
-      await restoreRole(roleId).unwrap();
-    } catch (e) {
-      console.error('Failed to restore role:', e);
-    }
-  };
+  const filteredRoles = React.useMemo(() => {
+    if (!roles) return [];
+    if (!search) return roles;
+    const q = search.toLowerCase();
+    return roles.filter((r) => r.name.toLowerCase().includes(q));
+  }, [roles, search]);
+
+  const confirmRole = roles?.find((r) => r.id === confirmDeleteId);
 
   return (
     <AdminLayout>
@@ -42,175 +64,277 @@ export function RolesPage() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
-            <h1 className="text-xl font-bold text-foreground">Roles & Permissions</h1>
+            <h1 className="text-xl font-bold text-foreground">Roles</h1>
             <p className="text-sm mt-0.5 text-muted-foreground">
-              Manage platform roles and their permission assignments.
+              Manage platform roles and their assigned permissions.
             </p>
           </div>
-          <button
-            className="admin-btn admin-btn-primary"
-            onClick={() => setShowCreateModal(true)}
-          >
+          <button className="admin-btn admin-btn-primary" onClick={() => setShowCreateModal(true)}>
             <Plus className="h-4 w-4" />
             Create Role
           </button>
         </div>
 
-        {/* Loading State */}
-        {isLoading && <TableSkeleton columns={5} rows={5} />}
+        {/* Toolbar */}
+        <div className="admin-card p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <input
+              className="admin-input pl-10"
+              placeholder="Search roles..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <button className="admin-btn admin-btn-secondary" onClick={() => refetch()}>
+            <RefreshCw className="h-4 w-4" />
+            Refresh
+          </button>
+        </div>
 
-        {/* Error State */}
+        {/* Stats row */}
+        {!isLoading && !isError && roles && (
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { label: 'Total Roles', value: roles.length, icon: Shield, color: 'text-primary bg-primary/10 border-primary/20' },
+              {
+                label: 'Total Permissions',
+                value: roles.reduce((acc, r) => acc + (r.systemPermissions?.length ?? 0), 0),
+                icon: Key,
+                color: 'text-violet-400 bg-violet-500/10 border-violet-500/20',
+              },
+              {
+                label: 'Users Assigned',
+                value: roles.reduce((acc, r) => acc + (r.users?.length ?? 0), 0),
+                icon: Users,
+                color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
+              },
+            ].map((stat) => {
+              const Icon = stat.icon;
+              return (
+                <div
+                  key={stat.label}
+                  className={`admin-card p-4 border flex items-center gap-3 ${stat.color.split(' ').slice(1).join(' ')}`}
+                >
+                  <div className={`h-9 w-9 rounded-lg flex items-center justify-center ${stat.color}`}>
+                    <Icon className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <p className="text-xl font-bold text-foreground">{stat.value}</p>
+                    <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                      {stat.label}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Loading */}
+        {isLoading && <TableSkeleton columns={4} rows={5} />}
+
+        {/* Error */}
         {isError && (
           <ErrorState
             title="Failed to load roles"
-            message="Could not fetch roles from the server. Please check your connection and try again."
+            message="Could not fetch roles. Please check your connection."
             onRetry={refetch}
           />
         )}
 
-        {/* Empty State */}
-        {!isLoading && !isError && roles && roles.length === 0 && (
+        {/* Empty */}
+        {!isLoading && !isError && filteredRoles.length === 0 && (
           <EmptyState
             icon={Shield}
-            title="No roles configured"
-            description="Create your first role to start managing access permissions."
+            title="No roles found"
+            description={search ? 'Try a different search term.' : 'Create your first role to manage access.'}
             action={
-              <button className="admin-btn admin-btn-primary text-xs" onClick={() => setShowCreateModal(true)}>
-                <Plus className="h-3.5 w-3.5" /> Create Role
-              </button>
+              !search ? (
+                <button
+                  className="admin-btn admin-btn-primary text-xs"
+                  onClick={() => setShowCreateModal(true)}
+                >
+                  <Plus className="h-3.5 w-3.5" /> Create Role
+                </button>
+              ) : undefined
             }
           />
         )}
 
-        {/* Roles Table */}
-        {!isLoading && !isError && roles && roles.length > 0 && (
-          <div className="admin-card overflow-hidden">
-            <div className="admin-table-wrapper">
-              <table className="admin-table">
-                <thead>
-                  <tr>
-                    <th>Role Name</th>
-                    <th>Permissions</th>
-                    <th>Status</th>
-                    <th>Created</th>
-                    <th className="w-[160px]">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {roles.map((role) => (
-                    <tr key={role.id} className={role.isArchived ? 'opacity-50' : ''}>
-                      <td>
-                        <div className="flex items-center gap-2.5">
-                          <div
-                            className={cn(
-                              "h-8 w-8 rounded-lg flex items-center justify-center shrink-0",
-                              role.isArchived ? "bg-muted" : "bg-primary/15"
-                            )}
-                          >
-                            <Shield className={cn("h-4 w-4", role.isArchived ? "text-muted-foreground" : "text-primary")} />
-                          </div>
-                          <div>
-                            <p className="font-semibold text-sm text-foreground">{role.name}</p>
-                            {role.description && (
-                              <p className="text-xs text-muted-foreground">{role.description}</p>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-                      <td>
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-info/10 text-info border border-info/20">
-                          {role.permissions?.length ?? 0} permissions
-                        </span>
-                      </td>
-                      <td>
-                        <span className={cn(
-                          "admin-badge",
-                          role.isArchived ? "admin-badge-inactive" : "admin-badge-active"
-                        )}>
-                          {role.isArchived ? 'Archived' : 'Active'}
-                        </span>
-                      </td>
-                      <td>
-                        <span className="text-sm text-muted-foreground">
-                          {role.createdAt ? new Date(role.createdAt).toLocaleDateString() : '—'}
-                        </span>
-                      </td>
-                      <td>
-                        <div className="flex items-center gap-1">
-                          {role.isArchived ? (
-                            <button
-                              className="p-1.5 rounded-md hover:bg-success/10"
-                              title="Restore role"
-                              onClick={() => handleRestore(role.id)}
-                            >
-                              <RotateCcw className="h-4 w-4 text-success" />
-                            </button>
-                          ) : (
-                            <>
-                              <button
-                                className="p-1.5 rounded-md hover:bg-muted"
-                                title="Edit permissions"
-                                onClick={() => setEditingRoleId(role.id)}
-                              >
-                                <Pencil className="h-4 w-4 text-muted-foreground" />
-                              </button>
-                              <button
-                                className="p-1.5 rounded-md hover:bg-danger/10"
-                                title="Delete role"
-                                onClick={() => setConfirmDeleteId(role.id)}
-                              >
-                                <Trash2 className="h-4 w-4 text-danger" />
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
+        {/* Roles list — expandable cards */}
+        {!isLoading && !isError && filteredRoles.length > 0 && (
+          <div className="space-y-2">
+            {filteredRoles.map((role) => {
+              const isExpanded = expandedRoleId === role.id;
+              const isSystem = SYSTEM_ROLES.includes(role.name);
+              const permCount = role.systemPermissions?.length ?? 0;
+              const userCount = role.users?.length ?? 0;
 
-        {/* Role Legend */}
-        {!isLoading && !isError && roles && roles.length > 0 && (
-          <div className="flex items-center gap-4 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1.5">
-              <Shield className="h-3.5 w-3.5 text-primary" />
-              Active role
-            </span>
-            <span className="flex items-center gap-1.5">
-              <Lock className="h-3.5 w-3.5 text-muted-foreground" />
-              Archived role (restorable)
-            </span>
+              return (
+                <div
+                  key={role.id}
+                  className={cn(
+                    'admin-card border transition-all duration-200',
+                    isExpanded ? 'border-primary/30' : 'border-border',
+                  )}
+                >
+                  {/* Role header row */}
+                  <div className="flex items-center gap-3 p-4">
+                    {/* Expand toggle */}
+                    <button
+                      className="p-1 rounded hover:bg-muted text-muted-foreground"
+                      onClick={() => setExpandedRoleId(isExpanded ? null : role.id)}
+                    >
+                      {isExpanded ? (
+                        <ChevronDown className="h-4 w-4" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4" />
+                      )}
+                    </button>
+
+                    {/* Icon */}
+                    <div
+                      className={cn(
+                        'h-9 w-9 rounded-lg flex items-center justify-center shrink-0',
+                        isSystem ? 'bg-amber-500/10 border border-amber-500/20' : 'bg-primary/10 border border-primary/20',
+                      )}
+                    >
+                      {isSystem ? (
+                        <Lock className="h-4 w-4 text-amber-400" />
+                      ) : (
+                        <Shield className="h-4 w-4 text-primary" />
+                      )}
+                    </div>
+
+                    {/* Name & badges */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-bold text-sm text-foreground font-mono">
+                          {role.name}
+                        </span>
+                        {isSystem && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 font-semibold">
+                            SYSTEM
+                          </span>
+                        )}
+                        {role.isDefault && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-info/10 text-info border border-info/20 font-semibold">
+                            DEFAULT
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3 mt-1">
+                        <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+                          <Key className="h-3 w-3" />
+                          {permCount} permission{permCount !== 1 ? 's' : ''}
+                        </span>
+                        <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+                          <Users className="h-3 w-3" />
+                          {userCount} user{userCount !== 1 ? 's' : ''}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Actions */}
+                    {role.isEditable && (
+                      <div className="flex items-center gap-1">
+                        <button
+                          className="p-1.5 rounded-md hover:bg-muted transition-colors"
+                          title="Edit role & permissions"
+                          onClick={() => setEditingRoleId(role.id)}
+                        >
+                          <Pencil className="h-4 w-4 text-muted-foreground" />
+                        </button>
+                        <button
+                          className="p-1.5 rounded-md hover:bg-danger/10 transition-colors"
+                          title="Delete role"
+                          onClick={() => setConfirmDeleteId(role.id)}
+                        >
+                          <Trash2 className="h-4 w-4 text-danger" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Expanded — permissions + users */}
+                  {isExpanded && (
+                    <div className="border-t border-border px-4 pb-4 pt-3 grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Permissions */}
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">
+                          Permissions ({permCount})
+                        </p>
+                        {permCount === 0 ? (
+                          <p className="text-xs text-muted-foreground italic">No permissions assigned.</p>
+                        ) : (
+                          <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto">
+                            {(role.systemPermissions ?? []).map((p) => (
+                              <span
+                                key={p.id}
+                                title={p.description ?? p.name}
+                                className="text-[10px] px-2 py-0.5 rounded-md bg-primary/5 border border-primary/15 text-primary font-mono font-medium"
+                              >
+                                {p.name}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Assigned users */}
+                      <div>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">
+                          Assigned Users ({userCount})
+                        </p>
+                        {userCount === 0 ? (
+                          <p className="text-xs text-muted-foreground italic">No users assigned to this role.</p>
+                        ) : (
+                          <div className="space-y-1.5 max-h-36 overflow-y-auto">
+                            {(role.users ?? []).map((u) => (
+                              <div key={u.id} className="flex items-center gap-2">
+                                <div className="h-6 w-6 rounded-full bg-muted flex items-center justify-center text-[10px] font-bold text-foreground shrink-0">
+                                  {(u.email || '?')[0].toUpperCase()}
+                                </div>
+                                <span className="text-xs text-foreground truncate">{u.email}</span>
+                                {u.isArchived && (
+                                  <span className="text-[10px] text-muted-foreground">(archived)</span>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
 
       {/* Edit Role Modal */}
       {editingRoleId && (
-        <RolePermissionModal
-          roleId={editingRoleId}
-          onClose={() => setEditingRoleId(null)}
-        />
+        <RolePermissionModal roleId={editingRoleId} onClose={() => setEditingRoleId(null)} />
       )}
 
       {/* Create Role Modal */}
       {showCreateModal && (
-        <RolePermissionModal
-          roleId={null}
-          onClose={() => setShowCreateModal(false)}
-        />
+        <RolePermissionModal roleId={null} onClose={() => setShowCreateModal(false)} />
       )}
 
-      {/* Delete Confirmation Dialog */}
+      {/* Delete Confirmation */}
       {confirmDeleteId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
           <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-sm p-6">
-            <h2 className="text-lg font-bold mb-2 text-foreground">Delete Role</h2>
-            <p className="text-sm text-muted-foreground mb-5">
-              Are you sure you want to delete this role? This action can be reversed using the restore function.
+            <h2 className="text-lg font-bold mb-1 text-foreground">Delete Role</h2>
+            <p className="text-sm text-muted-foreground mb-1">
+              Are you sure you want to delete{' '}
+              <span className="font-semibold text-foreground font-mono">{confirmRole?.name}</span>?
+            </p>
+            <p className="text-xs text-warning mb-5">
+              All users in this role will be reassigned to CONTRIBUTOR.
             </p>
             <div className="flex justify-end gap-2">
               <button
@@ -221,9 +345,11 @@ export function RolesPage() {
               </button>
               <button
                 className="admin-btn admin-btn-danger"
+                disabled={isDeleting}
                 onClick={() => handleDelete(confirmDeleteId)}
               >
-                <Trash2 className="h-4 w-4" /> Delete
+                <Trash2 className="h-4 w-4" />
+                {isDeleting ? 'Deleting...' : 'Delete'}
               </button>
             </div>
           </div>

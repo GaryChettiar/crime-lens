@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { Bell, Moon, Sun, Monitor, Menu, Filter } from 'lucide-react';
+import { Bell, Moon, Sun, Monitor, Menu, Filter, Shield, Key, User, Settings } from 'lucide-react';
 import { Icon } from '@/components/atoms/Icon';
 import { SearchBar } from '@/components/molecules/SearchBar';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
@@ -219,9 +219,23 @@ export function TopNavbar({ title = 'Dashboard' }: TopNavbarProps) {
                 </span>
               </div>
             </div>
-            <DropdownMenuItem className="cursor-pointer">Profile</DropdownMenuItem>
-            <DropdownMenuItem className="cursor-pointer">Account Settings</DropdownMenuItem>
-            <DropdownMenuItem onClick={handleSignOut} className="text-danger cursor-pointer font-semibold">
+            <DropdownMenuItem className="cursor-pointer gap-2" onSelect={() => navigate('/administration/profile')}>
+              <User className="h-4 w-4 text-muted-foreground" />
+              Profile
+            </DropdownMenuItem>
+            <DropdownMenuItem className="cursor-pointer gap-2" onSelect={() => navigate('/administration/roles')}>
+              <Shield className="h-4 w-4 text-muted-foreground" />
+              Roles
+            </DropdownMenuItem>
+            <DropdownMenuItem className="cursor-pointer gap-2" onSelect={() => navigate('/administration/permissions')}>
+              <Key className="h-4 w-4 text-muted-foreground" />
+              Permissions
+            </DropdownMenuItem>
+            <DropdownMenuItem className="cursor-pointer gap-2" onSelect={() => navigate('/administration/settings')}>
+              <Settings className="h-4 w-4 text-muted-foreground" />
+              Settings
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={handleSignOut} className="text-danger cursor-pointer font-semibold">
               Sign Out
             </DropdownMenuItem>
           </DropdownMenuContent>

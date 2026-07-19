@@ -23,6 +23,7 @@ export function ProtectedRoute() {
     );
   }
 
+  // AUTH GUARD TEMPORARILY DISABLED — skip login phase
   // if (isError || !user) {
   //   return <Navigate to="/login" replace state={{ from: location }} />;
   // }

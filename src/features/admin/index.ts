@@ -1,6 +1,7 @@
 export { ProfilePage } from './components/ProfilePage';
 export { UsersPage } from './components/UsersPage';
 export { RolesPage } from './components/RolesPage';
+export { PermissionsPage } from './components/PermissionsPage';
 export { SettingsPage } from './components/SettingsPage';
 export { DistrictsPage } from './components/DistrictsPage';
 export { StationTypesPage } from './components/StationTypesPage';

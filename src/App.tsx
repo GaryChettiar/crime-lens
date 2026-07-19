@@ -19,6 +19,7 @@ import {
   ProfilePage,
   UsersPage,
   RolesPage,
+  PermissionsPage,
   SettingsPage,
   DistrictsPage,
   StationTypesPage,
@@ -88,6 +89,7 @@ function App() {
         <Route path="/administration/profile" element={<ProfilePage />} />
         <Route path="/administration/users" element={<UsersPage />} />
         <Route path="/administration/roles" element={<RolesPage />} />
+        <Route path="/administration/permissions" element={<PermissionsPage />} />
         <Route path="/administration/districts" element={<DistrictsPage />} />
         <Route path="/administration/station-types" element={<StationTypesPage />} />
         <Route path="/administration/police-stations" element={<PoliceStationsPage />} />

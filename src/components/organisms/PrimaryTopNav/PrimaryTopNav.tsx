@@ -9,6 +9,7 @@ import {
   AlertTriangle,
   Shield,
   User,
+  Key,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Icon } from "@/components/atoms/Icon";
@@ -252,34 +253,43 @@ export function PrimaryTopNav({ showMobileMenu = false }: PrimaryTopNavProps) {
 
             {/* Profile page option */}
             <DropdownMenuItem
-              className="cursor-pointer hover:bg-accent"
-              onClick={() => navigate("/administration/profile")}
+              className="cursor-pointer hover:bg-accent gap-2"
+              onSelect={() => navigate("/administration/profile")}
             >
+              <User className="h-4 w-4 text-muted-foreground" />
               Profile
             </DropdownMenuItem>
 
-            <DropdownMenuSeparator className="bg-border/40" />
+            <DropdownMenuItem
+              className="cursor-pointer hover:bg-accent gap-2"
+              onSelect={() => navigate("/administration/roles")}
+            >
+              <Shield className="h-4 w-4 text-muted-foreground" />
+              Roles
+            </DropdownMenuItem>
 
-            {/* Users & Roles */}
+            {/* <DropdownMenuItem
+              className="cursor-pointer hover:bg-accent gap-2"
+              onSelect={() => navigate("/administration/permissions")}
+            >
+              <Key className="h-4 w-4 text-muted-foreground" />
+              Permissions
+            </DropdownMenuItem> */}
+
+            {/* <DropdownMenuSeparator className="bg-border/40" /> */}
+
+            {/* Users */}
             {hasPermission("users.view") && (
               <DropdownMenuItem
-                className="cursor-pointer hover:bg-accent"
-                onClick={() => navigate("/administration/users")}
+                className="cursor-pointer hover:bg-accent gap-2"
+                onSelect={() => navigate("/administration/users")}
               >
+                <User className="h-4 w-4 text-muted-foreground" />
                 Users
               </DropdownMenuItem>
             )}
 
-            {hasPermission("roles.view") && (
-              <DropdownMenuItem
-                className="cursor-pointer hover:bg-accent"
-                onClick={() => navigate("/administration/roles")}
-              >
-                Roles & Permissions
-              </DropdownMenuItem>
-            )}
-
-            <DropdownMenuSeparator className="bg-border/40" />
+            {/* <DropdownMenuSeparator className="bg-border/40" /> */}
 
             {/* Geography & Police Infrastructure */}
             {hasPermission("districts.view") && (
@@ -360,8 +370,8 @@ export function PrimaryTopNav({ showMobileMenu = false }: PrimaryTopNavProps) {
             <DropdownMenuSeparator className="bg-border/40" />
 
             <DropdownMenuItem
-              className="cursor-pointer hover:bg-accent"
-              onClick={() => navigate("/administration/settings")}
+              className="cursor-pointer hover:bg-accent gap-2"
+              onSelect={() => navigate("/administration/settings")}
             >
               Settings
             </DropdownMenuItem>
@@ -369,7 +379,7 @@ export function PrimaryTopNav({ showMobileMenu = false }: PrimaryTopNavProps) {
             <div className="border-t border-border/40 my-1" />
 
             <DropdownMenuItem
-              onClick={handleSignOut}
+              onSelect={handleSignOut}
               className="text-danger cursor-pointer font-semibold hover:bg-danger/10 focus:bg-danger/10"
             >
               Sign Out
