@@ -11,6 +11,7 @@ import {
   useReinviteUserMutation,
 } from '@/services/usersApi';
 import { useGetAllRolesQuery } from '@/services/rolesApi';
+import { useGetCurrentUserQuery } from '@/services/authApi';
 import { TableSkeleton, EmptyState, ErrorState } from '@/components/molecules/DataStates';
 import {
   Search,
@@ -40,6 +41,7 @@ export function UsersPage() {
   // API data
   const { data: usersData, isLoading, isError, refetch: refetchUsers } = useGetAllUsersQuery({ page, limit: pageSize });
   const { data: roles } = useGetAllRolesQuery();
+  const { data: currentUser } = useGetCurrentUserQuery();
   const { data: invites, isLoading: invitesLoading, refetch: refetchInvites } = useGetInvitesQuery();
 
   // Mutations
@@ -63,7 +65,6 @@ export function UsersPage() {
 
   // Invite form
   const [inviteEmail, setInviteEmail] = React.useState('');
-  const [inviteRole, setInviteRole] = React.useState('');
   const [inviteFeedback, setInviteFeedback] = React.useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [resendingEmail, setResendingEmail] = React.useState<string | null>(null);
 
@@ -144,12 +145,18 @@ export function UsersPage() {
 
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inviteEmail || !inviteRole) return;
+    if (!inviteEmail) return;
     setInviteFeedback(null);
+    if (!currentUser?.id) {
+      setInviteFeedback({ type: 'error', message: 'Your session could not be identified. Please sign in again.' });
+      return;
+    }
     try {
-      const response = await inviteUserMutation({ email: inviteEmail.trim(), roleId: inviteRole }).unwrap();
+      const response = await inviteUserMutation({
+        email: inviteEmail.trim(),
+        invited_by: currentUser.id,
+      }).unwrap();
       setInviteEmail('');
-      setInviteRole('');
       setShowInviteModal(false);
       setActiveTab('invites');
       setInviteFeedback({ type: 'success', message: response.message || 'Invitation email sent successfully.' });
@@ -516,7 +523,7 @@ export function UsersPage() {
                         <tr key={inv.id}>
                           <td className="font-semibold text-foreground">{inv.email}</td>
                           <td>
-                            <span className="admin-badge admin-badge-role">{inv.roleName || inv.roleId}</span>
+                            <span className="admin-badge admin-badge-role">{inv.roleName || inv.roleId || 'Default role'}</span>
                           </td>
                           <td className="text-muted-foreground">{inv.invitedBy || '—'}</td>
                           <td>
@@ -556,7 +563,7 @@ export function UsersPage() {
             <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
               <h2 className="text-lg font-bold mb-1 text-foreground">Invite User</h2>
               <p className="text-sm mb-5 text-muted-foreground">
-                Send an invitation email to a new platform user.
+                Send an invitation email to a new platform user. Their default role is assigned by the server.
               </p>
               <form onSubmit={handleInvite} className="space-y-4">
                 <div>
@@ -569,20 +576,6 @@ export function UsersPage() {
                     onChange={(e) => setInviteEmail(e.target.value)}
                     placeholder="user@crimelens.gov.in"
                   />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold mb-1.5 text-muted-foreground">Role</label>
-                  <select
-                    className="admin-input bg-card text-foreground"
-                    required
-                    value={inviteRole}
-                    onChange={(e) => setInviteRole(e.target.value)}
-                  >
-                    <option value="">Select role...</option>
-                    {(roles || []).map((r) => (
-                      <option key={r.id} value={r.id}>{r.name}</option>
-                    ))}
-                  </select>
                 </div>
                 <div className="flex justify-end gap-2 pt-2">
                   <button type="button" className="admin-btn admin-btn-secondary" onClick={() => setShowInviteModal(false)}>
