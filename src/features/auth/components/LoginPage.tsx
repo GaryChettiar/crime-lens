@@ -9,9 +9,8 @@ import {
   Lock,
   Activity,
 } from 'lucide-react';
-import { consumePostLoginPath, savePostLoginPath } from '@/config/auth';
+import { CATALYST_LOGIN_URL, consumePostLoginPath, savePostLoginPath } from '@/config/auth';
 import { useGetCurrentUserQuery } from '@/services/authApi';
-import { renderCatalystSignIn } from '@/services/catalystAuth';
 
 const FEATURES = [
   {
@@ -50,13 +49,9 @@ const FEATURES = [
 
 export function LoginPage() {
   const [isRedirecting, setIsRedirecting] = React.useState(false);
-  const [showCatalystForm, setShowCatalystForm] = React.useState(false);
-  const [authError, setAuthError] = React.useState<string | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
-  const { data: authenticatedUser, isLoading: isCheckingSession } = useGetCurrentUserQuery(undefined, {
-    pollingInterval: showCatalystForm ? 1500 : 0,
-  });
+  const { data: authenticatedUser, isLoading: isCheckingSession } = useGetCurrentUserQuery();
 
   React.useEffect(() => {
     if (authenticatedUser) {
@@ -64,29 +59,14 @@ export function LoginPage() {
     }
   }, [authenticatedUser, navigate]);
 
-  const handleSignIn = async () => {
+  const handleSignIn = () => {
     setIsRedirecting(true);
-    setAuthError(null);
     const from = (location.state as { from?: unknown } | null)?.from;
     const returnPath = typeof from === 'string' && from.startsWith('/') && !from.startsWith('//')
       ? from
       : '/dashboard';
     savePostLoginPath(returnPath);
-    setShowCatalystForm(true);
-
-    // Wait for React to mount the target element before Catalyst renders its form.
-    requestAnimationFrame(async () => {
-      try {
-        await renderCatalystSignIn('catalyst-login-form', {
-          // Keep hosted authentication on the same Slate deployment and route.
-          service_url: new URL(returnPath, window.location.origin).toString(),
-        });
-      } catch (error) {
-        setShowCatalystForm(false);
-        setAuthError(error instanceof Error ? error.message : 'Unable to load secure sign-in.');
-        setIsRedirecting(false);
-      }
-    });
+    window.location.assign(CATALYST_LOGIN_URL);
   };
 
   return (
@@ -148,33 +128,25 @@ export function LoginPage() {
               </p>
             </div>
 
-            {showCatalystForm ? (
-              <div id="catalyst-login-form" className="min-h-52" aria-live="polite" />
-            ) : (
-              <button
-                id="signin-btn"
-                onClick={handleSignIn}
-                disabled={isRedirecting || isCheckingSession}
-                className="group relative w-full overflow-hidden rounded-xl bg-primary px-6 py-3 text-sm font-bold text-primary-foreground shadow-lg shadow-primary/30 transition-all duration-200 hover:bg-primary/90 hover:shadow-primary/40 hover:shadow-xl active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                {isRedirecting || isCheckingSession ? (
-                  <>
-                    <span className="h-4 w-4 rounded-full border-2 border-primary-foreground border-t-transparent animate-spin" />
-                    Preparing secure sign-in...
-                  </>
-                ) : (
-                  <>
-                    <Lock className="h-4 w-4" />
-                    Access Secure Portal
-                    <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
-                  </>
-                )}
-              </button>
-            )}
-
-            {authError && (
-              <p className="mt-3 text-center text-xs text-red-400" role="alert">{authError}</p>
-            )}
+            <button
+              id="signin-btn"
+              onClick={handleSignIn}
+              disabled={isRedirecting || isCheckingSession}
+              className="group relative w-full overflow-hidden rounded-xl bg-primary px-6 py-3 text-sm font-bold text-primary-foreground shadow-lg shadow-primary/30 transition-all duration-200 hover:bg-primary/90 hover:shadow-primary/40 hover:shadow-xl active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {isRedirecting || isCheckingSession ? (
+                <>
+                  <span className="h-4 w-4 rounded-full border-2 border-primary-foreground border-t-transparent animate-spin" />
+                  Redirecting to secure sign-in...
+                </>
+              ) : (
+                <>
+                  <Lock className="h-4 w-4" />
+                  Access Secure Portal
+                  <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+                </>
+              )}
+            </button>
 
             <div className="mt-4 flex items-center justify-center gap-2 text-[10px] text-muted-foreground/60">
               <Shield className="h-3 w-3" />

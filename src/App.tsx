@@ -8,7 +8,7 @@ import { CrimeDataPage } from '@/features/crime-data';
 import { AlertsPage } from '@/features/alerts';
 import { EfirPage } from '@/features/efir/components/EfirPage';
 import { DesignSystemPreview } from '@/components/templates/DesignSystemPreview';
-import { LoginPage, ProtectedRoute, InviteOnboardPage } from '@/features/auth';
+import { LoginPage, ProtectedRoute, InviteOnboardPage, PermissionGuard } from '@/features/auth';
 import {
   CrimesListPage,
   CrimeDetailWorkspace,
@@ -87,7 +87,14 @@ function App() {
 
         {/* Administration */}
         <Route path="/administration/profile" element={<ProfilePage />} />
-        <Route path="/administration/users" element={<UsersPage />} />
+        <Route
+          path="/administration/users"
+          element={(
+            <PermissionGuard permissions={['users.view']}>
+              <UsersPage />
+            </PermissionGuard>
+          )}
+        />
         <Route path="/administration/roles" element={<RolesPage />} />
         <Route path="/administration/permissions" element={<PermissionsPage />} />
         <Route path="/administration/districts" element={<DistrictsPage />} />
