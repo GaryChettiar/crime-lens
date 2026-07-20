@@ -68,13 +68,19 @@ export function LoginPage() {
     setIsRedirecting(true);
     setAuthError(null);
     const from = (location.state as { from?: unknown } | null)?.from;
-    savePostLoginPath(typeof from === 'string' ? from : '/dashboard');
+    const returnPath = typeof from === 'string' && from.startsWith('/') && !from.startsWith('//')
+      ? from
+      : '/dashboard';
+    savePostLoginPath(returnPath);
     setShowCatalystForm(true);
 
     // Wait for React to mount the target element before Catalyst renders its form.
     requestAnimationFrame(async () => {
       try {
-        await renderCatalystSignIn('catalyst-login-form');
+        await renderCatalystSignIn('catalyst-login-form', {
+          // Keep hosted authentication on the same Slate deployment and route.
+          service_url: new URL(returnPath, window.location.origin).toString(),
+        });
       } catch (error) {
         setShowCatalystForm(false);
         setAuthError(error instanceof Error ? error.message : 'Unable to load secure sign-in.');

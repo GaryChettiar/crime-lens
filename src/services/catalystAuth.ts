@@ -71,8 +71,11 @@ export async function getCatalystCurrentUser() {
   return response.content;
 }
 
-export async function renderCatalystSignIn(elementId: string) {
-  (await getCatalystAuth()).signIn(elementId);
+export async function renderCatalystSignIn(
+  elementId: string,
+  config?: Record<string, unknown>,
+) {
+  (await getCatalystAuth()).signIn(elementId, config);
 }
 
 export async function signOutFromCatalyst(redirectUrl: string) {
