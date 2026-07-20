@@ -27,7 +27,7 @@ export interface PaginatedUsers {
 export interface InviteResponse {
   id: string;
   email: string;
-  roleId: string;
+  roleId?: string;
   roleName?: string;
   status: 'pending' | 'accepted' | 'expired';
   invitedBy?: string;
@@ -110,7 +110,7 @@ export const usersApi = baseApi.injectEndpoints({
 
     // --- Invites ---
 
-    inviteUser: builder.mutation<{ message: string }, { email: string; roleId: string }>({
+    inviteUser: builder.mutation<{ message: string }, { email: string; invited_by: string }>({
       query: (body) => ({
         url: '/users/invites/invite',
         method: 'POST',
