@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Shield,
   Brain,
@@ -8,9 +9,9 @@ import {
   Lock,
   Activity,
 } from 'lucide-react';
-
-const CATALYST_LOGIN_URL =
-  'https://crimelens-60074096850.development.catalystserverless.in/__catalyst/auth/login';
+import { consumePostLoginPath, savePostLoginPath } from '@/config/auth';
+import { useGetCurrentUserQuery } from '@/services/authApi';
+import { renderCatalystSignIn } from '@/services/catalystAuth';
 
 const FEATURES = [
   {
@@ -49,10 +50,37 @@ const FEATURES = [
 
 export function LoginPage() {
   const [isRedirecting, setIsRedirecting] = React.useState(false);
+  const [showCatalystForm, setShowCatalystForm] = React.useState(false);
+  const [authError, setAuthError] = React.useState<string | null>(null);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { data: authenticatedUser, isLoading: isCheckingSession } = useGetCurrentUserQuery(undefined, {
+    pollingInterval: showCatalystForm ? 1500 : 0,
+  });
 
-  const handleSignIn = () => {
+  React.useEffect(() => {
+    if (authenticatedUser) {
+      navigate(consumePostLoginPath() ?? '/dashboard', { replace: true });
+    }
+  }, [authenticatedUser, navigate]);
+
+  const handleSignIn = async () => {
     setIsRedirecting(true);
-    window.location.href = CATALYST_LOGIN_URL;
+    setAuthError(null);
+    const from = (location.state as { from?: unknown } | null)?.from;
+    savePostLoginPath(typeof from === 'string' ? from : '/dashboard');
+    setShowCatalystForm(true);
+
+    // Wait for React to mount the target element before Catalyst renders its form.
+    requestAnimationFrame(async () => {
+      try {
+        await renderCatalystSignIn('catalyst-login-form');
+      } catch (error) {
+        setShowCatalystForm(false);
+        setAuthError(error instanceof Error ? error.message : 'Unable to load secure sign-in.');
+        setIsRedirecting(false);
+      }
+    });
   };
 
   return (
@@ -114,25 +142,33 @@ export function LoginPage() {
               </p>
             </div>
 
-            <button
-              id="signin-btn"
-              onClick={handleSignIn}
-              disabled={isRedirecting}
-              className="group relative w-full overflow-hidden rounded-xl bg-primary px-6 py-3 text-sm font-bold text-primary-foreground shadow-lg shadow-primary/30 transition-all duration-200 hover:bg-primary/90 hover:shadow-primary/40 hover:shadow-xl active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            >
-              {isRedirecting ? (
-                <>
-                  <span className="h-4 w-4 rounded-full border-2 border-primary-foreground border-t-transparent animate-spin" />
-                  Redirecting...
-                </>
-              ) : (
-                <>
-                  <Lock className="h-4 w-4" />
-                  Access Secure Portal
-                  <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
-                </>
-              )}
-            </button>
+            {showCatalystForm ? (
+              <div id="catalyst-login-form" className="min-h-52" aria-live="polite" />
+            ) : (
+              <button
+                id="signin-btn"
+                onClick={handleSignIn}
+                disabled={isRedirecting || isCheckingSession}
+                className="group relative w-full overflow-hidden rounded-xl bg-primary px-6 py-3 text-sm font-bold text-primary-foreground shadow-lg shadow-primary/30 transition-all duration-200 hover:bg-primary/90 hover:shadow-primary/40 hover:shadow-xl active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {isRedirecting || isCheckingSession ? (
+                  <>
+                    <span className="h-4 w-4 rounded-full border-2 border-primary-foreground border-t-transparent animate-spin" />
+                    Preparing secure sign-in...
+                  </>
+                ) : (
+                  <>
+                    <Lock className="h-4 w-4" />
+                    Access Secure Portal
+                    <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+                  </>
+                )}
+              </button>
+            )}
+
+            {authError && (
+              <p className="mt-3 text-center text-xs text-red-400" role="alert">{authError}</p>
+            )}
 
             <div className="mt-4 flex items-center justify-center gap-2 text-[10px] text-muted-foreground/60">
               <Shield className="h-3 w-3" />
