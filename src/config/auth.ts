@@ -6,6 +6,7 @@
  * baking a project URL into the application code.
  */
 const configuredOrigin = import.meta.env.VITE_CATALYST_ORIGIN?.trim().replace(/\/$/, '');
+const configuredSlateOrigin = import.meta.env.VITE_CATALYST_SLATE_URL?.trim().replace(/\/$/, '');
 
 export const CATALYST_ORIGIN = configuredOrigin || window.location.origin;
 
@@ -21,7 +22,9 @@ export const CATALYST_SDK_URL =
 
 export const CATALYST_SDK_INIT_URL =
   import.meta.env.VITE_CATALYST_SDK_INIT_URL?.trim() ||
-  '/__catalyst/sdk/init.js';
+  (configuredSlateOrigin
+    ? `${configuredSlateOrigin}/__catalyst/sdk/init.js`
+    : '/__catalyst/sdk/init.js');
 
 const RETURN_TO_KEY = 'crimelens:post-login-path';
 
