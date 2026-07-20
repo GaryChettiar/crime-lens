@@ -26,6 +26,8 @@ import {
   UserCheck,
   Mail,
   Loader2,
+  CheckCircle2,
+  AlertTriangle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -62,6 +64,8 @@ export function UsersPage() {
   // Invite form
   const [inviteEmail, setInviteEmail] = React.useState('');
   const [inviteRole, setInviteRole] = React.useState('');
+  const [inviteFeedback, setInviteFeedback] = React.useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [resendingEmail, setResendingEmail] = React.useState<string | null>(null);
 
   // Filtered users (client-side search on current page)
   const filteredUsers = React.useMemo(() => {
@@ -141,22 +145,38 @@ export function UsersPage() {
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inviteEmail || !inviteRole) return;
+    setInviteFeedback(null);
     try {
-      await inviteUserMutation({ email: inviteEmail, roleId: inviteRole }).unwrap();
+      const response = await inviteUserMutation({ email: inviteEmail.trim(), roleId: inviteRole }).unwrap();
       setInviteEmail('');
       setInviteRole('');
       setShowInviteModal(false);
+      setActiveTab('invites');
+      setInviteFeedback({ type: 'success', message: response.message || 'Invitation email sent successfully.' });
       refetchInvites();
+      refetchUsers();
     } catch (e) {
-      console.error(e);
+      setInviteFeedback({
+        type: 'error',
+        message: (e as { data?: { message?: string } })?.data?.message || 'Unable to send the invitation. Please try again.',
+      });
     }
   };
 
   const handleReinvite = async (email: string) => {
+    setInviteFeedback(null);
+    setResendingEmail(email);
     try {
-      await reinviteUser({ email }).unwrap();
+      const response = await reinviteUser({ email }).unwrap();
+      setInviteFeedback({ type: 'success', message: response.message || `Invitation resent to ${email}.` });
+      refetchInvites();
     } catch (e) {
-      console.error(e);
+      setInviteFeedback({
+        type: 'error',
+        message: (e as { data?: { message?: string } })?.data?.message || `Unable to resend the invitation to ${email}.`,
+      });
+    } finally {
+      setResendingEmail(null);
     }
   };
 
@@ -184,6 +204,21 @@ export function UsersPage() {
             Invite User
           </button>
         </div>
+
+        {inviteFeedback && (
+          <div
+            className={cn(
+              'flex items-center gap-2 rounded-lg border px-3 py-2.5 text-sm',
+              inviteFeedback.type === 'success'
+                ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-500'
+                : 'border-danger/30 bg-danger/10 text-danger',
+            )}
+            role="status"
+          >
+            {inviteFeedback.type === 'success' ? <CheckCircle2 className="h-4 w-4 shrink-0" /> : <AlertTriangle className="h-4 w-4 shrink-0" />}
+            <span>{inviteFeedback.message}</span>
+          </div>
+        )}
 
         {/* Toolbar */}
         <div className="admin-card p-4">
@@ -498,8 +533,10 @@ export function UsersPage() {
                               <button
                                 className="admin-btn admin-btn-ghost text-xs py-1 px-2 gap-1.5"
                                 onClick={() => handleReinvite(inv.email)}
+                                disabled={resendingEmail === inv.email}
                               >
-                                <Send className="h-3 w-3" /> Resend
+                                {resendingEmail === inv.email ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
+                                {resendingEmail === inv.email ? 'Sending...' : 'Resend'}
                               </button>
                             )}
                           </td>

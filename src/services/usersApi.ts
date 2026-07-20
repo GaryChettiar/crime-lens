@@ -117,7 +117,7 @@ export const usersApi = baseApi.injectEndpoints({
         body,
       }),
       transformResponse: (response: any) => response.data ?? response,
-      invalidatesTags: ['Invite'],
+      invalidatesTags: ['Invite', { type: 'User', id: 'LIST' }],
     }),
 
     getInvites: builder.query<InviteResponse[], void>({
@@ -139,7 +139,7 @@ export const usersApi = baseApi.injectEndpoints({
         body,
       }),
       transformResponse: (response: any) => response.data ?? response,
-      invalidatesTags: ['Invite'],
+      invalidatesTags: ['Invite', { type: 'User', id: 'LIST' }],
     }),
 
     onboardUser: builder.mutation<{ message: string }, { userInfoId: string; password: string }>({
