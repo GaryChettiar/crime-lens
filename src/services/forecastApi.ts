@@ -69,32 +69,46 @@ export const forecastApi = createApi({
   }),
   tagTypes: ['Forecast'],
   endpoints: (builder) => ({
-    getPredictedIncidents: builder.query<PredictedIncidentsResponse, { as_of?: string } | void>({
+    getPredictedIncidents: builder.query<
+      PredictedIncidentsResponse,
+      { start_date?: string; end_date?: string; as_of?: string } | void
+    >({
       query: (params) => ({
         url: '/api/forecast/predicted-incidents',
-        params: params?.as_of ? { as_of: params.as_of } : undefined,
+        params: {
+          ...(params?.start_date ? { start_date: params.start_date } : {}),
+          ...(params?.end_date ? { end_date: params.end_date } : {}),
+          ...(params?.as_of ? { as_of: params.as_of } : {}),
+        },
       }),
       providesTags: ['Forecast'],
     }),
 
-    getHighRiskDistricts: builder.query<HighRiskDistrictsResponse, { as_of?: string } | void>({
+    getHighRiskDistricts: builder.query<
+      HighRiskDistrictsResponse,
+      { start_date?: string; end_date?: string; as_of?: string } | void
+    >({
       query: (params) => ({
         url: '/api/forecast/high-risk-districts',
-        params: params?.as_of ? { as_of: params.as_of } : undefined,
+        params: {
+          ...(params?.start_date ? { start_date: params.start_date } : {}),
+          ...(params?.end_date ? { end_date: params.end_date } : {}),
+          ...(params?.as_of ? { as_of: params.as_of } : {}),
+        },
       }),
       providesTags: ['Forecast'],
     }),
 
     getCrimeTrend: builder.query<
       CrimeTrendResponse,
-      { start_date: string; end_date: string; as_of?: string }
+      { start_date?: string; end_date?: string; as_of?: string } | void
     >({
       query: (params) => ({
         url: '/api/forecast/crime-trend',
         params: {
-          start_date: params.start_date,
-          end_date: params.end_date,
-          ...(params.as_of ? { as_of: params.as_of } : {}),
+          ...(params?.start_date ? { start_date: params.start_date } : {}),
+          ...(params?.end_date ? { end_date: params.end_date } : {}),
+          ...(params?.as_of ? { as_of: params.as_of } : {}),
         },
       }),
       providesTags: ['Forecast'],

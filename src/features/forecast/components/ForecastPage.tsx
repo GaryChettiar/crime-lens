@@ -12,46 +12,51 @@ import {
 } from '@/services/forecastApi';
 
 export function ForecastPage() {
-  const [asOfDate, setAsOfDate] = React.useState<string>('');
-
-  // Generate date ranges for 30 days past and 30 days future
-  const { startDateStr, endDateStr } = React.useMemo(() => {
-    const now = asOfDate ? new Date(asOfDate) : new Date();
+  const defaultDates = React.useMemo(() => {
+    const now = new Date();
     const start = new Date(now);
     start.setDate(start.getDate() - 30);
     const end = new Date(now);
     end.setDate(end.getDate() + 30);
     return {
-      startDateStr: start.toISOString().split('T')[0],
-      endDateStr: end.toISOString().split('T')[0],
+      start: start.toISOString().split('T')[0],
+      end: end.toISOString().split('T')[0],
     };
-  }, [asOfDate]);
+  }, []);
 
-  // Fetch forecast data
+  const [startDate, setStartDate] = React.useState<string>(defaultDates.start);
+  const [endDate, setEndDate] = React.useState<string>(defaultDates.end);
+  const [asOfDate, setAsOfDate] = React.useState<string>('');
+
+  // Fetch forecast data with start_date and end_date
+  const queryParams = React.useMemo(() => {
+    const params: { start_date?: string; end_date?: string; as_of?: string } = {};
+    if (startDate) params.start_date = startDate;
+    if (endDate) params.end_date = endDate;
+    if (asOfDate) params.as_of = asOfDate;
+    return params;
+  }, [startDate, endDate, asOfDate]);
+
   const {
     data: predictedData,
     isLoading: isLoadingPredicted,
     isError: isErrorPredicted,
     refetch: refetchPredicted,
-  } = useGetPredictedIncidentsQuery(asOfDate ? { as_of: asOfDate } : undefined);
+  } = useGetPredictedIncidentsQuery(queryParams);
 
   const {
     data: highRiskData,
     isLoading: isLoadingHighRisk,
     isError: isErrorHighRisk,
     refetch: refetchHighRisk,
-  } = useGetHighRiskDistrictsQuery(asOfDate ? { as_of: asOfDate } : undefined);
+  } = useGetHighRiskDistrictsQuery(queryParams);
 
   const {
     data: trendData,
     isLoading: isLoadingTrend,
     isError: isErrorTrend,
     refetch: refetchTrend,
-  } = useGetCrimeTrendQuery({
-    start_date: startDateStr,
-    end_date: endDateStr,
-    ...(asOfDate ? { as_of: asOfDate } : {}),
-  });
+  } = useGetCrimeTrendQuery(queryParams);
 
   const isLoading = isLoadingPredicted || isLoadingHighRisk || isLoadingTrend;
   const isError = isErrorPredicted || isErrorHighRisk || isErrorTrend;
@@ -158,17 +163,45 @@ export function ForecastPage() {
           </div>
 
           {/* Action Bar / Date Selector */}
-          <div className="flex items-center gap-2">
-            <input
-              type="date"
-              value={asOfDate}
-              onChange={(e) => setAsOfDate(e.target.value)}
-              className="px-3 py-1.5 rounded-lg border border-border bg-card text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-              placeholder="As of Date"
-            />
-            {asOfDate && (
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-1.5">
+              <label className="text-xs font-medium text-muted-foreground">From:</label>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="px-2.5 py-1.5 rounded-lg border border-border bg-card text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                title="Start Date"
+              />
+            </div>
+            <div className="flex items-center gap-1.5">
+              <label className="text-xs font-medium text-muted-foreground">To:</label>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="px-2.5 py-1.5 rounded-lg border border-border bg-card text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                title="End Date"
+              />
+            </div>
+            <div className="flex items-center gap-1.5">
+              <label className="text-xs font-medium text-muted-foreground">As Of:</label>
+              <input
+                type="date"
+                value={asOfDate}
+                onChange={(e) => setAsOfDate(e.target.value)}
+                className="px-2.5 py-1.5 rounded-lg border border-border bg-card text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                placeholder="As of Date"
+                title="As Of Date"
+              />
+            </div>
+            {(startDate !== defaultDates.start || endDate !== defaultDates.end || asOfDate !== '') && (
               <button
-                onClick={() => setAsOfDate('')}
+                onClick={() => {
+                  setStartDate(defaultDates.start);
+                  setEndDate(defaultDates.end);
+                  setAsOfDate('');
+                }}
                 className="text-[11px] text-muted-foreground hover:text-foreground underline px-1"
               >
                 Reset
