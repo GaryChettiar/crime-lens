@@ -9,6 +9,7 @@ import {
   useGetPredictedIncidentsQuery,
   useGetHighRiskDistrictsQuery,
   useGetCrimeTrendQuery,
+  useTrainModelMutation,
 } from '@/services/forecastApi';
 
 export function ForecastPage() {
@@ -27,6 +28,9 @@ export function ForecastPage() {
   const [startDate, setStartDate] = React.useState<string>(defaultDates.start);
   const [endDate, setEndDate] = React.useState<string>(defaultDates.end);
   const [asOfDate, setAsOfDate] = React.useState<string>('');
+  const [trainStatusMessage, setTrainStatusMessage] = React.useState<string | null>(null);
+
+  const [trainModel, { isLoading: isTraining }] = useTrainModelMutation();
 
   // Fetch forecast data with start_date and end_date
   const queryParams = React.useMemo(() => {
@@ -65,6 +69,19 @@ export function ForecastPage() {
     refetchPredicted();
     refetchHighRisk();
     refetchTrend();
+  };
+
+  const handleTrainModel = async () => {
+    try {
+      setTrainStatusMessage('Training CatBoost model...');
+      const res = await trainModel().unwrap();
+      setTrainStatusMessage(`CatBoost Model Trained! (${res.training_records || 0} records)`);
+      setTimeout(() => setTrainStatusMessage(null), 5000);
+      handleRefresh();
+    } catch (err) {
+      setTrainStatusMessage('Model training failed.');
+      setTimeout(() => setTrainStatusMessage(null), 5000);
+    }
   };
 
   // Map API data to ForecastCard components
@@ -215,8 +232,27 @@ export function ForecastPage() {
               <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? 'animate-spin' : ''}`} />
               Refresh
             </button>
+            <button
+              onClick={handleTrainModel}
+              disabled={isTraining}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-semibold shadow-sm transition-colors disabled:opacity-50"
+              title="Train CatBoost Regressor on latest incident dataset"
+            >
+              <BrainCircuit className={`h-3.5 w-3.5 ${isTraining ? 'animate-spin' : ''}`} />
+              {isTraining ? 'Training...' : 'Train Model'}
+            </button>
           </div>
         </div>
+
+        {/* Training Notification Banner */}
+        {trainStatusMessage && (
+          <div className="flex items-center justify-between p-3.5 bg-primary/10 border border-primary/25 rounded-xl text-primary animate-in fade-in slide-in-from-top-1">
+            <div className="flex items-center gap-2.5">
+              <BrainCircuit className="h-4 w-4 shrink-0 animate-pulse" />
+              <span className="text-xs font-semibold">{trainStatusMessage}</span>
+            </div>
+          </div>
+        )}
 
         {/* Forecast Engine Status Banner */}
         {!isError ? (

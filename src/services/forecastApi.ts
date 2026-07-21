@@ -62,6 +62,18 @@ export interface CrimeTrendResponse {
   trend: CrimeTrendItem[];
 }
 
+export interface TrainModelResponse {
+  status: string;
+  model_type: string;
+  trained_at: string;
+  training_records: number;
+  days_covered: number;
+  start_date: string;
+  end_date: string;
+  features: string[];
+  iterations: number;
+}
+
 export const forecastApi = createApi({
   reducerPath: 'forecastApi',
   baseQuery: fetchBaseQuery({
@@ -113,6 +125,14 @@ export const forecastApi = createApi({
       }),
       providesTags: ['Forecast'],
     }),
+
+    trainModel: builder.mutation<TrainModelResponse, void>({
+      query: () => ({
+        url: '/api/forecast/train',
+        method: 'POST',
+      }),
+      invalidatesTags: ['Forecast'],
+    }),
   }),
 });
 
@@ -120,4 +140,6 @@ export const {
   useGetPredictedIncidentsQuery,
   useGetHighRiskDistrictsQuery,
   useGetCrimeTrendQuery,
+  useTrainModelMutation,
 } = forecastApi;
+
