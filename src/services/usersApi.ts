@@ -110,7 +110,7 @@ export const usersApi = baseApi.injectEndpoints({
 
     // --- Invites ---
 
-    inviteUser: builder.mutation<{ message: string }, { email: string; invited_by: string }>({
+    inviteUser: builder.mutation<{ message: string }, { email: string; first_name: string; last_name: string; phone: string; role_name: string; invited_by: string }>({
       query: (body) => ({
         url: '/users/invites/invite',
         method: 'POST',

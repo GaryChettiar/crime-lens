@@ -64,7 +64,11 @@ export function UsersPage() {
   const [confirmDeleteId, setConfirmDeleteId] = React.useState<string | null>(null);
 
   // Invite form
-  const [inviteEmail, setInviteEmail] = React.useState('');
+  const [inviteEmail, setInviteEmail] = React.useState('budgetwise02@gmail.com');
+  const [inviteFirstName, setInviteFirstName] = React.useState('John');
+  const [inviteLastName, setInviteLastName] = React.useState('Doe');
+  const [invitePhone, setInvitePhone] = React.useState('9876543210');
+  const [inviteRoleName, setInviteRoleName] = React.useState('OFFICER');
   const [inviteFeedback, setInviteFeedback] = React.useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [resendingEmail, setResendingEmail] = React.useState<string | null>(null);
 
@@ -147,16 +151,20 @@ export function UsersPage() {
     e.preventDefault();
     if (!inviteEmail) return;
     setInviteFeedback(null);
-    if (!currentUser?.id) {
-      setInviteFeedback({ type: 'error', message: 'Your session could not be identified. Please sign in again.' });
-      return;
-    }
     try {
       const response = await inviteUserMutation({
         email: inviteEmail.trim(),
-        invited_by: currentUser.id,
+        first_name: inviteFirstName.trim(),
+        last_name: inviteLastName.trim(),
+        phone: invitePhone.trim(),
+        role_name: inviteRoleName,
+        invited_by: currentUser?.id || '',
       }).unwrap();
-      setInviteEmail('');
+      setInviteEmail('budgetwise02@gmail.com');
+      setInviteFirstName('John');
+      setInviteLastName('Doe');
+      setInvitePhone('9876543210');
+      setInviteRoleName('OFFICER');
       setShowInviteModal(false);
       setActiveTab('invites');
       setInviteFeedback({ type: 'success', message: response.message || 'Invitation email sent successfully.' });
@@ -560,12 +568,38 @@ export function UsersPage() {
         {/* Invite Modal */}
         {showInviteModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
-            <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-lg p-6" onClick={(e) => e.stopPropagation()}>
               <h2 className="text-lg font-bold mb-1 text-foreground">Invite User</h2>
               <p className="text-sm mb-5 text-muted-foreground">
-                Send an invitation email to a new platform user. Their default role is assigned by the server.
+                Fill in the details below to invite a new platform user.
               </p>
               <form onSubmit={handleInvite} className="space-y-4">
+                {/* Row: First Name + Last Name */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold mb-1.5 text-muted-foreground">First Name</label>
+                    <input
+                      className="admin-input"
+                      type="text"
+                      required
+                      value={inviteFirstName}
+                      onChange={(e) => setInviteFirstName(e.target.value)}
+                      placeholder="John"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold mb-1.5 text-muted-foreground">Last Name</label>
+                    <input
+                      className="admin-input"
+                      type="text"
+                      required
+                      value={inviteLastName}
+                      onChange={(e) => setInviteLastName(e.target.value)}
+                      placeholder="Doe"
+                    />
+                  </div>
+                </div>
+                {/* Email */}
                 <div>
                   <label className="block text-xs font-semibold mb-1.5 text-muted-foreground">Email Address</label>
                   <input
@@ -576,6 +610,32 @@ export function UsersPage() {
                     onChange={(e) => setInviteEmail(e.target.value)}
                     placeholder="user@crimelens.gov.in"
                   />
+                </div>
+                {/* Phone */}
+                <div>
+                  <label className="block text-xs font-semibold mb-1.5 text-muted-foreground">Phone Number</label>
+                  <input
+                    className="admin-input"
+                    type="tel"
+                    required
+                    value={invitePhone}
+                    onChange={(e) => setInvitePhone(e.target.value)}
+                    placeholder="9876543210"
+                  />
+                </div>
+                {/* Role */}
+                <div>
+                  <label className="block text-xs font-semibold mb-1.5 text-muted-foreground">Role</label>
+                  <select
+                    className="admin-input"
+                    required
+                    value={inviteRoleName}
+                    onChange={(e) => setInviteRoleName(e.target.value)}
+                  >
+                    {(roles || []).map((r) => (
+                      <option key={r.id} value={r.name}>{r.name}</option>
+                    ))}
+                  </select>
                 </div>
                 <div className="flex justify-end gap-2 pt-2">
                   <button type="button" className="admin-btn admin-btn-secondary" onClick={() => setShowInviteModal(false)}>
