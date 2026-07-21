@@ -158,7 +158,7 @@ export function UsersPage() {
         last_name: inviteLastName.trim(),
         phone: invitePhone.trim(),
         role_name: inviteRoleName,
-        invited_by: currentUser?.id || '',
+        invited_by: '46044000000333002',
       }).unwrap();
       setInviteEmail('budgetwise02@gmail.com');
       setInviteFirstName('John');
