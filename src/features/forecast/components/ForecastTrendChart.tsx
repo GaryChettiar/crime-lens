@@ -38,13 +38,20 @@ const MOCK_TREND_DATA: TrendDataPoint[] = [
  */
 export function ForecastTrendChart({ data, title = 'Crime Trend Forecast' }: ForecastTrendChartProps) {
   const chartData = data ?? MOCK_TREND_DATA;
+  const isLive = Boolean(data && data.length > 0);
 
   return (
     <div className="bg-card/60 border border-border/60 rounded-xl p-4 backdrop-blur-sm">
       <div className="flex items-center justify-between mb-4">
         <span className="text-xs font-semibold text-foreground">{title}</span>
-        <span className="text-[10px] text-muted-foreground bg-amber-500/10 border border-amber-500/30 text-amber-400 px-2 py-0.5 rounded-full">
-          Mock Data
+        <span
+          className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${
+            isLive
+              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+              : 'bg-amber-500/10 border-amber-500/30 text-amber-400'
+          }`}
+        >
+          {isLive ? 'Live API' : 'Mock Data'}
         </span>
       </div>
       <ResponsiveContainer width="100%" height={220}>

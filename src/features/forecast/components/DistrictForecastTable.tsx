@@ -39,13 +39,20 @@ const MOCK_DATA: DistrictForecast[] = [
  */
 export function DistrictForecastTable({ data }: DistrictForecastTableProps) {
   const tableData = data ?? MOCK_DATA;
+  const isLive = Boolean(data && data.length > 0);
 
   return (
     <div className="bg-card/60 border border-border/60 rounded-xl overflow-hidden backdrop-blur-sm">
       <div className="flex items-center justify-between px-4 py-3 border-b border-border/50">
         <span className="text-xs font-semibold text-foreground">District Risk Forecast</span>
-        <span className="text-[10px] text-amber-400 bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 rounded-full">
-          Mock Data
+        <span
+          className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${
+            isLive
+              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+              : 'bg-amber-500/10 border-amber-500/30 text-amber-400'
+          }`}
+        >
+          {isLive ? 'Live API' : 'Mock Data'}
         </span>
       </div>
       <div className="overflow-x-auto">

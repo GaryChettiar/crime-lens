@@ -45,11 +45,15 @@ export function PredictionSummaryCard({ data }: PredictionSummaryCardProps) {
             <p className="text-[10px] text-muted-foreground">{summary.forecastPeriod}</p>
           </div>
         </div>
-        {isMock && (
-          <span className="text-[10px] text-amber-400 bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 rounded-full shrink-0">
-            Mock Data
-          </span>
-        )}
+        <span
+          className={`text-[10px] px-2 py-0.5 rounded-full border font-medium shrink-0 ${
+            !isMock
+              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+              : 'bg-amber-500/10 border-amber-500/30 text-amber-400'
+          }`}
+        >
+          {!isMock ? 'Live API' : 'Mock Data'}
+        </span>
       </div>
 
       <div className="grid grid-cols-3 gap-3 mb-4">
