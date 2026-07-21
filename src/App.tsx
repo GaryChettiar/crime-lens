@@ -52,6 +52,7 @@ function App() {
       {/* Public Routes */}
       <Route path="/login" element={<LoginPage />} />
       <Route path="/invite/onboard" element={<InviteOnboardPage />} />
+      <Route path="/user/invite" element={<InviteOnboardPage />} />
 
       {/* Protected Command Center Feature Routes */}
       <Route element={<ProtectedRoute />}>

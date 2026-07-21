@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useOnboardUserMutation } from '@/services/usersApi';
+import { useAcceptInviteMutation, useCheckInviteMutation, useOnboardUserMutation } from '@/services/usersApi';
 import { Shield, Lock, CheckCircle2, AlertTriangle, Eye, EyeOff, Check, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -88,7 +88,7 @@ function PasswordStrengthBar({ password }: { password: string }) {
 export function InviteOnboardPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const userInfoId = searchParams.get('token');
+  const inviteToken = searchParams.get('token');
 
   const [password, setPassword] = React.useState('');
   const [confirmPassword, setConfirmPassword] = React.useState('');
@@ -100,6 +100,15 @@ export function InviteOnboardPage() {
   const [countdown, setCountdown] = React.useState<number | null>(null);
 
   const [onboardUser, { isLoading }] = useOnboardUserMutation();
+  const [checkInvite, { isLoading: isCheckingInvite }] = useCheckInviteMutation();
+  const [acceptInvite] = useAcceptInviteMutation();
+
+  React.useEffect(() => {
+    if (!inviteToken) return;
+    checkInvite({ inviteToken }).unwrap().catch((error) => {
+      setErrorMsg(error?.data?.message || 'This invitation link is invalid or has expired.');
+    });
+  }, [checkInvite, inviteToken]);
 
   // Countdown redirect after success
   React.useEffect(() => {
@@ -119,7 +128,7 @@ export function InviteOnboardPage() {
     setErrorMsg('');
     setSuccessMsg('');
 
-    if (!userInfoId) {
+    if (!inviteToken) {
       setErrorMsg('Invalid or missing invitation token.');
       return;
     }
@@ -133,7 +142,8 @@ export function InviteOnboardPage() {
     }
 
     try {
-      await onboardUser({ userInfoId, password }).unwrap();
+      const accepted = await acceptInvite({ inviteToken }).unwrap();
+      await onboardUser({ sysUserId: accepted.sysUserId, password }).unwrap();
       setSuccessMsg('Account activated successfully!');
       setCountdown(3);
     } catch (err: any) {
@@ -167,7 +177,7 @@ export function InviteOnboardPage() {
         </div>
 
         {/* Invalid token */}
-        {!userInfoId && (
+        {!inviteToken && (
           <div className="flex items-start gap-2 bg-danger/10 border border-danger/25 text-danger p-3 rounded-lg text-xs">
             <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
             <span>Invalid or missing invitation token. Please use the link from your invitation email.</span>
@@ -212,7 +222,7 @@ export function InviteOnboardPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="pl-9 pr-9 bg-background/50 h-9 text-xs"
-                disabled={isLoading || !!successMsg}
+                disabled={isLoading || isCheckingInvite || !!successMsg}
               />
               <button
                 type="button"
@@ -247,7 +257,7 @@ export function InviteOnboardPage() {
                     ? 'border-emerald-500/60 focus-visible:ring-emerald-500/30'
                     : ''
                 }`}
-                disabled={isLoading || !!successMsg}
+                disabled={isLoading || isCheckingInvite || !!successMsg}
               />
               <button
                 type="button"
@@ -273,7 +283,7 @@ export function InviteOnboardPage() {
           <Button
             id="activate-btn"
             type="submit"
-            disabled={isLoading || !userInfoId || !!successMsg}
+            disabled={isLoading || isCheckingInvite || !inviteToken || !!successMsg}
             className="w-full h-9 mt-2 text-xs font-semibold"
           >
             {isLoading ? (

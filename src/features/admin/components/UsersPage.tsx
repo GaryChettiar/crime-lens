@@ -65,6 +65,10 @@ export function UsersPage() {
 
   // Invite form
   const [inviteEmail, setInviteEmail] = React.useState('');
+  const [inviteFirstName, setInviteFirstName] = React.useState('');
+  const [inviteLastName, setInviteLastName] = React.useState('');
+  const [invitePhone, setInvitePhone] = React.useState('');
+  const [inviteRoleName, setInviteRoleName] = React.useState('');
   const [inviteFeedback, setInviteFeedback] = React.useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [resendingEmail, setResendingEmail] = React.useState<string | null>(null);
 
@@ -145,18 +149,26 @@ export function UsersPage() {
 
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inviteEmail) return;
+    if (!inviteEmail || !inviteFirstName || !inviteLastName || !inviteRoleName) return;
     setInviteFeedback(null);
-    if (!currentUser?.id) {
+    if (!currentUser?.sysUserId) {
       setInviteFeedback({ type: 'error', message: 'Your session could not be identified. Please sign in again.' });
       return;
     }
     try {
       const response = await inviteUserMutation({
         email: inviteEmail.trim(),
-        invited_by: currentUser.id,
+        first_name: inviteFirstName.trim(),
+        last_name: inviteLastName.trim(),
+        phone: invitePhone.trim() || undefined,
+        role_name: inviteRoleName,
+        invited_by: currentUser.sysUserId,
       }).unwrap();
       setInviteEmail('');
+      setInviteFirstName('');
+      setInviteLastName('');
+      setInvitePhone('');
+      setInviteRoleName('');
       setShowInviteModal(false);
       setActiveTab('invites');
       setInviteFeedback({ type: 'success', message: response.message || 'Invitation email sent successfully.' });
@@ -563,7 +575,7 @@ export function UsersPage() {
             <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
               <h2 className="text-lg font-bold mb-1 text-foreground">Invite User</h2>
               <p className="text-sm mb-5 text-muted-foreground">
-                Send an invitation email to a new platform user. Their default role is assigned by the server.
+                Provide the user’s details and the role to assign on activation.
               </p>
               <form onSubmit={handleInvite} className="space-y-4">
                 <div>
@@ -576,6 +588,27 @@ export function UsersPage() {
                     onChange={(e) => setInviteEmail(e.target.value)}
                     placeholder="user@crimelens.gov.in"
                   />
+                </div>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="block text-xs font-semibold mb-1.5 text-muted-foreground">First Name</label>
+                    <input className="admin-input" required value={inviteFirstName} onChange={(e) => setInviteFirstName(e.target.value)} placeholder="John" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold mb-1.5 text-muted-foreground">Last Name</label>
+                    <input className="admin-input" required value={inviteLastName} onChange={(e) => setInviteLastName(e.target.value)} placeholder="Doe" />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold mb-1.5 text-muted-foreground">Phone <span className="font-normal">(optional)</span></label>
+                  <input className="admin-input" type="tel" value={invitePhone} onChange={(e) => setInvitePhone(e.target.value)} placeholder="9876543210" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold mb-1.5 text-muted-foreground">Role</label>
+                  <select className="admin-input bg-card text-foreground" required value={inviteRoleName} onChange={(e) => setInviteRoleName(e.target.value)}>
+                    <option value="">Select role...</option>
+                    {(roles || []).map((role) => <option key={role.id} value={role.name}>{role.name}</option>)}
+                  </select>
                 </div>
                 <div className="flex justify-end gap-2 pt-2">
                   <button type="button" className="admin-btn admin-btn-secondary" onClick={() => setShowInviteModal(false)}>

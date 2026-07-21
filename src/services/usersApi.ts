@@ -35,6 +35,24 @@ export interface InviteResponse {
   expiresAt?: string;
 }
 
+export interface InviteUserRequest {
+  email: string;
+  first_name: string;
+  last_name: string;
+  phone?: string;
+  role_name: string;
+  invited_by: string;
+}
+
+interface InviteUserResult {
+  id: string;
+  sys_user_id: string;
+  user_info_id: string;
+  invite_token: string;
+  role: { id: string; name: string };
+  message?: string;
+}
+
 // ---------------------------------------------------------------------------
 // API Slice
 // ---------------------------------------------------------------------------
@@ -110,7 +128,7 @@ export const usersApi = baseApi.injectEndpoints({
 
     // --- Invites ---
 
-    inviteUser: builder.mutation<{ message: string }, { email: string; invited_by: string }>({
+    inviteUser: builder.mutation<InviteUserResult, InviteUserRequest>({
       query: (body) => ({
         url: '/users/invites/invite',
         method: 'POST',
@@ -142,7 +160,25 @@ export const usersApi = baseApi.injectEndpoints({
       invalidatesTags: ['Invite', { type: 'User', id: 'LIST' }],
     }),
 
-    onboardUser: builder.mutation<{ message: string }, { userInfoId: string; password: string }>({
+    checkInvite: builder.mutation<{ id: string; user_info_id: string }, { inviteToken: string }>({
+      query: (body) => ({
+        url: '/users/invites/invite/check',
+        method: 'POST',
+        body,
+      }),
+      transformResponse: (response: any) => response.data ?? response,
+    }),
+
+    acceptInvite: builder.mutation<{ message: string; sysUserId: string }, { inviteToken: string }>({
+      query: (body) => ({
+        url: '/users/invites/invite/accept',
+        method: 'POST',
+        body,
+      }),
+      transformResponse: (response: any) => response.data ?? response,
+    }),
+
+    onboardUser: builder.mutation<{ id: string }, { sysUserId: string; password: string }>({
       query: (body) => ({
         url: '/users/invites/invite/onboard',
         method: 'POST',
@@ -163,5 +199,7 @@ export const {
   useInviteUserMutation,
   useGetInvitesQuery,
   useReinviteUserMutation,
+  useCheckInviteMutation,
+  useAcceptInviteMutation,
   useOnboardUserMutation,
 } = usersApi;
