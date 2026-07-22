@@ -142,7 +142,7 @@ export const usersApi = baseApi.injectEndpoints({
       invalidatesTags: ['Invite', { type: 'User', id: 'LIST' }],
     }),
 
-    onboardUser: builder.mutation<{ message: string }, { userInfoId: string; password: string }>({
+    onboardUser: builder.mutation<{ message: string }, { userInfoId: string }>({
       query: (body) => ({
         url: '/users/invites/invite/onboard',
         method: 'POST',
