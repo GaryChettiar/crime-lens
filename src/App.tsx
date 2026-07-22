@@ -8,7 +8,7 @@ import { CrimeDataPage } from '@/features/crime-data';
 import { AlertsPage } from '@/features/alerts';
 import { EfirPage } from '@/features/efir/components/EfirPage';
 import { DesignSystemPreview } from '@/components/templates/DesignSystemPreview';
-import { LoginPage, ProtectedRoute, InviteOnboardPage, PermissionGuard } from '@/features/auth';
+import { LoginPage, ProtectedRoute, InviteOnboardPage, PermissionGuard, PermissionRoute } from '@/features/auth';
 import {
   CrimesListPage,
   CrimeDetailWorkspace,
@@ -57,31 +57,53 @@ function App() {
       <Route element={<ProtectedRoute />}>
         {/* Operations */}
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
-        <Route path="/dashboard" element={<DashboardPage />} />
+        <Route element={<PermissionRoute permissions={['view_dashboard']} />}>
+          <Route path="/dashboard" element={<DashboardPage />} />
+        </Route>
         <Route path="/criminals/:criminalId" element={<CriminalProfilePage />} />
-        <Route path="/analytics" element={<AnalyticsPage />} />
-        <Route path="/heatmap" element={<HeatmapPage />} />
+        <Route element={<PermissionRoute permissions={['view_analytics']} />}>
+          <Route path="/analytics" element={<AnalyticsPage />} />
+        </Route>
+        <Route element={<PermissionRoute permissions={['view_map']} />}>
+          <Route path="/heatmap" element={<HeatmapPage />} />
+        </Route>
         <Route path="/risk" element={<RiskPage />} />
-        <Route path="/network" element={<NetworkPage />} />
+        <Route element={<PermissionRoute permissions={['view_network_analysis']} />}>
+          <Route path="/network" element={<NetworkPage />} />
+        </Route>
         <Route path="/alerts" element={<AlertsPage />} />
-        <Route path="/efir" element={<EfirPage />} />
+        <Route element={<PermissionRoute permissions={['view_fir']} />}>
+          <Route path="/efir" element={<EfirPage />} />
+        </Route>
 
         {/* Crimes Module */}
-        <Route path="/entities/crimes" element={<CrimesListPage />} />
-        <Route path="/entities/crimes/:id" element={<CrimeDetailWorkspace />} />
-        <Route path="/entities/evidence-matches" element={<EvidenceMatchesPage />} />
+        <Route element={<PermissionRoute permissions={['view_crimes']} />}>
+          <Route path="/entities/crimes" element={<CrimesListPage />} />
+          <Route path="/entities/crimes/:id" element={<CrimeDetailWorkspace />} />
+        </Route>
+        <Route element={<PermissionRoute permissions={['view_entities']} />}>
+          <Route path="/entities/evidence-matches" element={<EvidenceMatchesPage />} />
+        </Route>
 
         {/* Forecast */}
-        <Route path="/forecast" element={<ForecastPage />} />
+        <Route element={<PermissionRoute permissions={['view_forecast']} />}>
+          <Route path="/forecast" element={<ForecastPage />} />
+        </Route>
 
         {/* Entities Module */}
-        <Route path="/entities/officers" element={<EntitiesOfficersPage />} />
-        <Route path="/entities/criminals" element={<EntitiesCriminalsPage />} />
-        <Route path="/entities/criminals/:criminalId" element={<EntitiesCriminalProfilePage />} />
+        <Route element={<PermissionRoute permissions={['view_officers']} />}>
+          <Route path="/entities/officers" element={<EntitiesOfficersPage />} />
+        </Route>
+        <Route element={<PermissionRoute permissions={['view_criminals']} />}>
+          <Route path="/entities/criminals" element={<EntitiesCriminalsPage />} />
+          <Route path="/entities/criminals/:criminalId" element={<EntitiesCriminalProfilePage />} />
+        </Route>
 
         {/* Data Operations */}
-        <Route path="/data/crime-records" element={<CrimeDataPage />} />
-        <Route path="/data/upload" element={<CrimeDataPage />} />
+        <Route element={<PermissionRoute permissions={['update_crime']} />}>
+          <Route path="/data/crime-records" element={<CrimeDataPage />} />
+          <Route path="/data/upload" element={<CrimeDataPage />} />
+        </Route>
         <Route path="/data/efir" element={<Navigate to="/efir" replace />} />
         <Route path="/data-management" element={<Navigate to="/data/crime-records" replace />} />
 
@@ -101,10 +123,18 @@ function App() {
         <Route path="/administration/station-types" element={<StationTypesPage />} />
         <Route path="/administration/police-stations" element={<PoliceStationsPage />} />
         <Route path="/administration/police-ranks" element={<PoliceRanksPage />} />
-        <Route path="/administration/police-officers" element={<PoliceOfficersPage />} />
-        <Route path="/administration/criminals" element={<CriminalsPage />} />
-        <Route path="/administration/crimes" element={<CrimesPage />} />
-        <Route path="/administration/firs" element={<FirsPage />} />
+        <Route element={<PermissionRoute permissions={['update_officer']} />}>
+          <Route path="/administration/police-officers" element={<PoliceOfficersPage />} />
+        </Route>
+        <Route element={<PermissionRoute permissions={['update_criminal']} />}>
+          <Route path="/administration/criminals" element={<CriminalsPage />} />
+        </Route>
+        <Route element={<PermissionRoute permissions={['update_crime']} />}>
+          <Route path="/administration/crimes" element={<CrimesPage />} />
+        </Route>
+        <Route element={<PermissionRoute permissions={['view_fir']} />}>
+          <Route path="/administration/firs" element={<FirsPage />} />
+        </Route>
         <Route path="/administration/settings" element={<SettingsPage />} />
         
         {/* Legacy Admin redirects */}

@@ -51,6 +51,7 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsToolti
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Activity } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { PermissionGuard } from '@/features/auth';
 
 const TREND_30D = Array.from({ length: 30 }, (_, i) => {
   const base = 28 + Math.sin(i / 4) * 6;
@@ -429,7 +430,8 @@ export function DashboardPage() {
     <DashboardLayout title="Dashboard">
       <div className=" pb-12 px-1">
         {/* Header with drawer toggles */}
-        <AnalyticsHeader
+        <PermissionGuard permissions={['view_filters']} fallback={null}>
+          <AnalyticsHeader
           title="Tactical Command Dashboard"
           subtitle="Real-time incident dispatch logs, response statuses, and anomaly warnings."
           onRefresh={handleRefresh}
@@ -443,8 +445,10 @@ export function DashboardPage() {
           onDayOffsetChange={setCurrentDayOffset}
           timeWindow={timeWindow}
           onTimeWindowChange={setTimeWindow}
-        />
- <div className="grid grid-cols-1 sm:grid-cols-[19fr_19fr_19fr_3fr] gap-4 p-2 border border-border rounded-lg bg-card/10">
+          />
+        </PermissionGuard>
+        <PermissionGuard permissions={['view_analytics']} fallback={null}>
+          <div className="grid grid-cols-1 sm:grid-cols-[19fr_19fr_19fr_3fr] gap-4 p-2 border border-border rounded-lg bg-card/10">
           <MetricCard
             label="Total Crimes (Active Selection)"
             value={filteredIncidents.length}
@@ -478,9 +482,11 @@ export function DashboardPage() {
           >
             <ChevronRight className="h-10 w-10 text-primary transition-transform duration-200 group-hover:translate-x-1" />
           </Link>
-        </div>
+          </div>
+        </PermissionGuard>
         {/* KPI Overview (with Loading skeletons support) */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4  p-2 border border-border rounded-lg bg-card/10 mt-2">
+        <PermissionGuard permissions={['view_map']} fallback={null}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4  p-2 border border-border rounded-lg bg-card/10 mt-2">
          
         {isLoadingIncidents || isLoadingDistricts ? (
             <div className="w-full h-[700px] md:h-[75vh] bg-slate-900/40 border border-border rounded-lg flex flex-col items-center justify-center space-y-4 animate-pulse">
@@ -503,10 +509,12 @@ export function DashboardPage() {
             />
           )}
             {/* <ExternalIntelligenceWidget /> */}
-        </div>
+          </div>
+        </PermissionGuard>
 
         {/* ── Crime Trend Analysis ── */}
-        <div className="mt-4">
+        <PermissionGuard permissions={['view_analytics']} fallback={null}>
+          <div className="mt-4">
           <div className="flex items-center justify-between mb-3">
             <SectionLabel>Crime Trend Analysis</SectionLabel>
             <div className="flex items-center gap-1 bg-card border border-border rounded-md p-0.5">
@@ -555,7 +563,8 @@ export function DashboardPage() {
               </ResponsiveContainer>
             </CardContent>
           </Card>
-        </div>
+          </div>
+        </PermissionGuard>
 
         {/* External Intelligence Layer */}
       
@@ -563,7 +572,8 @@ export function DashboardPage() {
         
 
         {/* Incident Logs (TanStack Table) */}
-        <div className="space-y-3 pt-2">
+        <PermissionGuard permissions={['view_crimes']} fallback={null}>
+          <div className="space-y-3 pt-2">
           
           <CrimeDataTable
             data={paginatedIncidents}
@@ -583,10 +593,12 @@ export function DashboardPage() {
             showFilters={isFiltersOpen}
             onRowClick={(inc) => setSelectedIncident(inc)}
           />
-        </div>
+          </div>
+        </PermissionGuard>
 
         {/* Filters Left Drawer */}
-        <Sheet open={isFiltersOpen} onOpenChange={setIsFiltersOpen}>
+        <PermissionGuard permissions={['view_filters']} fallback={null}>
+          <Sheet open={isFiltersOpen} onOpenChange={setIsFiltersOpen}>
           <SheetContent
             side="left"
             className="w-[360px] sm:max-w-[360px] border-r border-border bg-slate-950 p-0 flex flex-col h-full"
@@ -616,7 +628,8 @@ export function DashboardPage() {
               />
             </div>
           </SheetContent>
-        </Sheet>
+          </Sheet>
+        </PermissionGuard>
 
         {/* Alerts Drawer */}
         <Sheet open={isAlertsOpen} onOpenChange={setIsAlertsOpen}>

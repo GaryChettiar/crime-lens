@@ -1,5 +1,7 @@
 import { useMemo } from 'react';
+import { skipToken } from '@reduxjs/toolkit/query';
 import { useGetCurrentUserQuery } from '@/services/authApi';
+import { useGetRoleByIdQuery } from '@/services/rolesApi';
 
 /* =============================================================================
    CrimeLens — usePermissions Hook
@@ -9,7 +11,9 @@ import { useGetCurrentUserQuery } from '@/services/authApi';
    ============================================================================= */
 
 export function usePermissions() {
-  const { data: currentUser } = useGetCurrentUserQuery();
+  const { data: currentUser, isLoading: isCurrentUserLoading } = useGetCurrentUserQuery();
+  const roleId = currentUser?.roles?.[0]?.id;
+  const { data: role, isLoading: isRoleLoading } = useGetRoleByIdQuery(roleId ?? skipToken);
 
   const permissions = useMemo(() => {
     if (!currentUser) return [];
@@ -19,8 +23,10 @@ export function usePermissions() {
       return currentUser.permissions;
     }
 
-    return [];
-  }, [currentUser]);
+    // Catalyst provides the signed-in user's role; this endpoint returns that
+    // role's assigned permission names (for example, "view_dashboard").
+    return role?.permissions.map((permission) => permission.permission_name) ?? [];
+  }, [currentUser, role]);
 
   const hasPermission = useMemo(
     () => (permission: string): boolean => {
@@ -60,5 +66,6 @@ export function usePermissions() {
     hasAnyPermission,
     hasAllPermissions,
     currentUser,
+    isLoading: isCurrentUserLoading || Boolean(roleId && isRoleLoading),
   };
 }

@@ -14,4 +14,5 @@ export type { AuthUser } from '@/services/authApi';
 export { LoginPage } from './components/LoginPage';
 export { ProtectedRoute } from './components/ProtectedRoute';
 export { PermissionGuard } from './components/PermissionGuard';
+export { PermissionRoute } from './components/PermissionRoute';
 export { InviteOnboardPage } from './components/InviteOnboardPage';

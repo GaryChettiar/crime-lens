@@ -16,7 +16,7 @@ export function PermissionGuard({
   fallback,
   children,
 }: PermissionGuardProps) {
-  const { hasAnyPermission, hasAllPermissions } = usePermissions();
+  const { hasAnyPermission, hasAllPermissions, isLoading } = usePermissions();
 
   const isAuthorized = React.useMemo(() => {
     if (permissions.length === 0) return true;
@@ -26,11 +26,19 @@ export function PermissionGuard({
     return hasAnyPermission(permissions);
   }, [permissions, requireAll, hasAnyPermission, hasAllPermissions]);
 
+  if (isLoading) {
+    return (
+      <div className="flex min-h-32 items-center justify-center text-sm text-muted-foreground">
+        Checking access permissions...
+      </div>
+    );
+  }
+
   if (isAuthorized) {
     return <>{children}</>;
   }
 
-  if (fallback) {
+  if (fallback !== undefined) {
     return <>{fallback}</>;
   }
 
