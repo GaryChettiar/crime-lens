@@ -213,6 +213,62 @@ export interface CreateSuspectPayload {
   photoUrl?: string;
 }
 
+export interface CaseVictim {
+  id: string;
+  incidentId: string;
+  fullName: string;
+  gender?: string;
+  mobileNumber?: string;
+  email?: string;
+  address?: string;
+  occupation?: string;
+  injuryType?: string;
+  medicalReportNumber?: string;
+  alive: boolean;
+  createdAt?: string;
+}
+
+export interface CreateVictimPayload {
+  incident_id: string;
+  full_name: string;
+  gender?: string;
+  mobile_number?: string;
+  email?: string;
+  address?: string;
+  occupation?: string;
+  injury_type?: string;
+  medical_report_number?: string;
+  alive?: boolean;
+}
+
+export interface CaseWitness {
+  id: string;
+  incidentId: string;
+  fullName: string;
+  gender?: string;
+  age?: number;
+  mobileNumber?: string;
+  email?: string;
+  address?: string;
+  occupation?: string;
+  witnessType?: string;
+  statement?: string;
+  createdAt?: string;
+}
+
+export interface CreateWitnessPayload {
+  incident_id: string;
+  full_name: string;
+  gender?: string;
+  age?: number;
+  mobile_number?: string;
+  email?: string;
+  address?: string;
+  occupation?: string;
+  witness_type?: string;
+  statement?: string;
+}
+
 export interface CreateEvidencePayload {
   evidenceType: EvidenceType;
   description?: string;
@@ -312,6 +368,56 @@ const decodeEvidence = (e: any): CrimeEvidence => ({
   chainOfCustodyStatus: e.chain_of_custody_status || 'intact',
   verificationStatus: e.verification_status || 'verified',
   createdAt: e.createdAt || e.created_at,
+});
+
+const decodeSuspect = (s: any): CrimeSuspect => ({
+  id: String(s.ROWID || s.id || ''),
+  crimeId: s.crime_id || s.incident_id || '',
+  name: s.full_name || s.name || 'Unknown Suspect',
+  age: s.date_of_birth
+    ? new Date().getFullYear() - new Date(s.date_of_birth).getFullYear()
+    : s.age,
+  gender: s.gender,
+  phone: s.phone || s.mobile_number,
+  address: s.address,
+  district: s.district_id_of_suspect || s.district,
+  knownAlias: s.known_alias || s.suspect_number,
+  reasonForSuspicion: s.reason_for_suspicion || (s.nationality ? `Nationality: ${s.nationality}` : ''),
+  notes: s.notes,
+  photoUrl: s.photo_url || s.photoUrl,
+  status: (s.status?.toLowerCase() as SuspectStatus) || 'under_watch',
+  linkedEvidenceCount: s.linked_evidence_count ?? 0,
+  createdAt: s.createdtime || s.createdAt,
+});
+
+const decodeVictim = (v: any): CaseVictim => ({
+  id: String(v.ROWID || v.id || ''),
+  incidentId: v.incident_id || '',
+  fullName: v.full_name || 'Unknown Victim',
+  gender: v.gender,
+  mobileNumber: v.mobile_number,
+  email: v.email,
+  address: v.address,
+  occupation: v.occupation,
+  injuryType: v.injury_type,
+  medicalReportNumber: v.medical_report_number,
+  alive: v.alive !== undefined ? Boolean(v.alive) : true,
+  createdAt: v.createdtime || v.createdAt,
+});
+
+const decodeWitness = (w: any): CaseWitness => ({
+  id: String(w.ROWID || w.id || ''),
+  incidentId: w.incident_id || '',
+  fullName: w.full_name || 'Unknown Witness',
+  gender: w.gender,
+  age: w.age ? Number(w.age) : undefined,
+  mobileNumber: w.mobile_number,
+  email: w.email,
+  address: w.address,
+  occupation: w.occupation,
+  witnessType: w.witness_type,
+  statement: w.statement,
+  createdAt: w.createdtime || w.createdAt,
 });
 
 // Local Storage Helper
@@ -479,103 +585,183 @@ export const crimeApi = baseApi.injectEndpoints({
       invalidatesTags: [{ type: 'Crime', id: 'LIST' }],
     }),
 
-    // --- Suspects ---
-    getCrimeSuspects: builder.query<CrimeSuspect[], string>({
-      queryFn: (crimeId) => {
-        const suspects = getLocalData<CrimeSuspect>(`crimes:${crimeId}:suspects`);
-        return { data: suspects };
+    // --- Suspects (Backend /suspects integration) ---
+    getCrimeSuspects: builder.query<CrimeSuspect[], string | void>({
+      query: () => '/suspects/getAll',
+      transformResponse: (response: any) => {
+        const nestedData = response?.data ?? response;
+        const rawList = Array.isArray(nestedData)
+          ? nestedData
+          : (Array.isArray(nestedData?.data) ? nestedData.data : []);
+        return rawList.map(decodeSuspect);
       },
-      providesTags: (_result, _error, crimeId) => [{ type: 'CrimeSuspect', id: `crime-${crimeId}` }],
+      providesTags: (result) =>
+        result
+          ? [
+              ...result.map((s) => ({ type: 'CrimeSuspect' as const, id: s.id })),
+              { type: 'CrimeSuspect', id: 'LIST' },
+            ]
+          : [{ type: 'CrimeSuspect', id: 'LIST' }],
     }),
 
     addCrimeSuspect: builder.mutation<
       { data: CrimeSuspect; message: string },
-      { crimeId: string; body: CreateSuspectPayload }
+      { crimeId?: string; body: CreateSuspectPayload }
     >({
-      queryFn: ({ crimeId, body }) => {
-        const key = `crimes:${crimeId}:suspects`;
-        const list = getLocalData<CrimeSuspect>(key);
-        const newSuspect: CrimeSuspect = {
-          id: `susp-${Date.now()}`,
-          crimeId,
-          name: body.name,
-          age: body.dob ? new Date().getFullYear() - new Date(body.dob).getFullYear() : undefined,
+      query: ({ body }) => ({
+        url: '/suspects',
+        method: 'POST',
+        body: {
+          full_name: body.name,
           gender: body.gender,
-          phone: body.phone,
+          date_of_birth: body.dob,
           address: body.address,
-          district: body.district,
-          knownAlias: body.knownAlias,
-          reasonForSuspicion: body.reasonForSuspicion,
-          notes: body.notes,
-          photoUrl: body.photoUrl,
-          status: 'under_watch',
-          linkedEvidenceCount: 0,
-          createdAt: new Date().toISOString(),
-        };
-        list.push(newSuspect);
-        setLocalData(key, list);
-        return { data: { data: newSuspect, message: 'Suspect added' } };
-      },
-      invalidatesTags: (_result, _error, { crimeId }) => [
-        { type: 'CrimeSuspect', id: `crime-${crimeId}` },
-        { type: 'Crime', id: crimeId },
-      ],
+          district_id_of_suspect: body.district,
+          photo_url: body.photoUrl,
+          status: 'ACTIVE',
+        },
+      }),
+      invalidatesTags: [{ type: 'CrimeSuspect', id: 'LIST' }],
     }),
 
     updateCrimeSuspect: builder.mutation<
-      { data: CrimeSuspect; message: string },
-      { crimeId: string; suspectId: string; body: Partial<CreateSuspectPayload> & { status?: SuspectStatus } }
+      { message: string },
+      { crimeId?: string; suspectId: string; body: Partial<CreateSuspectPayload> & { status?: SuspectStatus } }
     >({
-      queryFn: ({ crimeId, suspectId, body }) => {
-        const key = `crimes:${crimeId}:suspects`;
-        let list = getLocalData<CrimeSuspect>(key);
-        let updated: CrimeSuspect | null = null;
-        list = list.map((s) => {
-          if (s.id === suspectId) {
-            updated = { ...s, ...body };
-            return updated;
-          }
-          return s;
-        });
-        if (!updated) return { error: { status: 404, statusText: 'Suspect not found', data: null } as any };
-        setLocalData(key, list);
-        return { data: { data: updated, message: 'Suspect updated' } };
-      },
-      invalidatesTags: (_result, _error, { crimeId }) => [
-        { type: 'CrimeSuspect', id: `crime-${crimeId}` },
+      query: ({ suspectId, body }) => ({
+        url: `/suspects/${suspectId}`,
+        method: 'PUT',
+        body: {
+          full_name: body.name,
+          gender: body.gender,
+          date_of_birth: body.dob,
+          address: body.address,
+          district_id_of_suspect: body.district,
+          photo_url: body.photoUrl,
+          status: body.status ? body.status.toUpperCase() : undefined,
+        },
+      }),
+      invalidatesTags: (_result, _error, { suspectId }) => [
+        { type: 'CrimeSuspect', id: suspectId },
+        { type: 'CrimeSuspect', id: 'LIST' },
       ],
     }),
 
-    removeCrimeSuspect: builder.mutation<{ message: string }, { crimeId: string; suspectId: string }>({
-      queryFn: ({ crimeId, suspectId }) => {
-        const key = `crimes:${crimeId}:suspects`;
-        const list = getLocalData<CrimeSuspect>(key).filter((s) => s.id !== suspectId);
-        setLocalData(key, list);
-        return { data: { message: 'Suspect removed' } };
-      },
-      invalidatesTags: (_result, _error, { crimeId }) => [
-        { type: 'CrimeSuspect', id: `crime-${crimeId}` },
-        { type: 'Crime', id: crimeId },
-      ],
+    removeCrimeSuspect: builder.mutation<{ message: string }, { crimeId?: string; suspectId: string }>({
+      query: ({ suspectId }) => ({
+        url: `/suspects/${suspectId}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: [{ type: 'CrimeSuspect', id: 'LIST' }],
     }),
 
     promoteCrimeSuspectToCriminal: builder.mutation<
       { message: string; criminalId?: string },
-      { crimeId: string; suspectId: string }
+      { crimeId?: string; suspectId: string }
     >({
-      queryFn: ({ crimeId, suspectId }) => {
-        const key = `crimes:${crimeId}:suspects`;
-        let list = getLocalData<CrimeSuspect>(key);
-        list = list.map((s) => {
-          if (s.id === suspectId) return { ...s, status: 'promoted' as const };
-          return s;
-        });
-        setLocalData(key, list);
-        return { data: { message: 'Suspect promoted to Criminal Registry', criminalId: `crim-${Date.now()}` } };
+      query: ({ suspectId }) => ({
+        url: `/suspects/${suspectId}`,
+        method: 'PUT',
+        body: { status: 'PROMOTED' },
+      }),
+      invalidatesTags: [{ type: 'CrimeSuspect', id: 'LIST' }, { type: 'Criminal', id: 'LIST' }],
+    }),
+
+    // --- Case Victims (Backend /case-victims integration) ---
+    getVictimsByIncident: builder.query<CaseVictim[], string>({
+      query: (incidentId) => `/case-victims/byIncident/${incidentId}`,
+      transformResponse: (response: any) => {
+        const nestedData = response?.data ?? response;
+        const rawList = Array.isArray(nestedData)
+          ? nestedData
+          : (Array.isArray(nestedData?.data) ? nestedData.data : []);
+        return rawList.map(decodeVictim);
       },
-      invalidatesTags: (_result, _error, { crimeId }) => [
-        { type: 'CrimeSuspect', id: `crime-${crimeId}` },
-        { type: 'Criminal', id: 'LIST' },
+      providesTags: (_result, _error, incidentId) => [{ type: 'CaseVictim', id: `incident-${incidentId}` }],
+    }),
+
+    addCaseVictim: builder.mutation<{ id: string; message?: string }, CreateVictimPayload>({
+      query: (body) => ({
+        url: '/case-victims',
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: (_result, _error, body) => [
+        { type: 'CaseVictim', id: `incident-${body.incident_id}` },
+        { type: 'Crime', id: body.incident_id },
+      ],
+    }),
+
+    updateCaseVictim: builder.mutation<
+      { message: string },
+      { id: string; incidentId: string; body: Partial<CreateVictimPayload> }
+    >({
+      query: ({ id, body }) => ({
+        url: `/case-victims/${id}`,
+        method: 'PUT',
+        body,
+      }),
+      invalidatesTags: (_result, _error, { incidentId }) => [
+        { type: 'CaseVictim', id: `incident-${incidentId}` },
+      ],
+    }),
+
+    deleteCaseVictim: builder.mutation<{ message: string }, { id: string; incidentId: string }>({
+      query: ({ id }) => ({
+        url: `/case-victims/${id}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: (_result, _error, { incidentId }) => [
+        { type: 'CaseVictim', id: `incident-${incidentId}` },
+        { type: 'Crime', id: incidentId },
+      ],
+    }),
+
+    // --- Case Witnesses (Backend /case-witnesses integration) ---
+    getWitnessesByIncident: builder.query<CaseWitness[], string>({
+      query: (incidentId) => `/case-witnesses/byIncident/${incidentId}`,
+      transformResponse: (response: any) => {
+        const nestedData = response?.data ?? response;
+        const rawList = Array.isArray(nestedData)
+          ? nestedData
+          : (Array.isArray(nestedData?.data) ? nestedData.data : []);
+        return rawList.map(decodeWitness);
+      },
+      providesTags: (_result, _error, incidentId) => [{ type: 'CaseWitness', id: `incident-${incidentId}` }],
+    }),
+
+    addCaseWitness: builder.mutation<{ id: string; message?: string }, CreateWitnessPayload>({
+      query: (body) => ({
+        url: '/case-witnesses',
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: (_result, _error, body) => [
+        { type: 'CaseWitness', id: `incident-${body.incident_id}` },
+      ],
+    }),
+
+    updateCaseWitness: builder.mutation<
+      { message: string },
+      { id: string; incidentId: string; body: Partial<CreateWitnessPayload> }
+    >({
+      query: ({ id, body }) => ({
+        url: `/case-witnesses/${id}`,
+        method: 'PUT',
+        body,
+      }),
+      invalidatesTags: (_result, _error, { incidentId }) => [
+        { type: 'CaseWitness', id: `incident-${incidentId}` },
+      ],
+    }),
+
+    deleteCaseWitness: builder.mutation<{ message: string }, { id: string; incidentId: string }>({
+      query: ({ id }) => ({
+        url: `/case-witnesses/${id}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: (_result, _error, { incidentId }) => [
+        { type: 'CaseWitness', id: `incident-${incidentId}` },
       ],
     }),
 
@@ -829,6 +1015,14 @@ export const {
   useUpdateCrimeSuspectMutation,
   useRemoveCrimeSuspectMutation,
   usePromoteCrimeSuspectToCriminalMutation,
+  useGetVictimsByIncidentQuery,
+  useAddCaseVictimMutation,
+  useUpdateCaseVictimMutation,
+  useDeleteCaseVictimMutation,
+  useGetWitnessesByIncidentQuery,
+  useAddCaseWitnessMutation,
+  useUpdateCaseWitnessMutation,
+  useDeleteCaseWitnessMutation,
   useGetCrimeEvidenceQuery,
   useUploadCrimeEvidenceMutation,
   useDeleteCrimeEvidenceMutation,

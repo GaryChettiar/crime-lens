@@ -55,3 +55,4 @@ export function clearStoredAuthSession() {
 export function hasStoredAuthSession() {
   return Boolean(getStoredAccessToken() && getStoredSessionId());
 }
+

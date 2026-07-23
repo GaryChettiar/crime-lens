@@ -34,6 +34,7 @@ import {
 import { useGetCurrentUserQuery, useLogoutMutation } from "@/features/auth";
 import { NAV_GROUPS } from "@/config/routes";
 import usePermissions from "@/hooks/usePermissions";
+import { AnalyticsHeader } from "@/components/organisms/AnalyticsHeader";
 import * as React from "react";
 
 const iconMap: Record<string, React.ComponentType<any>> = {
@@ -77,7 +78,7 @@ export function PrimaryTopNav({ showMobileMenu = false }: PrimaryTopNavProps) {
     try {
       await logout().unwrap();
     } finally {
-      navigate('/dashboard');
+      navigate("/dashboard");
     }
   };
 
@@ -86,33 +87,45 @@ export function PrimaryTopNav({ showMobileMenu = false }: PrimaryTopNavProps) {
   }, [dispatch]);
 
   // Compute visible groups/items based on permissions
-  const visibleGroups = NAV_GROUPS
-    .map((group) => {
-      const visibleItems = group.items
-        ? group.items.filter((item) => !item.requiredPermission || hasPermission(item.requiredPermission))
-        : undefined;
+  const visibleGroups = NAV_GROUPS.map((group) => {
+    const visibleItems = group.items
+      ? group.items.filter(
+          (item) =>
+            !item.requiredPermission || hasPermission(item.requiredPermission),
+        )
+      : undefined;
 
-      const groupVisible = group.requiredPermission
-        ? hasPermission(group.requiredPermission)
-        : (visibleItems ? visibleItems.length > 0 : true);
+    const groupVisible = group.requiredPermission
+      ? hasPermission(group.requiredPermission)
+      : visibleItems
+        ? visibleItems.length > 0
+        : true;
 
-      if (!groupVisible) return null;
-      return { ...group, items: visibleItems } as typeof group;
-    })
-    .filter(Boolean) as typeof NAV_GROUPS;
+    if (!groupVisible) return null;
+    return { ...group, items: visibleItems } as typeof group;
+  }).filter(Boolean) as typeof NAV_GROUPS;
 
   // Compute active Level 1 group based on activePaths config using visible groups
   const activeGroup = visibleGroups.find((group) =>
-    group.activePaths.some((p) => (p === '/dashboard' ? location.pathname === '/dashboard' : location.pathname.startsWith(p))),
+    group.activePaths.some((p) =>
+      p === "/dashboard"
+        ? location.pathname === "/dashboard"
+        : location.pathname.startsWith(p),
+    ),
   );
 
-  const showSubNav = !!(activeGroup && activeGroup.items && activeGroup.items.length > 0);
+  const showSubNav = !!(
+    activeGroup &&
+    activeGroup.items &&
+    activeGroup.items.length > 0
+  );
+  const isAdminRoute = location.pathname.startsWith("/administration");
 
   return (
     <header
       className={cn(
         "flex flex-col shrink-0 z-20 bg-card text-foreground",
-        !showSubNav && "border-b border-border"
+        !showSubNav && isAdminRoute && "border-b border-border",
       )}
       role="banner"
     >
@@ -138,11 +151,7 @@ export function PrimaryTopNav({ showMobileMenu = false }: PrimaryTopNavProps) {
           aria-label="CrimeLens Home"
         >
           <div className="flex h-6 w-6 items-center justify-center rounded-lg ">
-            <Icon
-              icon={Crosshair}
-              size="sm"
-              className="text-primary"
-            />
+            <Icon icon={Crosshair} size="sm" className="text-primary" />
           </div>
           <span className="text-[18px] font-bold tracking-tight hidden sm:block text-foreground">
             {branding.organizationName || "CrimeLens"}
@@ -175,115 +184,115 @@ export function PrimaryTopNav({ showMobileMenu = false }: PrimaryTopNavProps) {
           })}
         </nav>
 
-      {/* Actions */}
-      <div className="flex items-center gap-2 order-2 ml-auto shrink-0 h-12 md:h-auto">
-        {/* Notifications */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="relative text-muted-foreground hover:text-foreground hover:bg-accent"
-              aria-label="Notifications"
-            >
-              <Icon icon={Bell} size="sm" />
-              <span
-                className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-danger"
-                aria-label="You have unread notifications"
-              />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Notifications</TooltipContent>
-        </Tooltip>
+        {/* Actions */}
+        <div className="flex items-center gap-2 order-2 ml-auto shrink-0 h-12 md:h-auto">
+          {/* Notifications */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="relative text-muted-foreground hover:text-foreground hover:bg-accent"
+                aria-label="Notifications"
+              >
+                <Icon icon={Bell} size="sm" />
+                <span
+                  className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-danger"
+                  aria-label="You have unread notifications"
+                />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Notifications</TooltipContent>
+          </Tooltip>
 
-        {/* Divider */}
-        <div className="h-6 w-px mx-1 bg-border" />
+          {/* Divider */}
+          <div className="h-6 w-px mx-1 bg-border" />
 
-        {/* User Account Menu — Single Click Target */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              className="flex items-center gap-2.5 rounded-lg p-1.5  transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring text-right shrink-0 my-1"
-              aria-label="User menu"
-            >
-              {/* Stacked User details: Name and Badge */}
-              <div className="hidden sm:flex flex-row items-center  ">
-                <span className="text-xs font-semibold leading-none text-foreground">
-                  {currentUser?.name || "Officer"}
-                </span>
-                <Badge
-                  variant="outline"
-                  size="sm"
-                  className="capitalize mt-0.5 scale-[0.85] origin-right border-primary/20 text-primary px-1.5 py-0 font-medium rounded-full"
-                >
-                  {currentUser?.role?.replace("_", " ") || "User"}
-                </Badge>
-              </div>
+          {/* User Account Menu — Single Click Target */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                className="flex items-center gap-2.5 rounded-lg p-1.5  transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring text-right shrink-0 my-1"
+                aria-label="User menu"
+              >
+                {/* Stacked User details: Name and Badge */}
+                <div className="hidden sm:flex flex-row items-center  ">
+                  <span className="text-xs font-semibold leading-none text-foreground">
+                    {currentUser?.name || "Officer"}
+                  </span>
+                  <Badge
+                    variant="outline"
+                    size="sm"
+                    className="capitalize mt-0.5 scale-[0.85] origin-right border-primary/20 text-primary px-1.5 py-0 font-medium rounded-full"
+                  >
+                    {currentUser?.role?.replace("_", " ") || "User"}
+                  </Badge>
+                </div>
 
-              {/* Avatar circle */}
-              <Avatar className="h-8 w-8 shrink-0">
-                <AvatarFallback className="bg-primary text-primary-foreground text-xs font-semibold">
-                  {initials}
-                </AvatarFallback>
-              </Avatar>
+                {/* Avatar circle */}
+                <Avatar className="h-8 w-8 shrink-0">
+                  <AvatarFallback className="bg-primary text-primary-foreground text-xs font-semibold">
+                    {initials}
+                  </AvatarFallback>
+                </Avatar>
 
-              {/* Down Arrow Chevron */}
-              {/* <span className="text-[10px] text-muted-foreground select-none">
+                {/* Down Arrow Chevron */}
+                {/* <span className="text-[10px] text-muted-foreground select-none">
                 ▼
               </span> */}
-            </button>
-          </DropdownMenuTrigger>
+              </button>
+            </DropdownMenuTrigger>
 
-          <DropdownMenuContent
-            align="end"
-            className="w-56 p-1 bg-card border border-border text-foreground shadow-lg"
-          >
-            <div className="flex flex-col px-2 py-2 border-b border-border/40 mb-1 select-none">
-              <Typography
-                variant="body-sm"
-                className="font-bold text-foreground truncate"
-              >
-                {currentUser?.name || "Officer"}
-              </Typography>
-              <span className="text-[10px] text-muted-foreground truncate font-data">
-                {currentUser?.email}
-              </span>
-              <div className="flex items-center gap-1.5 mt-1.5 overflow-hidden">
-                <Badge
-                  variant="outline"
-                  size="sm"
-                  className="capitalize scale-90 border-primary/20 text-primary shrink-0"
-                >
-                  {currentUser?.role?.replace("_", " ") || "User"}
-                </Badge>
-                <span
-                  className="text-[9px] text-muted-foreground truncate"
-                  title={currentUser?.department}
-                >
-                  {currentUser?.department}
-                </span>
-              </div>
-            </div>
-
-            {/* Profile page option */}
-            <DropdownMenuItem
-              className="cursor-pointer hover:bg-accent gap-2"
-              onSelect={() => navigate("/administration/profile")}
+            <DropdownMenuContent
+              align="end"
+              className="w-56 p-1 bg-card border border-border text-foreground shadow-lg"
             >
-              <User className="h-4 w-4 text-muted-foreground" />
-              Profile
-            </DropdownMenuItem>
-            {hasPermission("view_roles") && (
+              <div className="flex flex-col px-2 py-2 border-b border-border/40 mb-1 select-none">
+                <Typography
+                  variant="body-sm"
+                  className="font-bold text-foreground truncate"
+                >
+                  {currentUser?.name || "Officer"}
+                </Typography>
+                <span className="text-[10px] text-muted-foreground truncate font-data">
+                  {currentUser?.email}
+                </span>
+                <div className="flex items-center gap-1.5 mt-1.5 overflow-hidden">
+                  <Badge
+                    variant="outline"
+                    size="sm"
+                    className="capitalize scale-90 border-primary/20 text-primary shrink-0"
+                  >
+                    {currentUser?.role?.replace("_", " ") || "User"}
+                  </Badge>
+                  <span
+                    className="text-[9px] text-muted-foreground truncate"
+                    title={currentUser?.department}
+                  >
+                    {currentUser?.department}
+                  </span>
+                </div>
+              </div>
+
+              {/* Profile page option */}
               <DropdownMenuItem
                 className="cursor-pointer hover:bg-accent gap-2"
-                onSelect={() => navigate("/administration/roles")}
+                onSelect={() => navigate("/administration/profile")}
               >
-                <Shield className="h-4 w-4 text-muted-foreground" />
-                Roles
+                <User className="h-4 w-4 text-muted-foreground" />
+                Profile
               </DropdownMenuItem>
-            )}
+              {hasPermission("view_roles") && (
+                <DropdownMenuItem
+                  className="cursor-pointer hover:bg-accent gap-2"
+                  onSelect={() => navigate("/administration/roles")}
+                >
+                  <Shield className="h-4 w-4 text-muted-foreground" />
+                  Roles
+                </DropdownMenuItem>
+              )}
 
-            {/* <DropdownMenuItem
+              {/* <DropdownMenuItem
               className="cursor-pointer hover:bg-accent gap-2"
               onSelect={() => navigate("/administration/permissions")}
             >
@@ -291,145 +300,177 @@ export function PrimaryTopNav({ showMobileMenu = false }: PrimaryTopNavProps) {
               Permissions
             </DropdownMenuItem> */}
 
-            {/* <DropdownMenuSeparator className="bg-border/40" /> */}
+              {/* <DropdownMenuSeparator className="bg-border/40" /> */}
 
-            {/* Users */}
-            {hasPermission("view_users") && (
+              {/* Users */}
+              {hasPermission("view_users") && (
+                <DropdownMenuItem
+                  className="cursor-pointer hover:bg-accent gap-2"
+                  onSelect={() => navigate("/administration/users")}
+                >
+                  <User className="h-4 w-4 text-muted-foreground" />
+                  Users
+                </DropdownMenuItem>
+              )}
+
+              {/* <DropdownMenuSeparator className="bg-border/40" /> */}
+
+              {/* Geography & Police Infrastructure */}
+              {hasPermission("districts.view") && (
+                <DropdownMenuItem
+                  className="cursor-pointer hover:bg-accent"
+                  onClick={() => navigate("/administration/districts")}
+                >
+                  Districts
+                </DropdownMenuItem>
+              )}
+
+              {hasPermission("station-types.view") && (
+                <DropdownMenuItem
+                  className="cursor-pointer hover:bg-accent"
+                  onClick={() => navigate("/administration/station-types")}
+                >
+                  Station Types
+                </DropdownMenuItem>
+              )}
+
+              {hasPermission("police-stations.view") && (
+                <DropdownMenuItem
+                  className="cursor-pointer hover:bg-accent"
+                  onClick={() => navigate("/administration/police-stations")}
+                >
+                  Police Stations
+                </DropdownMenuItem>
+              )}
+
+              {hasPermission("police-ranks.view") && (
+                <DropdownMenuItem
+                  className="cursor-pointer hover:bg-accent"
+                  onClick={() => navigate("/administration/police-ranks")}
+                >
+                  Police Ranks
+                </DropdownMenuItem>
+              )}
+
+              {hasPermission("police-officers.view") && (
+                <DropdownMenuItem
+                  className="cursor-pointer hover:bg-accent"
+                  onClick={() => navigate("/administration/police-officers")}
+                >
+                  Police Officers
+                </DropdownMenuItem>
+              )}
+
+              <DropdownMenuSeparator className="bg-border/40" />
+
+              {/* Criminal Justice Module */}
+              {hasPermission("criminals.view") && (
+                <DropdownMenuItem
+                  className="cursor-pointer hover:bg-accent"
+                  onClick={() => navigate("/administration/criminals")}
+                >
+                  Criminal Registry
+                </DropdownMenuItem>
+              )}
+
+              {hasPermission("crimes.view") && (
+                <DropdownMenuItem
+                  className="cursor-pointer hover:bg-accent"
+                  onClick={() => navigate("/administration/crimes")}
+                >
+                  Crime Incidents
+                </DropdownMenuItem>
+              )}
+
+              {hasPermission("firs.view") && (
+                <DropdownMenuItem
+                  className="cursor-pointer hover:bg-accent"
+                  onClick={() => navigate("/administration/firs")}
+                >
+                  FIR Registry
+                </DropdownMenuItem>
+              )}
+
+              <DropdownMenuSeparator className="bg-border/40" />
+
               <DropdownMenuItem
                 className="cursor-pointer hover:bg-accent gap-2"
-                onSelect={() => navigate("/administration/users")}
+                onSelect={() => navigate("/administration/settings")}
               >
-                <User className="h-4 w-4 text-muted-foreground" />
-                Users
+                Settings
               </DropdownMenuItem>
-            )}
 
-            {/* <DropdownMenuSeparator className="bg-border/40" /> */}
+              <div className="border-t border-border/40 my-1" />
 
-            {/* Geography & Police Infrastructure */}
-            {hasPermission("districts.view") && (
               <DropdownMenuItem
-                className="cursor-pointer hover:bg-accent"
-                onClick={() => navigate("/administration/districts")}
+                onSelect={handleSignOut}
+                className="text-danger cursor-pointer font-semibold hover:bg-danger/10 focus:bg-danger/10"
               >
-                Districts
+                Sign Out
               </DropdownMenuItem>
-            )}
-
-            {hasPermission("station-types.view") && (
-              <DropdownMenuItem
-                className="cursor-pointer hover:bg-accent"
-                onClick={() => navigate("/administration/station-types")}
-              >
-                Station Types
-              </DropdownMenuItem>
-            )}
-
-            {hasPermission("police-stations.view") && (
-              <DropdownMenuItem
-                className="cursor-pointer hover:bg-accent"
-                onClick={() => navigate("/administration/police-stations")}
-              >
-                Police Stations
-              </DropdownMenuItem>
-            )}
-
-            {hasPermission("police-ranks.view") && (
-              <DropdownMenuItem
-                className="cursor-pointer hover:bg-accent"
-                onClick={() => navigate("/administration/police-ranks")}
-              >
-                Police Ranks
-              </DropdownMenuItem>
-            )}
-
-            {hasPermission("police-officers.view") && (
-              <DropdownMenuItem
-                className="cursor-pointer hover:bg-accent"
-                onClick={() => navigate("/administration/police-officers")}
-              >
-                Police Officers
-              </DropdownMenuItem>
-            )}
-
-            <DropdownMenuSeparator className="bg-border/40" />
-
-            {/* Criminal Justice Module */}
-            {hasPermission("criminals.view") && (
-              <DropdownMenuItem
-                className="cursor-pointer hover:bg-accent"
-                onClick={() => navigate("/administration/criminals")}
-              >
-                Criminal Registry
-              </DropdownMenuItem>
-            )}
-
-            {hasPermission("crimes.view") && (
-              <DropdownMenuItem
-                className="cursor-pointer hover:bg-accent"
-                onClick={() => navigate("/administration/crimes")}
-              >
-                Crime Incidents
-              </DropdownMenuItem>
-            )}
-
-            {hasPermission("firs.view") && (
-              <DropdownMenuItem
-                className="cursor-pointer hover:bg-accent"
-                onClick={() => navigate("/administration/firs")}
-              >
-                FIR Registry
-              </DropdownMenuItem>
-            )}
-
-            <DropdownMenuSeparator className="bg-border/40" />
-
-            <DropdownMenuItem
-              className="cursor-pointer hover:bg-accent gap-2"
-              onSelect={() => navigate("/administration/settings")}
-            >
-              Settings
-            </DropdownMenuItem>
-
-            <div className="border-t border-border/40 my-1" />
-
-            <DropdownMenuItem
-              onSelect={handleSignOut}
-              className="text-danger cursor-pointer font-semibold hover:bg-danger/10 focus:bg-danger/10"
-            >
-              Sign Out
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
-    </div>
 
       {/* Layer 2: Sub-navigation Row */}
-      {showSubNav && (
-        <div className="w-full flex items-center justify-center md:justify-start h-8 px-4 lg:px-6 bg-card  select-none overflow-x-auto no-scrollbar">
-          <div className="h-full flex items-center gap-4">
-            {activeGroup.items?.map((item) => {
-              const isSubActive = location.pathname === item.path;
-              const SubIcon = item.icon ? iconMap[item.icon] : null;
-              return (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  className={cn(
-                    "h-full flex items-center gap-1.5 px-1 text-xs font-semibold border-b-2 transition-all duration-200 select-none",
-                    "focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-primary focus-visible:outline-none",                    isSubActive
-                      ? "border-primary text-primary"
-                      : "border-transparent text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  {SubIcon && <SubIcon className={cn("h-3.5 w-3.5 shrink-0", isSubActive ? "text-primary" : "text-muted-foreground")} />}
-                  <span>{item.label}</span>
-                </Link>
-              );
-            })}
+      {/* Layer 2: Sub-navigation + Analytics Header */}
+      {/* Layer 2: Sub Navigation + Analytics Filters */}
+      {(showSubNav || !isAdminRoute) && (
+        <div className="w-full border-b border-border bg-card">
+          <div className="flex items-center justify-between gap-8 px-6 lg:px-8 py-2.5">
+            {/* Left: Sub Navigation */}
+            {showSubNav && (
+              <div className="flex items-center gap-4 overflow-x-auto no-scrollbar">
+                {activeGroup.items?.map((item) => {
+                  const isSubActive = location.pathname === item.path;
+                  const SubIcon = item.icon ? iconMap[item.icon] : null;
+
+                  return (
+                    <Link
+                      key={item.path}
+                      to={item.path}
+                      className={cn(
+                        "flex h-9 items-center gap-1.5 px-2 text-xs font-semibold border-b-2 transition-all duration-200 whitespace-nowrap",
+                        "focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-primary focus-visible:outline-none",
+                        isSubActive
+                          ? "border-primary text-primary"
+                          : "border-transparent text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      {SubIcon && (
+                        <SubIcon
+                          className={cn(
+                            "h-3.5 w-3.5 shrink-0",
+                            isSubActive
+                              ? "text-primary"
+                              : "text-muted-foreground",
+                          )}
+                        />
+                      )}
+                      <span>{item.label}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Right: Analytics Filters */}
+            {!isAdminRoute && (
+              <div className="ml-auto flex-shrink-0">
+                <AnalyticsHeader title="" />
+              </div>
+            )}
           </div>
         </div>
       )}
+
+      {/* Layer 3: Global Analytics Filters — hidden on /administration routes */}
+      {/* {!isAdminRoute && (
+        <div className="w-full px-4 lg:px-6 py-1.5 border-b border-border">
+          <AnalyticsHeader title="" />
+        </div>
+      )} */}
     </header>
   );
 }

@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { useGetConfigurationByNameQuery } from '@/services/configurationsApi';
+import { useGetCurrentUserQuery } from '@/services/authApi';
 import { hydrateBranding } from '@/store/slices/brandingSlice';
 
 /**
@@ -55,11 +56,13 @@ function hexToHslObject(hex: string): { h: number; s: number; l: number } {
 export function BrandingProvider() {
   const dispatch = useAppDispatch();
   const branding = useAppSelector((s) => s.branding);
+  const { data: user } = useGetCurrentUserQuery();
   
   // Hydrate configurations from backend on mount
-  const { data: serverBranding } = useGetConfigurationByNameQuery('branding', {
-    refetchOnMountOrArgChange: true,
-  });
+  const { data: serverBranding } = useGetConfigurationByNameQuery(
+    { name: 'branding', email: user?.email },
+    { refetchOnMountOrArgChange: true }
+  );
 
   useEffect(() => {
     if (serverBranding) {

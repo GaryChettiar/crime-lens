@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { DashboardLayout } from "@/components/templates/DashboardLayout";
-import { AnalyticsHeader } from "@/components/organisms/AnalyticsHeader";
+
 import { MetricCard } from "@/components/molecules/MetricCard";
 import { FilterPanel } from "@/components/organisms/FilterPanel";
 import {
@@ -429,25 +429,8 @@ export function DashboardPage() {
   return (
     <DashboardLayout title="Dashboard">
       <div className=" pb-12 px-1">
-        {/* Header with drawer toggles */}
-        <PermissionGuard permissions={['view_filters']} fallback={null}>
-          <AnalyticsHeader
-          title="Tactical Command Dashboard"
-          subtitle="Real-time incident dispatch logs, response statuses, and anomaly warnings."
-          onRefresh={handleRefresh}
-          isRefreshing={isRefreshing}
-          activeFiltersCount={activeFilters.length}
-          onOpenFilters={() => setIsFiltersOpen(true)}
-          onOpenAlerts={() => setIsAlertsOpen(true)}
-          unreadAlertsCount={unreadAlertsCount}
-          onGenerateReport={() => {}}
-          currentDayOffset={currentDayOffset}
-          onDayOffsetChange={setCurrentDayOffset}
-          timeWindow={timeWindow}
-          onTimeWindowChange={setTimeWindow}
-          />
-        </PermissionGuard>
-        <PermissionGuard permissions={['view_analytics']} fallback={null}>
+
+        {/* <PermissionGuard permissions={['view_analytics']} fallback={null}>
           <div className="grid grid-cols-1 sm:grid-cols-[19fr_19fr_19fr_3fr] gap-4 p-2 border border-border rounded-lg bg-card/10">
           <MetricCard
             label="Total Crimes (Active Selection)"
@@ -467,15 +450,7 @@ export function DashboardPage() {
             isLoading={showKpisLoading}
             status="danger"
           />
-          <MetricCard
-            label="Critical Alerts"
-            value={`${criticalAlertsCount} Active`}
-            change={unreadAlertsCount > 0 ? 15 : 0}
-            changeLabel="unread system alerts"
-            sparklineData={[]}
-            isLoading={showKpisLoading}
-            status="danger"
-          />
+        
           <Link
             to="/analytics"
             className="flex flex-col justify-center items-center p-4 rounded-lg border bg-card text-card-foreground shadow-xs relative overflow-hidden transition-all duration-200 hover:border-primary/50 hover:shadow-md group cursor-pointer"
@@ -483,10 +458,10 @@ export function DashboardPage() {
             <ChevronRight className="h-10 w-10 text-primary transition-transform duration-200 group-hover:translate-x-1" />
           </Link>
           </div>
-        </PermissionGuard>
+        </PermissionGuard> */}
         {/* KPI Overview (with Loading skeletons support) */}
         <PermissionGuard permissions={['view_map']} fallback={null}>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4  p-2 border border-border rounded-lg bg-card/10 mt-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4   border border-border rounded-lg bg-card/10 ">
          
         {isLoadingIncidents || isLoadingDistricts ? (
             <div className="w-full h-[700px] md:h-[75vh] bg-slate-900/40 border border-border rounded-lg flex flex-col items-center justify-center space-y-4 animate-pulse">
@@ -517,7 +492,7 @@ export function DashboardPage() {
           <div className="mt-4">
           <div className="flex items-center justify-between mb-3">
             <SectionLabel>Crime Trend Analysis</SectionLabel>
-            <div className="flex items-center gap-1 bg-card border border-border rounded-md p-0.5">
+            {/* <div className="flex items-center gap-1 bg-card border border-border rounded-md p-0.5">
               {(['30d', '90d'] as const).map(w => (
                 <button key={w} onClick={() => setTrendWindow(w)}
                   className={cn(
@@ -527,7 +502,7 @@ export function DashboardPage() {
                   {w === '30d' ? 'Last 30 Days' : 'Last 90 Days'}
                 </button>
               ))}
-            </div>
+            </div> */}
           </div>
           <Card className="border-border bg-card">
             <CardHeader className="p-4 pb-2 border-b border-border flex flex-row items-center justify-between">

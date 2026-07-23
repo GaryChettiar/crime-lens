@@ -12,6 +12,7 @@ export interface ConfigurationItem {
 export interface UpdateConfigurationPayload {
   name: string;
   config: Record<string, any>;
+  email?: string;
 }
 
 export interface UpdateUploadPathPayload {
@@ -24,23 +25,38 @@ export interface UpdateUploadPathPayload {
 
 export const configurationsApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    getConfigurations: builder.query<ConfigurationItem[], void>({
-      query: () => '/configurations',
+    getConfigurations: builder.query<ConfigurationItem[], { email?: string } | void>({
+      query: (params) => ({
+        url: '/configurations',
+        params: params?.email ? { email: params.email } : undefined,
+      }),
       transformResponse: (response: any) => response.data ?? response,
       providesTags: [{ type: 'Configuration', id: 'LIST' }],
     }),
 
-    getConfigurationByName: builder.query<Record<string, any>, string>({
-      query: (name) => `/configurations/${encodeURIComponent(name)}`,
+    getConfigurationByName: builder.query<Record<string, any>, string | { name: string; email?: string }>({
+      query: (arg) => {
+        const name = typeof arg === 'string' ? arg : arg.name;
+        const email = typeof arg === 'object' ? arg.email : undefined;
+        return {
+          url: `/configurations/${encodeURIComponent(name)}`,
+          // headers: email ? { 'x-user-email': email } : undefined,
+          params: email ? { email } : undefined,
+        };
+      },
       transformResponse: (response: any) => response.data ?? response,
-      providesTags: (_result, _error, name) => [{ type: 'Configuration', id: name }],
+      providesTags: (_result, _error, arg) => [
+        { type: 'Configuration', id: typeof arg === 'string' ? arg : arg.name },
+      ],
     }),
 
     updateConfigurations: builder.mutation<{ message: string }, UpdateConfigurationPayload>({
-      query: (body) => ({
+      query: ({ name, config, email }) => ({
         url: '/configurations',
         method: 'PUT',
-        body,
+        // headers: email ? { 'x-user-email': email } : undefined,
+        params: email ? { email } : undefined,
+        body: { name, config },
       }),
       invalidatesTags: (_result, _error, { name }) => [
         { type: 'Configuration', id: name },

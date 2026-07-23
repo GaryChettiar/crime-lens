@@ -1,6 +1,7 @@
 import { AdminLayout } from '@/components/templates/AdminLayout/AdminLayout';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { useUpdateConfigurationsMutation } from '@/services/configurationsApi';
+import { useGetCurrentUserQuery } from '@/services/authApi';
 import {
   setStagedField,
   applyBranding,
@@ -37,6 +38,7 @@ function getHexLightness(hex: string): number {
 export function SettingsPage() {
   const dispatch = useAppDispatch();
   const branding = useAppSelector((state) => state.branding);
+  const { data: user } = useGetCurrentUserQuery();
   const [updateConfigurations, { isLoading: isUpdating }] = useUpdateConfigurationsMutation();
 
   const handleBrandingChange = (field: keyof typeof branding.staged, value: string) => {
@@ -45,35 +47,27 @@ export function SettingsPage() {
 
   const handleApplyBranding = async () => {
     try {
-      // For now, apply branding locally. Later we will persist via BE endpoint.
-      dispatch(applyBranding());
-
-      /*
       await updateConfigurations({
         name: 'branding',
         config: branding.staged,
+        email: user?.email,
       }).unwrap();
-      */
+      dispatch(applyBranding());
     } catch (err: any) {
       console.error('Failed to sync branding to backend:', err);
     }
   };
 
   const handleResetBranding = async () => {
-    if (window.confirm('Are you sure you want to reset all branding colors to system defaults?')) {
-      try {
-        // For now, reset branding locally. Later we will persist via BE endpoint.
-        dispatch(resetBranding());
-
-        /*
-        await updateConfigurations({
-          name: 'branding',
-          config: DEFAULT_BRANDING,
-        }).unwrap();
-        */
-      } catch (err: any) {
-        console.error('Failed to sync reset branding to backend:', err);
-      }
+    try {
+      await updateConfigurations({
+        name: 'branding',
+        config: DEFAULT_BRANDING,
+        email: user?.email,
+      }).unwrap();
+      dispatch(resetBranding());
+    } catch (err: any) {
+      console.error('Failed to sync reset branding to backend:', err);
     }
   };
 

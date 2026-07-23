@@ -49,7 +49,8 @@ export function ProfilePage() {
             ...brandingConfig,
             foreground: brandingForm.foreground,
             background: brandingForm.background,
-          }
+          },
+          email:currentUser?.email
         });
       }
       if (brandingForm.email || brandingForm.smtpPort) {
@@ -62,7 +63,7 @@ export function ProfilePage() {
           }
         });
       }
-      alert('Branding & Email configuration saved successfully.');
+      // alert('Branding & Email configuration saved successfully.');
     } catch (e) {
       console.error(e);
       alert('Failed to save configuration');

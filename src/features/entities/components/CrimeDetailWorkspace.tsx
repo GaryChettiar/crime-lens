@@ -18,6 +18,8 @@ import { EvidenceTab } from './tabs/EvidenceTab';
 import { LegalSectionsTab } from './tabs/LegalSectionsTab';
 import { TimelineTab } from './tabs/TimelineTab';
 import { ActivityTab } from './tabs/ActivityTab';
+import { VictimsTab } from './tabs/VictimsTab';
+import { WitnessTab } from './tabs/WitnessTab';
 import { NetworkAnalysisTab } from './tabs/NetworkAnalysisTab';
 import type { CrimeStatus } from '@/services/crimeApi';
 import type { CrimeTab } from '@/store/slices/crimeDetailsSlice';
@@ -234,15 +236,11 @@ export function CrimeDetailWorkspace() {
               </TabsContent>
 
               <TabsContent value="victims" className="mt-0">
-                <div className="p-8 bg-muted/20 text-sm text-muted-foreground text-center rounded-lg border border-border/50">
-                  Victims information will be displayed here.
-                </div>
+                <VictimsTab incidentId={crimeData.id} />
               </TabsContent>
 
               <TabsContent value="witness" className="mt-0">
-                <div className="p-8 bg-muted/20 text-sm text-muted-foreground text-center rounded-lg border border-border/50">
-                  Witness information will be displayed here.
-                </div>
+                <WitnessTab incidentId={crimeData.id} />
               </TabsContent>
 
               <TabsContent value="criminal" className="mt-0">
