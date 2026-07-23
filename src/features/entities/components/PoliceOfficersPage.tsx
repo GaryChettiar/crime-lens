@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { User, Award, Landmark, Mail, Phone, Search } from 'lucide-react';
 import { DashboardLayout } from '@/components/templates/DashboardLayout';
+import { useAnalyticsFilters } from '@/hooks/useAnalyticsFilters';
 import { useGetAllPoliceOfficersQuery } from '@/services/policeOfficersApi';
 import { useGetRanksQuery } from '@/services/policeRanksApi';
 import { useGetStationsQuery } from '@/services/policeStationsApi';
@@ -8,12 +9,22 @@ import { useGetAllUsersQuery } from '@/services/usersApi';
 import { TableSkeleton, EmptyState, ErrorState } from '@/components/molecules/DataStates';
 
 export function PoliceOfficersPage() {
+  const { stationId: contextStationId } = useAnalyticsFilters();
+  const hasLockedStationFilter = Boolean(contextStationId);
+
   const { data: ranks } = useGetRanksQuery();
   const { data: stations } = useGetStationsQuery();
   const { data: usersData } = useGetAllUsersQuery({ limit: 1000 });
 
   const [selectedRankFilter, setSelectedRankFilter] = React.useState('');
   const [selectedStationFilter, setSelectedStationFilter] = React.useState('');
+
+  React.useEffect(() => {
+    if (contextStationId) {
+      setSelectedStationFilter(contextStationId);
+    }
+  }, [contextStationId]);
+
   const [searchQuery, setSearchQuery] = React.useState('');
 
   const { data: officers, isLoading, isError, refetch } = useGetAllPoliceOfficersQuery();
@@ -63,7 +74,11 @@ export function PoliceOfficersPage() {
         </div>
 
         {/* Filter Bar */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div
+          className={`grid grid-cols-1 gap-3 ${
+            hasLockedStationFilter ? 'sm:grid-cols-2' : 'sm:grid-cols-3'
+          }`}
+        >
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input
@@ -83,6 +98,7 @@ export function PoliceOfficersPage() {
               <option key={r.id} value={r.id}>{r.name}</option>
             ))}
           </select>
+          {!hasLockedStationFilter && (
           <select
             className="admin-input"
             value={selectedStationFilter}
@@ -93,6 +109,7 @@ export function PoliceOfficersPage() {
               <option key={s.id} value={s.id}>{s.name}</option>
             ))}
           </select>
+          )}
         </div>
 
         {isLoading && <TableSkeleton columns={4} rows={6} />}

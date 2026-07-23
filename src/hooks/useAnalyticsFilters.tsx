@@ -9,6 +9,10 @@ interface AnalyticsFiltersState {
   setIsSingleDate: (isSingle: boolean) => void;
   district: string | null;
   setDistrict: (district: string | null) => void;
+  districtId: string | null;
+  setDistrictId: (districtId: string | null) => void;
+  stationId: string | null;
+  setStationId: (stationId: string | null) => void;
   crimeCategory: string | null;
   setCrimeCategory: (category: string | null) => void;
 }
@@ -20,6 +24,8 @@ export function AnalyticsFiltersProvider({ children }: { children: ReactNode }) 
   const [endDate, setEndDate] = useState<string | null>(null);
   const [isSingleDate, setIsSingleDate] = useState<boolean>(false);
   const [district, setDistrict] = useState<string | null>(null);
+  const [districtId, setDistrictId] = useState<string | null>(null);
+  const [stationId, setStationId] = useState<string | null>(null);
   const [crimeCategory, setCrimeCategory] = useState<string | null>(null);
 
   return (
@@ -33,6 +39,10 @@ export function AnalyticsFiltersProvider({ children }: { children: ReactNode }) 
         setIsSingleDate,
         district,
         setDistrict,
+        districtId,
+        setDistrictId,
+        stationId,
+        setStationId,
         crimeCategory,
         setCrimeCategory,
       }}

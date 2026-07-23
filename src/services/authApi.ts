@@ -20,6 +20,9 @@ export interface AuthUser {
   phone?: string;
   permissions?: string[];
   roles?: { id: string; name: string }[];
+  isOfficer?: boolean;
+  stationId?: string | null;
+  districtId?: string | null;
 }
 
 interface AuthMeUser {
@@ -123,16 +126,26 @@ export const authApi = baseApi.injectEndpoints({
           });
         }
 
+        const userInfo = responseData?.user_info;
+        const isOfficer = Boolean(userInfo?.isOfficer);
+
         return {
           id: sysUserId,
           sysUserId,
-          email: user.email_id ?? '',
-          name: [user.first_name, user.last_name].filter(Boolean).join(' ') || user.email_id || 'CrimeLens User',
+          email: user.email_id ?? userInfo?.email ?? '',
+          name: [user.first_name, user.last_name].filter(Boolean).join(' ')
+            || [userInfo?.user_first_name, userInfo?.user_last_name].filter(Boolean).join(' ')
+            || user.email_id
+            || 'CrimeLens User',
           role: roles[0]?.name ?? catalystRole?.role_name ?? 'user',
+          phone: userInfo?.phone,
           // Permissions are resolved from the role detail endpoint (/roles/getOneRole/:id).
           // Avoid relying on `user.permissions` from /auth/me which may be absent or incomplete.
           permissions: [],
           roles,
+          isOfficer,
+          stationId: isOfficer ? (userInfo?.station_id ?? null) : null,
+          districtId: isOfficer ? (userInfo?.district_id ?? null) : null,
         };
       },
       async onQueryStarted(_args, { queryFulfilled, dispatch }) {

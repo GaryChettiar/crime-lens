@@ -9,6 +9,7 @@ import {
   useGetCrimesByEvidencePathsQuery,
 } from "@/services/crimeApi";
 import { useAppSelector } from "@/store/hooks";
+import { useAnalyticsFilters } from "@/hooks/useAnalyticsFilters";
 import { useTableQueryState } from "@/hooks/useTableQueryState";
 import usePermissions from "@/hooks/usePermissions";
 import {
@@ -195,7 +196,13 @@ export function CrimesListPage() {
   const { data: stations } = useGetStationsQuery();
   const { data: categories } = useGetCrimeCategoriesQuery();
   const globalFilters = useAppSelector((s) => s.globalFilters);
+  const { districtId: contextDistrictId, stationId: contextStationId } =
+    useAnalyticsFilters();
   const prevFiltersRef = React.useRef<GlobalFiltersState | null>(null);
+  const prevLocationRef = React.useRef({
+    districtId: contextDistrictId,
+    stationId: contextStationId,
+  });
 
   // All pagination/sort/search/URL state from the generic hook
   const {
@@ -262,6 +269,19 @@ export function CrimesListPage() {
     resetPage,
   ]);
 
+  React.useEffect(() => {
+    if (
+      prevLocationRef.current.districtId !== contextDistrictId ||
+      prevLocationRef.current.stationId !== contextStationId
+    ) {
+      resetPage();
+      prevLocationRef.current = {
+        districtId: contextDistrictId,
+        stationId: contextStationId,
+      };
+    }
+  }, [contextDistrictId, contextStationId, resetPage]);
+
   // Sync status filter from global filters on mount
   React.useEffect(() => {
     if (globalFilters.status && !statusFilter)
@@ -282,14 +302,23 @@ export function CrimesListPage() {
     [globalFilters, statusFilter],
   );
 
+  const locationScope = React.useMemo(
+    () => ({
+      districtId: contextDistrictId,
+      stationId: contextStationId,
+    }),
+    [contextDistrictId, contextStationId],
+  );
+
   const crimeQuery = React.useMemo(
     () =>
       buildCrimeQuery(
         { page, pageSize, sortBy, sortOrder },
         effectiveFilters,
         debouncedSearch,
+        locationScope,
       ),
-    [page, pageSize, sortBy, sortOrder, effectiveFilters, debouncedSearch],
+    [page, pageSize, sortBy, sortOrder, effectiveFilters, debouncedSearch, locationScope],
   );
 
   const {
@@ -358,6 +387,7 @@ export function CrimesListPage() {
         { page: page + 1, pageSize, sortBy, sortOrder },
         effectiveFilters,
         debouncedSearch,
+        locationScope,
       );
       prefetchCrimes(nextQuery);
     }
@@ -369,6 +399,7 @@ export function CrimesListPage() {
     sortOrder,
     effectiveFilters,
     debouncedSearch,
+    locationScope,
     prefetchCrimes,
   ]);
 

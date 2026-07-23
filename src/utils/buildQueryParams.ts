@@ -2,6 +2,11 @@ import type { CrimeQuery, TableQueryState, SortOrder } from '@/types/pagination'
 import type { GlobalFiltersState } from '@/store/slices/globalFiltersSlice';
 import { CRIME_SORT_FIELDS } from '@/types/pagination';
 
+export interface CrimeLocationScope {
+  districtId?: string | null;
+  stationId?: string | null;
+}
+
 /**
  * buildCrimeQuery — Maps table state + global filters → CrimeQuery for RTK Query.
  *
@@ -11,11 +16,13 @@ import { CRIME_SORT_FIELDS } from '@/types/pagination';
  * @param tableState  - Current table pagination/sort state from Redux
  * @param globalFilters - Global filter state from Redux
  * @param search      - Debounced search string (from component state, not Redux)
+ * @param locationScope - Optional district/station IDs from analytics context
  */
 export function buildCrimeQuery(
   tableState: TableQueryState,
   globalFilters: GlobalFiltersState,
-  search: string
+  search: string,
+  locationScope?: CrimeLocationScope,
 ): CrimeQuery {
   // Validate sortBy against backend whitelist to prevent 400 errors
   const safeSortBy = CRIME_SORT_FIELDS.includes(tableState.sortBy as any)
@@ -34,13 +41,16 @@ export function buildCrimeQuery(
     query.search = search.trim();
   }
 
-  // Global filter: district
-  if (globalFilters.district) {
+  // Location scope from analytics context (IDs) takes precedence over Redux filters
+  if (locationScope?.districtId) {
+    query.districtId = locationScope.districtId;
+  } else if (globalFilters.district) {
     query.districtId = globalFilters.district;
   }
 
-  // Global filter: police station
-  if (globalFilters.policeStation) {
+  if (locationScope?.stationId) {
+    query.stationId = locationScope.stationId;
+  } else if (globalFilters.policeStation) {
     query.stationId = globalFilters.policeStation;
   }
 

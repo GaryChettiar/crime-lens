@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { Search } from 'lucide-react';
 import { DashboardLayout } from '@/components/templates/DashboardLayout';
+import { useAnalyticsFilters } from '@/hooks/useAnalyticsFilters';
 import { useGetAllCriminalsQuery } from '@/services/criminalsApi';
 import { useGetDistrictsQuery } from '@/services/districtsApi';
 import { CriminalsTable } from './CriminalsTable';
@@ -8,8 +9,18 @@ import { ErrorState } from '@/components/molecules/DataStates';
 
 export function CriminalsPage() {
   const [searchQuery, setSearchQuery] = React.useState('');
+  const { districtId: contextDistrictId, stationId: contextStationId } =
+    useAnalyticsFilters();
 
-  const { data: criminals, isLoading, isError, refetch } = useGetAllCriminalsQuery();
+  const criminalQueryParams = React.useMemo(() => {
+    const params: { districtId?: string; stationId?: string } = {};
+    if (contextDistrictId) params.districtId = contextDistrictId;
+    if (contextStationId) params.stationId = contextStationId;
+    return Object.keys(params).length > 0 ? params : undefined;
+  }, [contextDistrictId, contextStationId]);
+
+  const { data: criminals, isLoading, isError, refetch } =
+    useGetAllCriminalsQuery(criminalQueryParams);
   const { data: districts } = useGetDistrictsQuery();
 
   return (

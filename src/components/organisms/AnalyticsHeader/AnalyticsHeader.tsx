@@ -13,6 +13,8 @@ import { useGetDistrictsQuery } from "@/services/districtsApi";
 import { useGetStationsQuery } from "@/services/policeStationsApi";
 import { useGetCrimeCategoriesQuery } from "@/services/crimeCategoryApi";
 import { useAnalyticsFilters } from "@/hooks/useAnalyticsFilters";
+import usePermissions from "@/hooks/usePermissions";
+import { useGetCurrentUserQuery } from "@/services/authApi";
 import { Calendar as CalendarIcon } from "lucide-react";
 import { Calendar as ShadcnCalendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -82,6 +84,12 @@ export function AnalyticsHeader({
 }: AnalyticsHeaderProps) {
   const dispatch = useAppDispatch();
   const globalFilters = useAppSelector((state) => state.globalFilters);
+  const { data: currentUser } = useGetCurrentUserQuery();
+  const { hasPermission } = usePermissions();
+
+  const isOfficer = Boolean(currentUser?.isOfficer);
+  const canViewDistrictFilter =
+    !isOfficer || hasPermission("view_district_filter");
 
   // Sync selections with Redux
   const activeDistrict = globalFilters.district || "all";
@@ -90,6 +98,8 @@ export function AnalyticsHeader({
 
   const {
     setDistrict: setContextDistrict,
+    setDistrictId: setContextDistrictId,
+    setStationId: setContextStationId,
     setCrimeCategory: setContextCrimeCategory,
     setStartDate,
     setEndDate,
@@ -116,6 +126,51 @@ export function AnalyticsHeader({
 
   const { data: districtsData } = useGetDistrictsQuery();
   const { data: stationsData } = useGetStationsQuery();
+
+  // Officers without view_district_filter: lock filters to their assigned IDs
+  React.useEffect(() => {
+    if (!isOfficer || canViewDistrictFilter) return;
+
+    setContextDistrictId(currentUser?.districtId ?? null);
+    setContextStationId(currentUser?.stationId ?? null);
+  }, [
+    isOfficer,
+    canViewDistrictFilter,
+    currentUser?.districtId,
+    currentUser?.stationId,
+    setContextDistrictId,
+    setContextStationId,
+  ]);
+
+  const currentDistrictObj = districtsData?.find(
+    (d) => d.name === activeDistrict,
+  );
+
+  // Sync district/station IDs to context when the user can change location filters
+  React.useEffect(() => {
+    if (!canViewDistrictFilter) return;
+
+    if (activeDistrict === "all") {
+      setContextDistrictId(null);
+    } else if (currentDistrictObj) {
+      setContextDistrictId(currentDistrictObj.id);
+    }
+
+    if (activeStation && stationsData) {
+      const station = stationsData.find((s) => s.name === activeStation);
+      setContextStationId(station?.id ?? null);
+    } else {
+      setContextStationId(null);
+    }
+  }, [
+    canViewDistrictFilter,
+    activeDistrict,
+    activeStation,
+    currentDistrictObj,
+    stationsData,
+    setContextDistrictId,
+    setContextStationId,
+  ]);
   const { data: crimeCategoriesData } = useGetCrimeCategoriesQuery();
 
   const crimeTypes = React.useMemo(() => {
@@ -138,10 +193,6 @@ export function AnalyticsHeader({
       new Set(districtsData.map((d) => d.name).filter(Boolean)),
     ).sort();
   }, [districtsData]);
-
-  const currentDistrictObj = districtsData?.find(
-    (d) => d.name === activeDistrict,
-  );
 
   const activeStations = React.useMemo(() => {
     if (activeDistrict === "all" || !currentDistrictObj || !stationsData)
@@ -341,7 +392,8 @@ export function AnalyticsHeader({
           )}
         </div>
 
-        {/* District (Location) Dropdown */}
+        {/* District (Location) Dropdown — hidden for officers without view_district_filter */}
+        {canViewDistrictFilter && (
         <div ref={dropdownRef} className="relative shrink-0">
           <button
             onClick={() => setIsLocationOpen(!isLocationOpen)}
@@ -452,6 +504,7 @@ export function AnalyticsHeader({
             </div>
           )}
         </div>
+        )}
 
         {/* Date / Date Range Picker */}
         <div className="relative shrink-0">

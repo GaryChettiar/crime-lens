@@ -192,9 +192,13 @@ export const criminalsApi = baseApi.injectEndpoints({
       invalidatesTags: ['Criminal'],
     }),
 
-    getAllCriminals: builder.query<CriminalResponse[], void>({
-      query: () => ({
+    getAllCriminals: builder.query<
+      CriminalResponse[],
+      { districtId?: string; stationId?: string } | void
+    >({
+      query: (params) => ({
         url: '/criminals/getAll',
+        params: params || undefined,
       }),
       transformResponse: (response: any) => {
         const list = response.data ?? response ?? [];
