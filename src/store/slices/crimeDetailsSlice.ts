@@ -18,7 +18,8 @@ export type CrimeTab =
   | 'victims'
   | 'witness'
   | 'criminal'
-  | 'investigating_team';
+  | 'investigating_team'
+  | 'network_analysis';
 
 export interface CrimeDetailsState {
   selectedSuspectId: string | null;

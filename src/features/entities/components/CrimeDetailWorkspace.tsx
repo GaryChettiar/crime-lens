@@ -8,7 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import {
   ArrowLeft, RefreshCw, AlertCircle, FolderOpen,
   LayoutDashboard, Paperclip, Users, Scale, Clock, ClipboardList,
-  Eye, Shield, UserX, UserSearch
+  Eye, Shield, UserX, UserSearch, GitBranch
 } from 'lucide-react';
 import { CRIME_STATUS_COLORS, CRIME_STATUS_STEPS } from '../types';
 import { CrimeStatusWorkflow } from './CrimeStatusWorkflow';
@@ -18,6 +18,7 @@ import { EvidenceTab } from './tabs/EvidenceTab';
 import { LegalSectionsTab } from './tabs/LegalSectionsTab';
 import { TimelineTab } from './tabs/TimelineTab';
 import { ActivityTab } from './tabs/ActivityTab';
+import { NetworkAnalysisTab } from './tabs/NetworkAnalysisTab';
 import type { CrimeStatus } from '@/services/crimeApi';
 import type { CrimeTab } from '@/store/slices/crimeDetailsSlice';
 
@@ -32,6 +33,7 @@ const TAB_CONFIG: { value: CrimeTab; label: string; icon: React.ElementType }[] 
   { value: 'witness', label: 'Witness', icon: Eye },
   { value: 'criminal', label: 'Criminal', icon: UserSearch },
   { value: 'investigating_team', label: 'Investigating Team', icon: Shield },
+  { value: 'network_analysis', label: 'Network Analysis', icon: GitBranch },
 ];
 
 const VALID_TABS: CrimeTab[] = TAB_CONFIG.map((t) => t.value);
@@ -253,6 +255,10 @@ export function CrimeDetailWorkspace() {
                 <div className="p-8 bg-muted/20 text-sm text-muted-foreground text-center rounded-lg border border-border/50">
                   Investigating Team details will be displayed here.
                 </div>
+              </TabsContent>
+
+              <TabsContent value="network_analysis" className="mt-0">
+                <NetworkAnalysisTab crimeId={crimeData.id} crimeNumber={crimeData.crimeNumber} />
               </TabsContent>
             </div>
           </Tabs>

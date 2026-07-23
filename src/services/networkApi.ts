@@ -274,7 +274,19 @@ export const networkApi = baseApi.injectEndpoints({
         ];
         return { data };
       }
-    })
+    }),
+
+    /**
+     * POST /network-analysis
+     * Build a network graph starting from a given root entity (e.g. an incident).
+     */
+    buildNetworkGraph: builder.mutation<CrimeNetworkGraphResponse, CrimeNetworkGraphRequest>({
+      query: (body) => ({
+        url: '/network-analysis',
+        method: 'POST',
+        body,
+      }),
+    }),
   }),
 });
 
@@ -288,6 +300,7 @@ export const {
   useGetSharedVehiclesQuery,
   useGetCommonAssociatesQuery,
   useDetectCriminalCommunitiesQuery,
+  useBuildNetworkGraphMutation,
 } = networkApi;
 
 // ---------------------------------------------------------------------------
@@ -318,4 +331,50 @@ export interface NetworkFilters {
   minConnections?: number;
   riskLevel?: string;
   clusterId?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Crime Network Analysis Types
+// ---------------------------------------------------------------------------
+
+export interface CrimeNetworkNode {
+  id: string;
+  type: 'incident' | 'criminal' | 'evidence' | 'vehicle' | 'alias' | 'biometric' | 'district' | 'policeStation';
+  label: string;
+  subtitle?: string;
+  properties?: Record<string, unknown>;
+}
+
+export interface CrimeNetworkEdge {
+  id: string;
+  source: string;
+  target: string;
+  label?: string;
+  type?: string;
+}
+
+export interface CrimeNetworkSummary {
+  criminals: number;
+  incidents: number;
+  vehicles: number;
+  aliases: number;
+  evidence: number;
+  districts: number;
+  policeStations: number;
+}
+
+export interface CrimeNetworkGraphData {
+  nodes: CrimeNetworkNode[];
+  edges: CrimeNetworkEdge[];
+  summary: CrimeNetworkSummary;
+}
+
+export interface CrimeNetworkGraphResponse {
+  status: string;
+  data: CrimeNetworkGraphData;
+}
+
+export interface CrimeNetworkGraphRequest {
+  root: { type: string; id: string };
+  filters?: Record<string, boolean>;
 }
