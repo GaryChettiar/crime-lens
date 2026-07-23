@@ -21,14 +21,41 @@ export default function usePermissions() {
     (globalThis as any).__crimeLens_lastPermissionsRef = lastPermissionsRef;
   }
 
+  const flattenPermissionNames = (perms?: Array<{ name?: string; permission_name?: string; children?: any[] }>) => {
+    if (!Array.isArray(perms)) return [] as string[];
+    const result: string[] = [];
+
+    const walk = (items: Array<{ name?: string; permission_name?: string; children?: any[] }>) => {
+      for (const item of items) {
+        const name = item.name ?? item.permission_name;
+        if (name) {
+          result.push(name);
+        }
+        if (Array.isArray(item.children) && item.children.length > 0) {
+          walk(item.children);
+        }
+      }
+    };
+
+    walk(perms);
+    return result;
+  };
+
   const permissions = useMemo(() => {
     if (!currentUser) return [];
 
     // If role details are present, use them as the authoritative source.
-    if (role && Array.isArray(role.permissions) && role.permissions.length > 0) {
-      const resolved = role.permissions.map((p: any) => p.permission_name).filter(Boolean);
-      lastPermissionsRef.current = resolved;
-      return resolved;
+    if (role) {
+      const systemNames = flattenPermissionNames((role as any).systemPermissions);
+      const businessNames = flattenPermissionNames((role as any).businessPermissions);
+      const legacyNames = Array.isArray((role as any).permissions)
+        ? flattenPermissionNames((role as any).permissions)
+        : [];
+      const resolved = Array.from(new Set([...systemNames, ...businessNames, ...legacyNames]));
+      if (resolved.length > 0) {
+        lastPermissionsRef.current = resolved;
+        return resolved;
+      }
     }
 
     // If we have a roleId but role is still loading, return the last-known

@@ -8,9 +8,11 @@ export interface RolePermission {
   id: string;
   name: string;
   description?: string | null;
+  parentId?: string | null;
   enabled: boolean;
   createdAt?: string;
   updatedAt?: string;
+  children?: RolePermission[];
 }
 
 export interface RoleUser {
@@ -37,7 +39,10 @@ export interface RoleDetail {
   id: string;
   name: string;
   isDefault: boolean;
-  permissions: { ROWID: string; permission_name: string; description?: string }[];
+  description?: string;
+  permissions?: { ROWID: string; permission_name: string; description?: string }[];
+  systemPermissions?: RolePermission[];
+  businessPermissions?: RolePermission[];
 }
 
 export interface RolesListResponse {

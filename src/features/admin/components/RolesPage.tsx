@@ -24,6 +24,38 @@ import { cn } from '@/lib/utils';
 
 const SYSTEM_ROLES = ['SUPER_ADMIN'];
 
+const flattenPermissionTree = (
+  perms?: Array<{ name?: string; permission_name?: string; children?: any[] }>,
+): string[] => {
+  if (!Array.isArray(perms)) return [];
+  const result: string[] = [];
+
+  const walk = (items: Array<{ name?: string; permission_name?: string; children?: any[] }>) => {
+    for (const item of items) {
+      const name = item.name ?? item.permission_name;
+      if (name) result.push(name);
+      if (Array.isArray(item.children) && item.children.length > 0) {
+        walk(item.children);
+      }
+    }
+  };
+
+  walk(perms);
+  return result;
+};
+
+const getUniquePermissionNames = (
+  systemPermissions?: Array<{ name?: string; permission_name?: string; children?: any[] }>,
+  businessPermissions?: Array<{ name?: string; permission_name?: string; children?: any[] }>,
+) => {
+  return Array.from(
+    new Set([
+      ...flattenPermissionTree(systemPermissions),
+      ...flattenPermissionTree(businessPermissions),
+    ]),
+  );
+};
+
 export function RolesPage() {
   const {
     data: roles,
@@ -99,7 +131,13 @@ export function RolesPage() {
               { label: 'Total Roles', value: roles.length, icon: Shield, color: 'text-primary bg-primary/10 border-primary/20' },
               {
                 label: 'Total Permissions',
-                value: roles.reduce((acc, r) => acc + (r.systemPermissions?.length ?? 0), 0),
+                value: roles.reduce(
+                  (acc, r) =>
+                    acc +
+                    (r.systemPermissions?.length ?? 0) +
+                    (r.businessPermissions?.length ?? 0),
+                  0,
+                ),
                 icon: Key,
                 color: 'text-violet-400 bg-violet-500/10 border-violet-500/20',
               },
@@ -168,7 +206,11 @@ export function RolesPage() {
             {filteredRoles.map((role) => {
               const isExpanded = expandedRoleId === role.id;
               const isSystem = SYSTEM_ROLES.includes(role.name);
-              const permCount = role.systemPermissions?.length ?? 0;
+              const permissionNames = getUniquePermissionNames(
+                role.systemPermissions,
+                role.businessPermissions,
+              );
+              const permCount = permissionNames.length;
               const userCount = role.users?.length ?? 0;
 
               return (
@@ -269,13 +311,13 @@ export function RolesPage() {
                           <p className="text-xs text-muted-foreground italic">No permissions assigned.</p>
                         ) : (
                           <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto">
-                            {(role.systemPermissions ?? []).map((p) => (
+                            {permissionNames.map((permissionName) => (
                               <span
-                                key={p.id}
-                                title={p.description ?? p.name}
+                                key={permissionName}
+                                title={permissionName}
                                 className="text-[10px] px-2 py-0.5 rounded-md bg-primary/5 border border-primary/15 text-primary font-mono font-medium"
                               >
-                                {p.name}
+                                {permissionName}
                               </span>
                             ))}
                           </div>

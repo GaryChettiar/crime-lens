@@ -6,7 +6,7 @@ import {
   useMapPermissionsToRoleMutation,
 } from '@/services/rolesApi';
 import { useGetAllPermissionsQuery, type Permission } from '@/services/permissionsApi';
-import { X, Search, Check, Loader2, Shield } from 'lucide-react';
+import { X, Search, Check, Minus, Loader2, Shield, ChevronDown, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface RolePermissionModalProps {
@@ -44,36 +44,276 @@ export function RolePermissionModal({ roleId, onClose, onSave }: RolePermissionM
   React.useEffect(() => {
     if (existingRole) {
       setRoleName(existingRole.name || '');
-      // existingRole.permissions are raw ZCQL objects: { ROWID, permission_name, ... }
-      const names = (existingRole.permissions || []).map(
-        (p: any) => p.permission_name ?? p.name ?? ''
+
+      const flattenRolePermissionNames = (
+        perms?: Array<{ name?: string; permission_name?: string; children?: any[] }>,
+      ) => {
+        if (!Array.isArray(perms)) return [] as string[];
+        const result: string[] = [];
+
+        const walk = (items: Array<{ name?: string; permission_name?: string; children?: any[] }>) => {
+          for (const item of items) {
+            const name = item.permission_name ?? item.name;
+            if (name) result.push(name);
+            if (Array.isArray(item.children) && item.children.length > 0) {
+              walk(item.children);
+            }
+          }
+        };
+
+        walk(perms);
+        return result;
+      };
+
+      const explicitNames = (existingRole.permissions || []).map(
+        (p: any) => p.permission_name ?? p.name ?? '',
       );
-      setSelectedPermNames(new Set(names.filter(Boolean)));
+      const systemNames = flattenRolePermissionNames(existingRole.systemPermissions);
+      const businessNames = flattenRolePermissionNames(existingRole.businessPermissions);
+
+      setSelectedPermNames(
+        new Set(
+          [...explicitNames, ...systemNames, ...businessNames].filter(Boolean),
+        ),
+      );
     }
   }, [existingRole]);
 
-  // All permissions as flat list for UI
-  const allPermsFlat: Permission[] = React.useMemo(() => {
-    if (!allPermissions) return [];
-    return [...(allPermissions.system ?? []), ...(allPermissions.business ?? [])];
-  }, [allPermissions]);
+  interface PermissionNode extends Permission {
+    children: PermissionNode[];
+  }
 
-  const filteredPermissions = React.useMemo(() => {
-    if (!searchQuery) return allPermsFlat;
-    const q = searchQuery.toLowerCase();
-    return allPermsFlat.filter(
-      (p) =>
-        p.name.toLowerCase().includes(q) ||
-        (p.description && p.description.toLowerCase().includes(q)),
-    );
-  }, [allPermsFlat, searchQuery]);
+  const buildPermissionTree = (perms: Permission[]) => {
+    const nodeMap = new Map<string, PermissionNode>();
 
-  const togglePermission = (permName: string) => {
-    const next = new Set(selectedPermNames);
-    if (next.has(permName)) next.delete(permName);
-    else next.add(permName);
-    setSelectedPermNames(next);
+    perms.forEach((perm) => {
+      nodeMap.set(perm.id, { ...perm, children: [] });
+    });
+
+    const roots: PermissionNode[] = [];
+    nodeMap.forEach((node) => {
+      if (node.parentId && nodeMap.has(node.parentId)) {
+        nodeMap.get(node.parentId)!.children.push(node);
+      } else {
+        roots.push(node);
+      }
+    });
+
+    const sortTree = (items: PermissionNode[]) => {
+      items.sort((a, b) => a.name.localeCompare(b.name));
+      items.forEach((item) => sortTree(item.children));
+    };
+
+    sortTree(roots);
+    return roots;
   };
+
+  const filterPermissionTree = (items: PermissionNode[], query: string): PermissionNode[] => {
+    if (!query) return items;
+    const lowerQuery = query.toLowerCase();
+
+    const result: PermissionNode[] = [];
+
+    for (const item of items) {
+      const childMatches = filterPermissionTree(item.children, query);
+      const selfMatches =
+        item.name.toLowerCase().includes(lowerQuery) ||
+        (item.description?.toLowerCase().includes(lowerQuery) ?? false);
+
+      if (selfMatches || childMatches.length > 0) {
+        result.push({
+          ...item,
+          children: childMatches,
+        });
+      }
+    }
+
+    return result;
+  };
+
+  const systemPermissionTree = React.useMemo(
+    () => buildPermissionTree(allPermissions?.system ?? []),
+    [allPermissions],
+  );
+
+  const businessPermissionTree = React.useMemo(
+    () => buildPermissionTree(allPermissions?.business ?? []),
+    [allPermissions],
+  );
+
+  const filteredSystemTree = React.useMemo(
+    () => filterPermissionTree(systemPermissionTree, searchQuery),
+    [searchQuery, systemPermissionTree],
+  );
+
+  const filteredBusinessTree = React.useMemo(
+    () => filterPermissionTree(businessPermissionTree, searchQuery),
+    [searchQuery, businessPermissionTree],
+  );
+
+  const [expandedNodeIds, setExpandedNodeIds] = React.useState<Set<string>>(new Set());
+
+  const toggleExpand = (nodeId: string) => {
+    setExpandedNodeIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(nodeId)) next.delete(nodeId);
+      else next.add(nodeId);
+      return next;
+    });
+  };
+
+  const selectedCount = React.useMemo(
+    () => selectedPermNames.size,
+    [selectedPermNames],
+  );
+
+  // Recursively collect the names of all leaf permissions under a node (excludes the node itself).
+  const getLeafDescendantNames = (node: PermissionNode): string[] => {
+    if (node.children.length === 0) return [];
+    const names: string[] = [];
+    for (const child of node.children) {
+      if (child.children.length === 0) {
+        names.push(child.name);
+      } else {
+        names.push(...getLeafDescendantNames(child));
+      }
+    }
+    return names;
+  };
+
+  // Tri-state: 'checked' | 'indeterminate' | 'unchecked'.
+  // Leaf nodes reflect their own selection; parent nodes are derived purely from
+  // their leaf descendants, so manually checking every child auto-checks the parent.
+  type CheckState = 'checked' | 'indeterminate' | 'unchecked';
+  const getNodeCheckState = (node: PermissionNode, selected: Set<string>): CheckState => {
+    const leafNames = getLeafDescendantNames(node);
+    if (leafNames.length === 0) {
+      return selected.has(node.name) ? 'checked' : 'unchecked';
+    }
+    const selectedCount = leafNames.filter((n) => selected.has(n)).length;
+    if (selectedCount === 0) return 'unchecked';
+    if (selectedCount === leafNames.length) return 'checked';
+    return 'indeterminate';
+  };
+
+  // Clicking a node toggles itself + its whole subtree together (cascading select/deselect).
+  const toggleNode = (node: PermissionNode) => {
+    setSelectedPermNames((prev) => {
+      const state = getNodeCheckState(node, prev);
+      const leafNames = getLeafDescendantNames(node);
+      const namesToToggle = [node.name, ...leafNames];
+      const next = new Set(prev);
+      if (state === 'checked') {
+        namesToToggle.forEach((n) => next.delete(n));
+      } else {
+        namesToToggle.forEach((n) => next.add(n));
+      }
+      return next;
+    });
+  };
+
+  // --- Tree row: plain checkbox list to match the reference layout ---
+  // Structure per row: [chevron toggle] [checkbox] [name + description]
+  // No per-row card/border/background — just spacing + indentation.
+  const PermissionTreeRow = ({
+    perm,
+    depth,
+    selectedPermNames,
+    onToggle,
+  }: {
+    perm: PermissionNode;
+    depth: number;
+    selectedPermNames: Set<string>;
+    onToggle: (node: PermissionNode) => void;
+  }) => {
+    const checkState = getNodeCheckState(perm, selectedPermNames);
+    const isChecked = checkState === 'checked';
+    const isIndeterminate = checkState === 'indeterminate';
+    const isExpanded = expandedNodeIds.has(perm.id);
+    const hasChildren = perm.children.length > 0;
+
+    return (
+      <div>
+        <div
+          className="flex items-start gap-2 py-1.5"
+          style={{ paddingLeft: `${depth * 24}px` }}
+        >
+          {hasChildren ? (
+            <button
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => toggleExpand(perm.id)}
+              className="mt-0.5 h-4 w-4 flex items-center justify-center shrink-0 text-muted-foreground hover:text-foreground"
+              aria-expanded={isExpanded}
+            >
+              {isExpanded ? (
+                <ChevronDown className="h-3.5 w-3.5" />
+              ) : (
+                <ChevronRight className="h-3.5 w-3.5" />
+              )}
+            </button>
+          ) : (
+            <span className="h-4 w-4 shrink-0" />
+          )}
+
+          <button
+            type="button"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => onToggle(perm)}
+            className={cn(
+              'mt-0.5 h-4 w-4 rounded border flex items-center justify-center shrink-0 transition-colors',
+              isChecked || isIndeterminate
+                ? 'bg-primary border-primary text-primary-foreground'
+                : 'border-border bg-background hover:border-primary/40',
+            )}
+          >
+            {isChecked && <Check className="h-3 w-3" />}
+            {isIndeterminate && <Minus className="h-3 w-3" />}
+          </button>
+
+          <button
+            type="button"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => onToggle(perm)}
+            className="flex-1 text-left min-w-0"
+          >
+            <p className="text-sm font-semibold text-foreground leading-tight truncate">
+              {perm.name}
+            </p>
+            {perm.description && (
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {perm.description}
+              </p>
+            )}
+          </button>
+        </div>
+
+        {hasChildren && isExpanded && (
+          <div>
+            {perm.children.map((child) => (
+              <PermissionTreeRow
+                key={child.id}
+                perm={child}
+                depth={depth + 1}
+                selectedPermNames={selectedPermNames}
+                onToggle={onToggle}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const systemSelectedCount = React.useMemo(
+    () => (allPermissions?.system ?? []).filter((p) => selectedPermNames.has(p.name)).length,
+    [allPermissions, selectedPermNames],
+  );
+
+  const businessSelectedCount = React.useMemo(
+    () => (allPermissions?.business ?? []).filter((p) => selectedPermNames.has(p.name)).length,
+    [allPermissions, selectedPermNames],
+  );
 
   const isSaving = isCreating || isUpdating;
 
@@ -114,7 +354,7 @@ export function RolePermissionModal({ roleId, onClose, onSave }: RolePermissionM
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
       <div
-        className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-2xl max-h-[88vh] flex flex-col"
+        className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-4xl max-h-[88vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -163,11 +403,11 @@ export function RolePermissionModal({ roleId, onClose, onSave }: RolePermissionM
           )}
 
           {/* Permission search */}
-          <div>
+          <div className="space-y-4">
             <label className="block text-[10px] font-bold uppercase tracking-wider mb-1.5 text-muted-foreground">
-              Assign Permissions
+              Permissions *
             </label>
-            <div className="relative mb-3">
+            <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <input
                 className="admin-input pl-10"
@@ -177,87 +417,70 @@ export function RolePermissionModal({ roleId, onClose, onSave }: RolePermissionM
               />
             </div>
 
-            {/* Quick select all / clear */}
-            {allPermsFlat.length > 0 && (
-              <div className="flex gap-2 mb-3">
-                <button
-                  type="button"
-                  className="text-[10px] font-semibold text-primary hover:underline"
-                  onClick={() => setSelectedPermNames(new Set(allPermsFlat.map((p) => p.name)))}
-                >
-                  Select All ({allPermsFlat.length})
-                </button>
-                <span className="text-muted-foreground">·</span>
-                <button
-                  type="button"
-                  className="text-[10px] font-semibold text-muted-foreground hover:underline"
-                  onClick={() => setSelectedPermNames(new Set())}
-                >
-                  Clear
-                </button>
+            <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.1fr_1fr]">
+              <div className="rounded-2xl border border-border bg-card p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                      System Permissions
+                    </p>
+                    <p className="text-2xl font-bold text-foreground mt-1">
+                      {systemSelectedCount}/{allPermissions?.system?.length ?? 0}
+                    </p>
+                  </div>
+                </div>
+                <div className="max-h-[340px] overflow-y-auto pr-2">
+                  {filteredSystemTree.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">No system permissions match.</p>
+                  ) : (
+                    filteredSystemTree.map((perm) => (
+                      <PermissionTreeRow
+                        key={perm.id}
+                        perm={perm}
+                        depth={0}
+                        selectedPermNames={selectedPermNames}
+                        onToggle={toggleNode}
+                      />
+                    ))
+                  )}
+                </div>
               </div>
-            )}
 
-            {/* Permissions list */}
-            {permissionsLoading ? (
-              <div className="flex items-center justify-center py-10">
-                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground mr-2" />
-                <span className="text-sm text-muted-foreground">Loading permissions...</span>
+              <div className="rounded-2xl border border-border bg-card p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                      Business Permissions
+                    </p>
+                    <p className="text-2xl font-bold text-foreground mt-1">
+                      {businessSelectedCount}/{allPermissions?.business?.length ?? 0}
+                    </p>
+                  </div>
+                </div>
+                <div className="max-h-[340px] overflow-y-auto pr-2">
+                  {filteredBusinessTree.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">No business permissions match.</p>
+                  ) : (
+                    filteredBusinessTree.map((perm) => (
+                      <PermissionTreeRow
+                        key={perm.id}
+                        perm={perm}
+                        depth={0}
+                        selectedPermNames={selectedPermNames}
+                        onToggle={toggleNode}
+                      />
+                    ))
+                  )}
+                </div>
               </div>
-            ) : filteredPermissions.length === 0 ? (
-              <div className="text-center py-10">
-                <p className="text-sm text-muted-foreground">
-                  {searchQuery ? 'No permissions match your search.' : 'No permissions found.'}
-                </p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-[320px] overflow-y-auto pr-1">
-                {filteredPermissions.map((perm) => {
-                  const isSelected = selectedPermNames.has(perm.name);
-                  return (
-                    <button
-                      key={perm.id}
-                      type="button"
-                      className={cn(
-                        'flex items-center gap-2.5 p-2.5 rounded-lg border transition-all duration-100 text-left',
-                        isSelected
-                          ? 'border-primary/30 bg-primary/5 shadow-sm'
-                          : 'border-border bg-card hover:bg-muted/50',
-                      )}
-                      onClick={() => togglePermission(perm.name)}
-                    >
-                      <div
-                        className={cn(
-                          'h-4 w-4 rounded border flex items-center justify-center shrink-0 transition-colors',
-                          isSelected
-                            ? 'bg-primary border-primary text-primary-foreground'
-                            : 'border-border bg-background',
-                        )}
-                      >
-                        {isSelected && <Check className="h-2.5 w-2.5" />}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold text-foreground truncate font-mono">
-                          {perm.name}
-                        </p>
-                        {perm.description && (
-                          <p className="text-[10px] text-muted-foreground truncate">
-                            {perm.description}
-                          </p>
-                        )}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
+            </div>
           </div>
         </div>
 
         {/* Footer */}
         <div className="flex items-center justify-between px-6 py-4 border-t border-border bg-muted/20">
           <span className="text-xs font-semibold text-primary">
-            {selectedPermNames.size} permission{selectedPermNames.size !== 1 ? 's' : ''} selected
+            {selectedCount} permission{selectedCount !== 1 ? 's' : ''} selected
           </span>
           <div className="flex gap-2">
             <button className="admin-btn admin-btn-secondary" onClick={onClose}>

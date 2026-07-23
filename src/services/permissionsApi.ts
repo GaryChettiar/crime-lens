@@ -8,6 +8,7 @@ export interface Permission {
   id: string;
   name: string;
   description?: string | null;
+  parentId?: string | null;
   enabled: boolean;
   createdAt?: string;
   updatedAt?: string;
