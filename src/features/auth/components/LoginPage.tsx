@@ -75,18 +75,33 @@ export function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4">
-      <div className="w-full max-w-sm">
-        <div className="rounded-lg border bg-card p-6">
+    <div className="min-h-screen grid grid-cols-1 lg:grid-cols-2">
+      <div className="flex min-h-screen items-center justify-center bg-white px-6 py-12">
+        <div className="mx-auto w-full max-w-sm text-center">
+          <div className="mx-auto flex h-56 w-56 items-center justify-center rounded-full bg-white p-4 shadow-lg shadow-red-200/40">
+            <img
+              src="/images.jpg"
+              alt="Karnataka State Police logo"
+              className="h-full w-full object-contain"
+            />
+          </div>
+          <Typography variant="display-md" as="h1" className="mt-10 font-bold text-slate-950 text-3xl leading-tight">
+            KSP Intelligence Portal
+          </Typography>
+          <Typography variant="body-lg" color="muted" className="mt-4 text-lg leading-relaxed">
+            Securely access officer tools, incident analytics, and command reporting.
+          </Typography>
+        </div>
+      </div>
+
+      <div className="flex min-h-screen items-center justify-center bg-red-500 px-6 py-12">
+        <div className="w-full max-w-sm rounded-3xl bg-white/80 p-8 shadow-xl shadow-red-900/25 backdrop-blur-xl border border-white/40">
           <div className="mb-6 text-center">
-            <Typography variant="heading-lg" as="h1" className="font-bold text-foreground">
-              {appName}
-            </Typography>
-            <Typography variant="body-md" color="muted" className="mt-1">
-              {productDescription}
-            </Typography>
-            <Typography variant="heading-md" as="h2" className="mt-4 font-semibold text-foreground">
+            <Typography variant="heading-md" as="h2" className="font-semibold text-slate-950">
               Sign in to continue
+            </Typography>
+            <Typography variant="body-sm" color="muted" className="mt-2">
+              Enter your officer credentials to access the KSP dashboard.
             </Typography>
           </div>
 
