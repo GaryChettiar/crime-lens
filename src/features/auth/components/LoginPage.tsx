@@ -145,7 +145,7 @@ export function LoginPage() {
               <div className="text-sm text-destructive">{loginError}</div>
             )}
 
-            <Button type="submit" className="w-full" disabled={isLoading}>
+            <Button type="submit" className="w-full bg-red-600 hover:bg-red-700 text-white" disabled={isLoading}>
               <Lock className="h-4 w-4 mr-2 inline-block" /> Sign in
             </Button>
           </form>

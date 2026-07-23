@@ -273,14 +273,15 @@ export function PrimaryTopNav({ showMobileMenu = false }: PrimaryTopNavProps) {
               <User className="h-4 w-4 text-muted-foreground" />
               Profile
             </DropdownMenuItem>
-
-            <DropdownMenuItem
-              className="cursor-pointer hover:bg-accent gap-2"
-              onSelect={() => navigate("/administration/roles")}
-            >
-              <Shield className="h-4 w-4 text-muted-foreground" />
-              Roles
-            </DropdownMenuItem>
+            {hasPermission("view_roles") && (
+              <DropdownMenuItem
+                className="cursor-pointer hover:bg-accent gap-2"
+                onSelect={() => navigate("/administration/roles")}
+              >
+                <Shield className="h-4 w-4 text-muted-foreground" />
+                Roles
+              </DropdownMenuItem>
+            )}
 
             {/* <DropdownMenuItem
               className="cursor-pointer hover:bg-accent gap-2"

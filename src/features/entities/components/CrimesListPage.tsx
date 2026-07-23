@@ -10,6 +10,7 @@ import {
 } from "@/services/crimeApi";
 import { useAppSelector } from "@/store/hooks";
 import { useTableQueryState } from "@/hooks/useTableQueryState";
+import usePermissions from "@/hooks/usePermissions";
 import {
   buildCrimeQuery,
   haveCrimeFiltersChanged,
@@ -189,6 +190,7 @@ function buildColumns(
 
 export function CrimesListPage() {
   const navigate = useNavigate();
+  const { hasPermission } = usePermissions();
   const { data: districts } = useGetDistrictsQuery();
   const { data: stations } = useGetStationsQuery();
   const { data: categories } = useGetCrimeCategoriesQuery();
@@ -471,14 +473,16 @@ export function CrimesListPage() {
               <RefreshCw className="h-3.5 w-3.5" />
               Refresh
             </Button>
-            <Button
-              size="sm"
-              onClick={() => setShowCreate(true)}
-              className="h-8 px-3 text-xs gap-1.5"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              New Crime
-            </Button>
+            {hasPermission('update_crime') && (
+              <Button
+                size="sm"
+                onClick={() => setShowCreate(true)}
+                className="h-8 px-3 text-xs gap-1.5"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                New Crime
+              </Button>
+            )}
           </div>
         </div>
 

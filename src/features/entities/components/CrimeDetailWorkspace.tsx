@@ -8,6 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import {
   ArrowLeft, RefreshCw, AlertCircle, FolderOpen,
   LayoutDashboard, Paperclip, Users, Scale, Clock, ClipboardList,
+  Eye, Shield, UserX, UserSearch
 } from 'lucide-react';
 import { CRIME_STATUS_COLORS, CRIME_STATUS_STEPS } from '../types';
 import { CrimeStatusWorkflow } from './CrimeStatusWorkflow';
@@ -27,6 +28,10 @@ const TAB_CONFIG: { value: CrimeTab; label: string; icon: React.ElementType }[] 
   { value: 'legal', label: 'Legal Sections', icon: Scale },
   { value: 'timeline', label: 'Timeline', icon: Clock },
   { value: 'activity', label: 'Activity', icon: ClipboardList },
+  { value: 'victims', label: 'Victims', icon: UserX },
+  { value: 'witness', label: 'Witness', icon: Eye },
+  { value: 'criminal', label: 'Criminal', icon: UserSearch },
+  { value: 'investigating_team', label: 'Investigating Team', icon: Shield },
 ];
 
 const VALID_TABS: CrimeTab[] = TAB_CONFIG.map((t) => t.value);
@@ -224,6 +229,30 @@ export function CrimeDetailWorkspace() {
 
               <TabsContent value="activity" className="mt-0">
                 <ActivityTab crimeId={crimeData.id} />
+              </TabsContent>
+
+              <TabsContent value="victims" className="mt-0">
+                <div className="p-8 bg-muted/20 text-sm text-muted-foreground text-center rounded-lg border border-border/50">
+                  Victims information will be displayed here.
+                </div>
+              </TabsContent>
+
+              <TabsContent value="witness" className="mt-0">
+                <div className="p-8 bg-muted/20 text-sm text-muted-foreground text-center rounded-lg border border-border/50">
+                  Witness information will be displayed here.
+                </div>
+              </TabsContent>
+
+              <TabsContent value="criminal" className="mt-0">
+                <div className="p-8 bg-muted/20 text-sm text-muted-foreground text-center rounded-lg border border-border/50">
+                  Criminal information will be displayed here.
+                </div>
+              </TabsContent>
+
+              <TabsContent value="investigating_team" className="mt-0">
+                <div className="p-8 bg-muted/20 text-sm text-muted-foreground text-center rounded-lg border border-border/50">
+                  Investigating Team details will be displayed here.
+                </div>
               </TabsContent>
             </div>
           </Tabs>

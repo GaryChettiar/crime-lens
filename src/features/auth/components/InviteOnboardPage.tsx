@@ -99,96 +99,109 @@ export function InviteOnboardPage() {
   };
 
   return (
-    <div className="relative flex min-h-screen w-screen items-center justify-center bg-slate-950 px-4 py-12 overflow-hidden select-none">
-      {/* Ambient background */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute top-1/4 left-1/4 h-[500px] w-[500px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/10 blur-[120px]" />
-        <div className="absolute bottom-1/4 right-1/4 h-[400px] w-[400px] translate-x-1/2 translate-y-1/2 rounded-full bg-violet-600/8 blur-[100px]" />
+    <div className="min-h-screen grid grid-cols-1 lg:grid-cols-2">
+      <div className="flex min-h-screen items-center justify-center bg-white px-6 py-12">
+        <div className="mx-auto w-full max-w-sm text-center">
+          <div className="mx-auto flex h-56 w-56 items-center justify-center rounded-full bg-white p-4 shadow-lg shadow-red-200/40">
+            <img
+              src="/images.jpg"
+              alt="Karnataka State Police logo"
+              className="h-full w-full object-contain"
+            />
+          </div>
+          <Typography variant="display-md" as="h1" className="mt-10 font-bold text-slate-950 text-3xl leading-tight">
+            KSP Intelligence Portal
+          </Typography>
+          <Typography variant="body-lg" color="muted" className="mt-4 text-lg leading-relaxed">
+            Securely access officer tools, incident analytics, and command reporting.
+          </Typography>
+        </div>
       </div>
 
-      <div className="relative z-10 w-full max-w-md bg-card/40 backdrop-blur-lg border border-border/60 rounded-2xl p-8 shadow-2xl flex flex-col items-center space-y-6 text-center">
-        <div className="inline-flex h-16 w-16 items-center justify-center rounded-xl bg-primary/10 border border-primary/25 shadow-inner">
-          <Shield className="h-8 w-8 text-primary" />
-        </div>
-
-        <div className="space-y-1">
-          <Typography variant="heading-md" className="font-bold text-foreground">
-            {isAccepted ? 'Set Your Password' : 'Accepting Invite'}
-          </Typography>
-          <Typography variant="caption" color="muted" className="tracking-wider uppercase font-semibold text-[10px]">
-            CrimeLens Platform
-          </Typography>
-        </div>
-
-        {error ? (
-          <div className="w-full rounded-lg border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-            {error}
-          </div>
-        ) : null}
-
-        {!isAccepted ? (
-          <div className="w-full flex items-start gap-3 bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 p-4 rounded-xl text-sm text-left">
-            <Mail className="h-5 w-5 shrink-0 mt-0.5" />
-            <div>
-              <p className="font-semibold mb-0.5">Verifying invitation</p>
-              <p className="text-emerald-400/80 text-xs leading-relaxed">
-                We are validating your invite token and preparing your account setup.
-              </p>
+      <div className="flex min-h-screen items-center justify-center bg-red-500 px-6 py-12">
+        <div className="w-full max-w-sm rounded-3xl bg-white/80 p-8 shadow-xl shadow-red-900/25 backdrop-blur-xl border border-white/40">
+          <div className="mb-6 text-center">
+             <div className="mx-auto inline-flex h-16 w-16 items-center justify-center rounded-xl bg-red-100 border border-red-200 shadow-inner mb-4">
+              <Shield className="h-8 w-8 text-red-600" />
             </div>
+            <Typography variant="heading-md" as="h2" className="font-semibold text-slate-950">
+              {isAccepted ? 'Set Your Password' : 'Accepting Invite'}
+            </Typography>
+            <Typography variant="body-sm" color="muted" className="mt-2">
+              CrimeLens Platform
+            </Typography>
           </div>
-        ) : (
-          <form className="w-full space-y-3" onSubmit={handleSubmit}>
-            <div className="space-y-2 text-left">
-              <label className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground" htmlFor="password">
-                Password
-              </label>
-              <div className="relative">
-                <Input
-                  id="password"
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  className="bg-background/80 pr-10"
-                />
-                <button
-                  type="button"
-                  className="absolute inset-y-0 right-3 flex items-center text-muted-foreground"
-                  onClick={() => setShowPassword((value) => !value)}
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
-                >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
+
+          {error ? (
+            <div className="mb-6 w-full rounded-lg border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              {error}
+            </div>
+          ) : null}
+
+          {!isAccepted ? (
+            <div className="w-full flex items-start gap-3 bg-emerald-500/10 border border-emerald-500/25 text-emerald-600 p-4 rounded-xl text-sm text-left">
+              <Mail className="h-5 w-5 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold mb-0.5">Verifying invitation</p>
+                <p className="text-emerald-600/80 text-xs leading-relaxed">
+                  We are validating your invite token and preparing your account setup.
+                </p>
               </div>
             </div>
-
-            <div className="space-y-2 text-left">
-              <label className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground" htmlFor="confirm-password">
-                Confirm Password
-              </label>
-              <div className="relative">
-                <Input
-                  id="confirm-password"
-                  type={showConfirmPassword ? 'text' : 'password'}
-                  value={confirmPassword}
-                  onChange={(event) => setConfirmPassword(event.target.value)}
-                  className="bg-background/80 pr-10"
-                />
-                <button
-                  type="button"
-                  className="absolute inset-y-0 right-3 flex items-center text-muted-foreground"
-                  onClick={() => setShowConfirmPassword((value) => !value)}
-                  aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
-                >
-                  {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
+          ) : (
+            <form className="w-full space-y-3" onSubmit={handleSubmit}>
+              <div className="space-y-2 text-left">
+                <label className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground" htmlFor="password">
+                  Password
+                </label>
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    className="bg-white pr-10"
+                  />
+                  <button
+                    type="button"
+                    className="absolute inset-y-0 right-3 flex items-center text-muted-foreground"
+                    onClick={() => setShowPassword((value) => !value)}
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
               </div>
-            </div>
 
-            <Button type="submit" disabled={isOnboarding} className="w-full">
-              {isOnboarding ? 'Setting password...' : 'Create account'}
-            </Button>
-          </form>
-        )}
+              <div className="space-y-2 text-left">
+                <label className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground" htmlFor="confirm-password">
+                  Confirm Password
+                </label>
+                <div className="relative">
+                  <Input
+                    id="confirm-password"
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    value={confirmPassword}
+                    onChange={(event) => setConfirmPassword(event.target.value)}
+                    className="bg-white pr-10"
+                  />
+                  <button
+                    type="button"
+                    className="absolute inset-y-0 right-3 flex items-center text-muted-foreground"
+                    onClick={() => setShowConfirmPassword((value) => !value)}
+                    aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <Button type="submit" disabled={isOnboarding} className="w-full bg-red-600 hover:bg-red-700 text-white">
+                {isOnboarding ? 'Setting password...' : 'Create account'}
+              </Button>
+            </form>
+          )}
+        </div>
       </div>
     </div>
   );

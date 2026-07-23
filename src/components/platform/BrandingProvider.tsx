@@ -56,8 +56,7 @@ export function BrandingProvider() {
   const dispatch = useAppDispatch();
   const branding = useAppSelector((s) => s.branding);
   
-  // Hydrate configurations from backend on mount (Commented out for now; using localStorage)
-  /*
+  // Hydrate configurations from backend on mount
   const { data: serverBranding } = useGetConfigurationByNameQuery('branding', {
     refetchOnMountOrArgChange: true,
   });
@@ -67,7 +66,6 @@ export function BrandingProvider() {
       dispatch(hydrateBranding(serverBranding));
     }
   }, [serverBranding, dispatch]);
-  */
 
   const config = branding.isPreviewing ? branding.staged : branding.active;
 

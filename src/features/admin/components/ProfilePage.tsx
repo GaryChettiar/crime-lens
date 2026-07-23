@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { AdminLayout } from '@/components/templates/AdminLayout/AdminLayout';
 import { useGetCurrentUserQuery } from '@/services/authApi';
+import { useGetConfigurationByNameQuery, useUpdateConfigurationsMutation } from '@/services/configurationsApi';
 import {
   User,
   Shield,
@@ -10,10 +11,63 @@ import {
   Settings,
   Lock,
   ExternalLink,
+  Palette,
 } from 'lucide-react';
 
 export function ProfilePage() {
   const { data: currentUser } = useGetCurrentUserQuery();
+
+  const { data: brandingConfig } = useGetConfigurationByNameQuery('branding');
+  const { data: emailConfigData } = useGetConfigurationByNameQuery('email');
+  
+  const [updateConfig] = useUpdateConfigurationsMutation();
+
+  const [brandingForm, setBrandingForm] = React.useState({
+    foreground: '',
+    background: '',
+    email: '',
+    smtpPort: ''
+  });
+
+  React.useEffect(() => {
+    if (brandingConfig || emailConfigData) {
+      setBrandingForm({
+        foreground: brandingConfig?.foreground || '',
+        background: brandingConfig?.background || '',
+        email: emailConfigData?.email || '',
+        smtpPort: emailConfigData?.smtpPort || ''
+      });
+    }
+  }, [brandingConfig, emailConfigData]);
+
+  const handleSaveBranding = async () => {
+    try {
+      if (brandingForm.foreground || brandingForm.background) {
+        await updateConfig({
+          name: 'branding',
+          config: {
+            ...brandingConfig,
+            foreground: brandingForm.foreground,
+            background: brandingForm.background,
+          }
+        });
+      }
+      if (brandingForm.email || brandingForm.smtpPort) {
+        await updateConfig({
+          name: 'email',
+          config: {
+            ...emailConfigData,
+            email: brandingForm.email,
+            smtpPort: brandingForm.smtpPort,
+          }
+        });
+      }
+      alert('Branding & Email configuration saved successfully.');
+    } catch (e) {
+      console.error(e);
+      alert('Failed to save configuration');
+    }
+  };
 
   const initials = React.useMemo(() => {
     if (!currentUser?.name) return 'CL';
@@ -166,6 +220,86 @@ export function ProfilePage() {
                 >
                   <ExternalLink className="h-4 w-4 mr-2" />
                   Catalyst Auth Settings
+                </button>
+              </div>
+            </div>
+
+            {/* Platform Branding */}
+            <div className="admin-card p-6 space-y-4">
+              <div className="flex items-center gap-2 border-b border-border pb-3">
+                <Palette className="h-5 w-5 text-primary" />
+                <h3 className="text-sm font-bold text-foreground">Platform Branding & Email</h3>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold mb-1.5 text-muted-foreground">
+                    Support Email
+                  </label>
+                  <input
+                    className="admin-input"
+                    value={brandingForm.email}
+                    onChange={(e) => setBrandingForm(f => ({ ...f, email: e.target.value }))}
+                    placeholder="admin@crimelens.com"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold mb-1.5 text-muted-foreground">
+                    SMTP Port
+                  </label>
+                  <input
+                    className="admin-input"
+                    type="number"
+                    value={brandingForm.smtpPort}
+                    onChange={(e) => setBrandingForm(f => ({ ...f, smtpPort: e.target.value }))}
+                    placeholder="465"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold mb-1.5 text-muted-foreground">
+                    Foreground Color (Hex)
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="color"
+                      className="h-9 w-9 rounded border border-border cursor-pointer shrink-0 p-0.5 bg-transparent"
+                      value={brandingForm.foreground || '#ffffff'}
+                      onChange={(e) => setBrandingForm(f => ({ ...f, foreground: e.target.value }))}
+                    />
+                    <input
+                      className="admin-input uppercase"
+                      value={brandingForm.foreground}
+                      onChange={(e) => setBrandingForm(f => ({ ...f, foreground: e.target.value }))}
+                      placeholder="#FFFFFF"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold mb-1.5 text-muted-foreground">
+                    Background Color (Hex)
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="color"
+                      className="h-9 w-9 rounded border border-border cursor-pointer shrink-0 p-0.5 bg-transparent"
+                      value={brandingForm.background || '#000000'}
+                      onChange={(e) => setBrandingForm(f => ({ ...f, background: e.target.value }))}
+                    />
+                    <input
+                      className="admin-input uppercase"
+                      value={brandingForm.background}
+                      onChange={(e) => setBrandingForm(f => ({ ...f, background: e.target.value }))}
+                      placeholder="#000000"
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className="pt-2 flex justify-end">
+                <button
+                  type="button"
+                  onClick={handleSaveBranding}
+                  className="admin-btn admin-btn-primary"
+                >
+                  Save Branding
                 </button>
               </div>
             </div>

@@ -13,8 +13,10 @@ import { useGetStationsQuery } from '@/services/policeStationsApi';
 import { useGetCriminalsQuery } from '@/services/criminalsApi';
 import { TableSkeleton, EmptyState, ErrorState } from '@/components/molecules/DataStates';
 import { Plus, Trash2, Edit2, AlertOctagon, Check, Loader2, Eye } from 'lucide-react';
+import usePermissions from '@/hooks/usePermissions';
 
 export function CrimesPage() {
+  const { hasPermission } = usePermissions();
   const { data: districts } = useGetDistrictsQuery();
   const { data: stations } = useGetStationsQuery();
   const { data: criminals } = useGetCriminalsQuery();
@@ -155,9 +157,11 @@ export function CrimesPage() {
             <h1 className="text-xl font-bold text-foreground">Crime Incidents</h1>
             <p className="text-sm mt-0.5 text-muted-foreground">Manage logged incident profiles, status updates, and links to offenders.</p>
           </div>
-          <button className="admin-btn admin-btn-primary" onClick={() => setShowCreateModal(true)}>
-            <Plus className="h-4 w-4 mr-1.5" /> Log Incident
-          </button>
+          {hasPermission('update_crime') && (
+            <button className="admin-btn admin-btn-primary" onClick={() => setShowCreateModal(true)}>
+              <Plus className="h-4 w-4 mr-1.5" /> Log Incident
+            </button>
+          )}
         </div>
 
         {/* Filter Bar */}
