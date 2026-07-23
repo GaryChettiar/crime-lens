@@ -10,31 +10,44 @@ import { useGetRoleByIdQuery } from '@/services/rolesApi';
    No longer depends on the rbacSlice — permissions come from the backend.
    ============================================================================= */
 
-export function usePermissions() {
+export default function usePermissions() {
   const { data: currentUser, isLoading: isCurrentUserLoading } = useGetCurrentUserQuery();
   const roleId = currentUser?.roles?.[0]?.id;
   const { data: role, isLoading: isRoleLoading } = useGetRoleByIdQuery(roleId ?? skipToken);
+  // Keep a ref of the last resolved permissions so callers don't briefly
+  // see an empty permission set while the roles query is still loading.
+  const lastPermissionsRef = (globalThis as any).__crimeLens_lastPermissionsRef || ({ current: [] } as { current: string[] });
+  if (!(globalThis as any).__crimeLens_lastPermissionsRef) {
+    (globalThis as any).__crimeLens_lastPermissionsRef = lastPermissionsRef;
+  }
 
   const permissions = useMemo(() => {
     if (!currentUser) return [];
 
-    // Use explicit permissions from the user's profile if available
+    // If role details are present, use them as the authoritative source.
+    if (role && Array.isArray(role.permissions) && role.permissions.length > 0) {
+      const resolved = role.permissions.map((p: any) => p.permission_name).filter(Boolean);
+      lastPermissionsRef.current = resolved;
+      return resolved;
+    }
+
+    // If we have a roleId but role is still loading, return the last-known
+    // permissions (may be empty on first load) so callers don't get a
+    // transient empty array that would incorrectly deny access.
+    if (roleId && isRoleLoading) {
+      return lastPermissionsRef.current ?? [];
+    }
+
+    // Fall back to any explicit permissions returned on the user object (rare)
     if (currentUser.permissions && currentUser.permissions.length > 0) {
+      lastPermissionsRef.current = currentUser.permissions;
       return currentUser.permissions;
     }
 
-    if (!role) {
-      return [];
-    }
-
-    const permissions = Array.isArray(role.permissions)
-      ? role.permissions
-          .map((permission) => permission.permission_name)
-          .filter(Boolean)
-      : [];
-
-    return permissions;
-  }, [currentUser, role]);
+    // No permissions found; clear last-known so future loads reflect new data
+    lastPermissionsRef.current = lastPermissionsRef.current ?? [];
+    return lastPermissionsRef.current;
+  }, [currentUser, role, roleId, isRoleLoading]);
 
   const hasPermission = useMemo(
     () => (permission: string): boolean => {

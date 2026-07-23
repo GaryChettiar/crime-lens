@@ -37,7 +37,7 @@ import {
 } from '@/features/entities';
 
 import { AnalyticsFiltersProvider } from '@/hooks/useAnalyticsFilters';
-import { InviteOnboardPage, LoginPage, ProtectedRoute } from '@/features/auth';
+import { InviteOnboardPage, LoginPage, ProtectedRoute, NoAccessPage } from '@/features/auth';
 
 /**
  * CrimeLens Main Router Setup
@@ -97,6 +97,8 @@ function App() {
           <Route path="/administration/crimes" element={<CrimesPage />} />
           <Route path="/administration/firs" element={<FirsPage />} />
           <Route path="/administration/settings" element={<SettingsPage />} />
+
+          <Route path="/no-access" element={<NoAccessPage />} />
 
           {/* Living Design System Documentation */}
           <Route path="/design-system" element={<DesignSystemPreview />} />

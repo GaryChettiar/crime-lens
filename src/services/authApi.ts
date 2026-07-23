@@ -2,10 +2,12 @@ import { baseApi } from './baseApi';
 import {
   clearStoredAuthSession,
   getStoredAccessToken,
+  getStoredRefreshToken,
   getStoredSessionId,
   setStoredAuthSession,
   type AuthSession,
 } from './authStorage';
+import { rolesApi } from './rolesApi';
 
 export interface AuthUser {
   id: string;
@@ -127,9 +129,46 @@ export const authApi = baseApi.injectEndpoints({
           email: user.email_id ?? '',
           name: [user.first_name, user.last_name].filter(Boolean).join(' ') || user.email_id || 'CrimeLens User',
           role: roles[0]?.name ?? catalystRole?.role_name ?? 'user',
-          permissions: user.permissions ?? [],
+          // Permissions are resolved from the role detail endpoint (/roles/getOneRole/:id).
+          // Avoid relying on `user.permissions` from /auth/me which may be absent or incomplete.
+          permissions: [],
           roles,
         };
+      },
+      async onQueryStarted(_args, { queryFulfilled, dispatch }) {
+        try {
+          const { data } = await queryFulfilled;
+          const roleId = data?.roles?.[0]?.id;
+          if (roleId) {
+            dispatch(rolesApi.endpoints.getRoleById.initiate(roleId));
+          }
+        } catch (err: any) {
+          // If the /auth/me request returned 403, attempt a token refresh
+          const status = err?.error?.status ?? err?.status ?? err?.originalStatus;
+          if (status === 403) {
+            const refreshToken = getStoredRefreshToken();
+            const sessionId = getStoredSessionId();
+            if (refreshToken && sessionId) {
+              try {
+                // Trigger refresh and wait for it to complete
+                await dispatch(
+                  // use the injected endpoint to refresh
+                  // @ts-ignore - authApi is being defined in this module
+                  (authApi as any).endpoints.refreshToken.initiate({ sessionId, refreshToken }),
+                ).unwrap();
+
+                // After refreshing tokens, re-initiate the getCurrentUser fetch
+                dispatch((authApi as any).endpoints.getCurrentUser.initiate());
+                return;
+              } catch (e) {
+                // refresh failed — clear stored session below
+              }
+            }
+          }
+
+          // Any other errors (or failed refresh) should clear stored session
+          clearStoredAuthSession();
+        }
       },
       providesTags: ['Auth'],
     }),

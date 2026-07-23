@@ -18,3 +18,4 @@ export { ProtectedRoute } from './components/ProtectedRoute';
 export { PermissionGuard } from './components/PermissionGuard';
 export { PermissionRoute } from './components/PermissionRoute';
 export { InviteOnboardPage } from './components/InviteOnboardPage';
+export { NoAccessPage } from './components/NoAccessPage';

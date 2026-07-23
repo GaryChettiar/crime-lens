@@ -194,4 +194,5 @@ export const {
   useMapPermissionsToRoleMutation,
   useDeleteRoleMutation,
   useRestoreRoleMutation,
+  useLazyGetRoleByIdQuery,
 } = rolesApi;

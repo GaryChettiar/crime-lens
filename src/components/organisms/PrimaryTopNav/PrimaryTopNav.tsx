@@ -33,7 +33,7 @@ import {
 } from "@/components/ui/tooltip";
 import { useGetCurrentUserQuery, useLogoutMutation } from "@/features/auth";
 import { NAV_GROUPS } from "@/config/routes";
-import { usePermissions } from "@/hooks/usePermissions";
+import usePermissions from "@/hooks/usePermissions";
 import * as React from "react";
 
 const iconMap: Record<string, React.ComponentType<any>> = {
@@ -43,6 +43,9 @@ const iconMap: Record<string, React.ComponentType<any>> = {
   alerts: Bell,
   officers: Shield,
   criminals: User,
+  users: User,
+  roles: Key,
+  settings: Shield,
 };
 
 interface PrimaryTopNavProps {
@@ -82,13 +85,25 @@ export function PrimaryTopNav({ showMobileMenu = false }: PrimaryTopNavProps) {
     dispatch(setSidebarMobileOpen(true));
   }, [dispatch]);
 
-  // Compute active Level 1 group based on activePaths config
-  const activeGroup = NAV_GROUPS.find((group) =>
-    group.activePaths.some((p) =>
-      p === "/dashboard"
-        ? location.pathname === "/dashboard"
-        : location.pathname.startsWith(p)
-    )
+  // Compute visible groups/items based on permissions
+  const visibleGroups = NAV_GROUPS
+    .map((group) => {
+      const visibleItems = group.items
+        ? group.items.filter((item) => !item.requiredPermission || hasPermission(item.requiredPermission))
+        : undefined;
+
+      const groupVisible = group.requiredPermission
+        ? hasPermission(group.requiredPermission)
+        : (visibleItems ? visibleItems.length > 0 : true);
+
+      if (!groupVisible) return null;
+      return { ...group, items: visibleItems } as typeof group;
+    })
+    .filter(Boolean) as typeof NAV_GROUPS;
+
+  // Compute active Level 1 group based on activePaths config using visible groups
+  const activeGroup = visibleGroups.find((group) =>
+    group.activePaths.some((p) => (p === '/dashboard' ? location.pathname === '/dashboard' : location.pathname.startsWith(p))),
   );
 
   const showSubNav = !!(activeGroup && activeGroup.items && activeGroup.items.length > 0);
@@ -139,7 +154,7 @@ export function PrimaryTopNav({ showMobileMenu = false }: PrimaryTopNavProps) {
           className="order-3 w-full md:w-auto md:order-2 md:flex-1 flex items-center justify-center md:justify-start gap-1 overflow-x-auto no-scrollbar  md:py-0  ml-4 my-1"
           aria-label="Primary navigation categories"
         >
-          {NAV_GROUPS.map((group) => {
+          {visibleGroups.map((group) => {
             const isActive = activeGroup?.label === group.label;
 
             return (
@@ -278,7 +293,7 @@ export function PrimaryTopNav({ showMobileMenu = false }: PrimaryTopNavProps) {
             {/* <DropdownMenuSeparator className="bg-border/40" /> */}
 
             {/* Users */}
-            {hasPermission("users.view") && (
+            {hasPermission("view_users") && (
               <DropdownMenuItem
                 className="cursor-pointer hover:bg-accent gap-2"
                 onSelect={() => navigate("/administration/users")}
