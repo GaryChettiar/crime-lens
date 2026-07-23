@@ -52,16 +52,6 @@ export default function usePermissions() {
   const hasPermission = useMemo(
     () => (permission: string): boolean => {
       if (!currentUser) return false;
-      // Admin roles always have all permissions
-      const role = currentUser.role?.toLowerCase();
-      if (
-        role === 'super_admin' ||
-        role === 'admin' ||
-        role === 'superadmin' ||
-        role === 'app administrator'
-      ) {
-        return true;
-      }
       return permissions.includes(permission);
     },
     [currentUser, permissions],

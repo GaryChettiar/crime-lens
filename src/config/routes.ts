@@ -274,7 +274,7 @@ export const NAV_GROUPS: NavGroup[] = [
     path: '/administration/profile',
     activePaths: ['/administration/profile', '/administration/users', '/administration/roles'],
     // Show administration group when user can view at least users or roles
-    requiredPermission: 'users.view',
+    requiredPermission: 'view_users',
     items: [
       { label: 'Users', path: '/administration/users', icon: 'users', requiredPermission: 'view_users' },
       { label: 'Roles', path: '/administration/roles', icon: 'roles', requiredPermission: 'view_roles' },
