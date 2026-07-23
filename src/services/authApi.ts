@@ -188,7 +188,7 @@ export const authApi = baseApi.injectEndpoints({
   }),
 });
 
-export const { useLoginMutation, useRefreshTokenMutation, useGetCurrentUserQuery, useLogoutMutation } = authApi;
+export const { useLoginMutation, useRefreshTokenMutation, useGetCurrentUserQuery, useLazyGetCurrentUserQuery, useLogoutMutation } = authApi;
 
 export function getAuthHeaders() {
   const token = getStoredAccessToken();

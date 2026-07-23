@@ -278,7 +278,6 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { label: 'Users', path: '/administration/users', icon: 'users', requiredPermission: 'view_users' },
       { label: 'Roles', path: '/administration/roles', icon: 'roles', requiredPermission: 'view_roles' },
-      { label: 'Settings', path: '/administration/settings', icon: 'settings' },
     ],
   },
 ];
