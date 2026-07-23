@@ -4,6 +4,7 @@ import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
   setDistrict,
   setCrimeTypes,
+  setCrimeCategory,
   setSelectedPoliceStations,
   setDateRange,
 } from "@/store/slices/globalFiltersSlice";
@@ -256,7 +257,9 @@ export function AnalyticsHeader({
   };
 
   const handleIndicatorChange = (val: string) => {
-    dispatch(setCrimeTypes(val === "all" ? [] : [val]));
+    const category = val === "all" ? null : val;
+    dispatch(setCrimeTypes(category ? [category] : []));
+    dispatch(setCrimeCategory(category));
   };
 
   return (
@@ -267,79 +270,9 @@ export function AnalyticsHeader({
       )}
       {...props}
     >
-      {/* Row 1: Title block and utility buttons */}
-      {/* <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 w-full">
-        <div>
-          <div className="flex items-center gap-3">
-            <Typography variant="heading-xl" as="h1" className="font-bold text-foreground">
-              {title}
-            </Typography>
-            {activeFiltersCount > 0 && (
-              <Badge variant="default" size="sm" className="font-medium">
-                {activeFiltersCount} active filter{activeFiltersCount > 1 ? 's' : ''}
-              </Badge>
-            )}
-          </div>
-          {subtitle && (
-            <Typography variant="body-sm" color="muted" className="mt-1">
-              {subtitle}
-            </Typography>
-          )}
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          {onOpenFilters && (
-            <Button
-              variant={activeFiltersCount > 0 ? "secondary" : "outline"}
-              size="sm"
-              onClick={onOpenFilters}
-              className="h-8 gap-1.5 cursor-pointer"
-              aria-label="Open Filters Drawer"
-            >
-              <Icon icon={SlidersHorizontal} size="xs" />
-              <span>Filters</span>
-              {activeFiltersCount > 0 && (
-                <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary text-primary-foreground text-[10px] font-bold font-data px-1">
-                  {activeFiltersCount}
-                </span>
-              )}
-            </Button>
-          )}
-
-          {onOpenAlerts && (
-            <Button
-              variant={unreadAlertsCount > 0 ? "secondary" : "outline"}
-              size="sm"
-              onClick={onOpenAlerts}
-              className="h-8 gap-1.5 relative cursor-pointer"
-              aria-label="Open Alerts Drawer"
-            >
-              <Icon icon={Bell} size="xs" className={cn(unreadAlertsCount > 0 && "animate-pulse")} />
-              <span>Alerts</span>
-              {unreadAlertsCount > 0 && (
-                <span className="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-danger text-danger-foreground text-[10px] font-bold font-data px-1">
-                  {unreadAlertsCount}
-                </span>
-              )}
-            </Button>
-          )}
-
-          <Button variant="outline" size="sm" className="h-8 gap-1.5 cursor-pointer">
-            <Icon icon={Share2} size="xs" />
-            Share
-          </Button>
-
-          {onGenerateReport && (
-            <Button onClick={onGenerateReport} size="sm" className="h-8 gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold cursor-pointer">
-              <Icon icon={FilePlus2} size="xs" />
-              Generate Report
-            </Button>
-          )}
-        </div>
-      </div> */}
-
+     
       {/* Row 2: Control Ribbon */}
-      <div className="flex flex-col lg:flex-row lg:items-center gap-4 w-full bg-card  shadow-sm">
+      <div className="flex flex-row lg:items-center gap-4 w-full bg-card  shadow-sm">
         {/* Crime Type (Indicator) Dropdown */}
         <div ref={crimeTypeRef} className="relative shrink-0">
           <button

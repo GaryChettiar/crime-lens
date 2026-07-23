@@ -44,9 +44,11 @@ export function buildCrimeQuery(
     query.stationId = globalFilters.policeStation;
   }
 
-  // Global filter: crime category
-  if (globalFilters.crimeCategory) {
-    query.categoryId = globalFilters.crimeCategory;
+  // Global filter: crime category (AnalyticsHeader uses crimeTypes; legacy uses crimeCategory)
+  const categoryId =
+    globalFilters.crimeCategory || globalFilters.crimeTypes[0] || null;
+  if (categoryId) {
+    query.categoryId = categoryId;
   }
 
   // Global filter: status
@@ -85,6 +87,7 @@ export function haveCrimeFiltersChanged(
     prev.district !== next.district ||
     prev.policeStation !== next.policeStation ||
     prev.crimeCategory !== next.crimeCategory ||
+    (prev.crimeTypes[0] ?? null) !== (next.crimeTypes[0] ?? null) ||
     prev.status !== next.status ||
     prev.singleDate !== next.singleDate ||
     prev.dateRange.start !== next.dateRange.start ||

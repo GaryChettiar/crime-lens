@@ -214,7 +214,6 @@ export function CrimesListPage() {
 
   // Local UI state only
   const [statusFilter, setStatusFilter] = React.useState("");
-  const [categoryFilter, setCategoryFilter] = React.useState("");
   const [showCreate, setShowCreate] = React.useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = React.useState<string | null>(
     null,
@@ -254,6 +253,7 @@ export function CrimesListPage() {
     globalFilters.district,
     globalFilters.policeStation,
     globalFilters.crimeCategory,
+    globalFilters.crimeTypes,
     globalFilters.status,
     globalFilters.singleDate,
     globalFilters.dateRange.start,
@@ -262,12 +262,10 @@ export function CrimesListPage() {
     resetPage,
   ]);
 
-  // Sync status/category filter from global filters on mount
+  // Sync status filter from global filters on mount
   React.useEffect(() => {
     if (globalFilters.status && !statusFilter)
       setStatusFilter(globalFilters.status);
-    if (globalFilters.crimeCategory && !categoryFilter)
-      setCategoryFilter(globalFilters.crimeCategory);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -280,9 +278,8 @@ export function CrimesListPage() {
       ({
         ...globalFilters,
         status: statusFilter || globalFilters.status,
-        crimeCategory: categoryFilter || globalFilters.crimeCategory,
       }) as GlobalFiltersState,
-    [globalFilters, statusFilter, categoryFilter],
+    [globalFilters, statusFilter],
   );
 
   const crimeQuery = React.useMemo(
@@ -432,12 +429,11 @@ export function CrimesListPage() {
   // ---------------------------------------------------------------------------
   // Filter reset
   // ---------------------------------------------------------------------------
-  const hasActiveFilters = searchInput || statusFilter || categoryFilter;
+  const hasActiveFilters = searchInput || statusFilter;
 
   const clearFilters = () => {
     setSearchInput("");
     setStatusFilter("");
-    setCategoryFilter("");
     resetPage();
   };
 
@@ -540,24 +536,6 @@ export function CrimesListPage() {
             {CRIME_STATUS_STEPS.map((s) => (
               <option key={s.value} value={s.value}>
                 {s.label}
-              </option>
-            ))}
-          </select>
-
-          {/* Category filter */}
-          <select
-            value={categoryFilter}
-            onChange={(e) => {
-              setCategoryFilter(e.target.value);
-              resetPage();
-            }}
-            className="h-8 px-3 text-xs rounded-lg border border-border bg-background/60 text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
-            aria-label="Filter by category"
-          >
-            <option value="">All Categories</option>
-            {(categories ?? []).map((c: any) => (
-              <option key={c.ROWID} value={c.ROWID}>
-                {c.crime_category_name}
               </option>
             ))}
           </select>

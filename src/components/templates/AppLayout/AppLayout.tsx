@@ -39,7 +39,7 @@ export function AppLayout({ children, className }: AppLayoutProps) {
       {/* Main Content Area */}
       <main
         className={cn(
-          'flex-1 overflow-y-auto py-4 lg:py-6',
+          'flex-1 overflow-y-auto py-2',
           className,
         )}
         role="main"
