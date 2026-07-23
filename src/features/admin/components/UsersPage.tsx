@@ -87,6 +87,26 @@ export function UsersPage() {
 
   const totalPages = Math.ceil(totalUsers / pageSize) || 1;
 
+  const pageButtons = React.useMemo(() => {
+    const MAX_BUTTONS = 9;
+    if (totalPages <= MAX_BUTTONS) {
+      return Array.from({ length: totalPages }, (_, i) => i + 1);
+    }
+
+    const buttons: Array<number | '...'> = [];
+    const delta = 2;
+    const start = Math.max(2, page - delta);
+    const end = Math.min(totalPages - 1, page + delta);
+
+    buttons.push(1);
+    if (start > 2) buttons.push('...');
+    for (let i = start; i <= end; i += 1) buttons.push(i);
+    if (end < totalPages - 1) buttons.push('...');
+    buttons.push(totalPages);
+
+    return buttons;
+  }, [page, totalPages]);
+
   const handleSelectAll = () => {
     if (selectedIds.size === filteredUsers.length) {
       setSelectedIds(new Set());
@@ -151,6 +171,16 @@ export function UsersPage() {
     e.preventDefault();
     if (!inviteEmail) return;
     setInviteFeedback(null);
+
+    const inviterId = currentUser?.sysUserId || currentUser?.id || '';
+    if (!inviterId) {
+      setInviteFeedback({
+        type: 'error',
+        message: 'Unable to determine the current user id for the invitation request.',
+      });
+      return;
+    }
+
     try {
       const response = await inviteUserMutation({
         email: inviteEmail.trim(),
@@ -158,7 +188,7 @@ export function UsersPage() {
         last_name: inviteLastName.trim(),
         phone: invitePhone.trim(),
         role_name: inviteRoleName,
-        invited_by: '46044000000333002',
+        invited_by: inviterId,
       }).unwrap();
       setInviteEmail('budgetwise02@gmail.com');
       setInviteFirstName('John');
@@ -474,20 +504,24 @@ export function UsersPage() {
                     <span className="text-xs text-muted-foreground">
                       Page {page} of {totalPages} ({totalUsers} total)
                     </span>
-                    <div className="flex gap-1">
-                      {Array.from({ length: Math.min(totalPages, 10) }, (_, i) => i + 1).map((p) => (
-                        <button
-                          key={p}
-                          className={cn(
-                            "h-8 w-8 rounded-md text-xs font-medium transition-colors",
-                            p === page
-                              ? 'bg-primary text-primary-foreground font-bold shadow-sm'
-                              : 'text-muted-foreground hover:bg-muted'
-                          )}
-                          onClick={() => setPage(p)}
-                        >
-                          {p}
-                        </button>
+                    <div className="flex items-center gap-1">
+                      {pageButtons.map((item, idx) => (
+                        item === '...' ? (
+                          <span key={`ellipsis-${idx}`} className="h-8 px-2 flex items-center text-xs text-muted-foreground">…</span>
+                        ) : (
+                          <button
+                            key={item}
+                            className={cn(
+                              "h-8 min-w-[2rem] rounded-md text-xs font-medium transition-colors",
+                              item === page
+                                ? 'bg-primary text-primary-foreground font-bold shadow-sm'
+                                : 'text-muted-foreground hover:bg-muted'
+                            )}
+                            onClick={() => setPage(item)}
+                          >
+                            {item}
+                          </button>
+                        )
                       ))}
                     </div>
                   </div>

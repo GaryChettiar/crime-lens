@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import {
   Shield,
   Brain,
@@ -8,9 +8,12 @@ import {
   ArrowRight,
   Lock,
   Activity,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
-import { CATALYST_LOGIN_URL, consumePostLoginPath, savePostLoginPath } from '@/config/auth';
-import { useGetCurrentUserQuery } from '@/services/authApi';
+import { useLoginMutation } from '@/services/authApi';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 
 const FEATURES = [
   {
@@ -48,25 +51,29 @@ const FEATURES = [
 ];
 
 export function LoginPage() {
-  const [isRedirecting, setIsRedirecting] = React.useState(false);
+  const [email, setEmail] = React.useState('');
+  const [password, setPassword] = React.useState('');
+  const [showPassword, setShowPassword] = React.useState(false);
+  const [loginError, setLoginError] = React.useState<string | null>(null);
+  const [login, { isLoading }] = useLoginMutation();
   const navigate = useNavigate();
-  const location = useLocation();
-  const { data: authenticatedUser, isLoading: isCheckingSession } = useGetCurrentUserQuery();
 
-  React.useEffect(() => {
-    if (authenticatedUser) {
-      navigate(consumePostLoginPath() ?? '/dashboard', { replace: true });
+  const handleSignIn = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setLoginError(null);
+
+    if (!email.trim() || !password) {
+      setLoginError('Please enter both your email and password.');
+      return;
     }
-  }, [authenticatedUser, navigate]);
 
-  const handleSignIn = () => {
-    setIsRedirecting(true);
-    const from = (location.state as { from?: unknown } | null)?.from;
-    const returnPath = typeof from === 'string' && from.startsWith('/') && !from.startsWith('//')
-      ? from
-      : '/dashboard';
-    savePostLoginPath(returnPath);
-    window.location.assign(CATALYST_LOGIN_URL);
+    try {
+      await login({ email: email.trim(), password }).unwrap();
+      navigate('/dashboard');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Authentication failed.';
+      setLoginError(message);
+    }
   };
 
   return (
@@ -128,25 +135,73 @@ export function LoginPage() {
               </p>
             </div>
 
-            <button
-              id="signin-btn"
-              onClick={handleSignIn}
-              disabled={isRedirecting || isCheckingSession}
-              className="group relative w-full overflow-hidden rounded-xl bg-primary px-6 py-3 text-sm font-bold text-primary-foreground shadow-lg shadow-primary/30 transition-all duration-200 hover:bg-primary/90 hover:shadow-primary/40 hover:shadow-xl active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            >
-              {isRedirecting || isCheckingSession ? (
-                <>
-                  <span className="h-4 w-4 rounded-full border-2 border-primary-foreground border-t-transparent animate-spin" />
-                  Redirecting to secure sign-in...
-                </>
-              ) : (
-                <>
-                  <Lock className="h-4 w-4" />
-                  Access Secure Portal
-                  <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
-                </>
-              )}
-            </button>
+            <form className="space-y-3" onSubmit={handleSignIn}>
+              <div className="space-y-2">
+                <label className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground" htmlFor="email">
+                  Email
+                </label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  placeholder="name@agency.gov"
+                  autoComplete="email"
+                  className="bg-background/80"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground" htmlFor="password">
+                  Password
+                </label>
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    placeholder="Enter your password"
+                    autoComplete="current-password"
+                    className="bg-background/80 pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((value) => !value)}
+                    className="absolute inset-y-0 right-3 flex items-center text-muted-foreground"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+
+              {loginError ? (
+                <p className="rounded-lg border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                  {loginError}
+                </p>
+              ) : null}
+
+              <Button
+                id="signin-btn"
+                type="submit"
+                disabled={isLoading}
+                className="group relative w-full overflow-hidden rounded-xl bg-primary px-6 py-3 text-sm font-bold text-primary-foreground shadow-lg shadow-primary/30 transition-all duration-200 hover:bg-primary/90 hover:shadow-primary/40 hover:shadow-xl active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {isLoading ? (
+                  <>
+                    <span className="h-4 w-4 rounded-full border-2 border-primary-foreground border-t-transparent animate-spin" />
+                    Signing in...
+                  </>
+                ) : (
+                  <>
+                    <Lock className="h-4 w-4" />
+                    Access Secure Portal
+                    <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+                  </>
+                )}
+              </Button>
+            </form>
 
             <div className="mt-4 flex items-center justify-center gap-2 text-[10px] text-muted-foreground/60">
               <Shield className="h-3 w-3" />

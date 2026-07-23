@@ -1,4 +1,5 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
+import { getStoredAccessToken } from './authStorage';
 
 /**
  * CrimeLens Base API
@@ -18,9 +19,8 @@ export const baseApi = createApi({
     baseUrl: import.meta.env.VITE_API_BASE_URL,
     credentials: 'include', // Important: Ensures Catalyst session cookies are sent!
     prepareHeaders: (headers) => {
-      // Legacy token check, catalyst mainly relies on cookies
-      const token = localStorage.getItem('crimelens_token');
-      if (token) {
+      const token = getStoredAccessToken();
+      if (token && token !== 'undefined' && token !== 'null') {
         headers.set('Authorization', `Bearer ${token}`);
       }
       headers.set('Content-Type', 'application/json');

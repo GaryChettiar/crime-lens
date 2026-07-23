@@ -23,9 +23,17 @@ export function usePermissions() {
       return currentUser.permissions;
     }
 
-    // Catalyst provides the signed-in user's role; this endpoint returns that
-    // role's assigned permission names (for example, "view_dashboard").
-    return role?.permissions.map((permission) => permission.permission_name) ?? [];
+    if (!role) {
+      return [];
+    }
+
+    const permissions = Array.isArray(role.permissions)
+      ? role.permissions
+          .map((permission) => permission.permission_name)
+          .filter(Boolean)
+      : [];
+
+    return permissions;
   }, [currentUser, role]);
 
   const hasPermission = useMemo(

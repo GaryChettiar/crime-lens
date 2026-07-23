@@ -73,9 +73,8 @@ export function PrimaryTopNav({ showMobileMenu = false }: PrimaryTopNavProps) {
   const handleSignOut = async () => {
     try {
       await logout().unwrap();
-      navigate("/login");
-    } catch {
-      navigate("/login");
+    } finally {
+      navigate('/dashboard');
     }
   };
 

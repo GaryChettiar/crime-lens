@@ -142,7 +142,16 @@ export const usersApi = baseApi.injectEndpoints({
       invalidatesTags: ['Invite', { type: 'User', id: 'LIST' }],
     }),
 
-    onboardUser: builder.mutation<{ message: string }, { userInfoId: string }>({
+    acceptInvite: builder.mutation<{ sysUserId?: string; message?: string }, { inviteToken: string }>({
+      query: (body) => ({
+        url: '/users/invites/invite/accept',
+        method: 'POST',
+        body,
+      }),
+      transformResponse: (response: any) => response.data ?? response,
+    }),
+
+    onboardUser: builder.mutation<{ message: string }, { sysUserId: string; password: string }>({
       query: (body) => ({
         url: '/users/invites/invite/onboard',
         method: 'POST',
@@ -163,5 +172,6 @@ export const {
   useInviteUserMutation,
   useGetInvitesQuery,
   useReinviteUserMutation,
+  useAcceptInviteMutation,
   useOnboardUserMutation,
 } = usersApi;

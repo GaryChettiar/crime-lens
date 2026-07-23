@@ -72,9 +72,8 @@ export function TopNavbar({ title = 'Dashboard' }: TopNavbarProps) {
   const handleSignOut = async () => {
     try {
       await logout().unwrap();
-      navigate('/login');
-    } catch {
-      navigate('/login');
+    } finally {
+      navigate('/dashboard');
     }
   };
 
