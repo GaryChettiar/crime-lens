@@ -7,15 +7,26 @@ import usePermissions from '@/hooks/usePermissions';
 export function ProtectedRoute() {
   const location = useLocation();
   const isAuthenticated = hasStoredAuthSession();
-  const { data: currentUser } = useGetCurrentUserQuery(undefined, { skip: !isAuthenticated });
+  const {
+    data: currentUser,
+    isLoading,
+    isFetching,
+    isError,
+  } = useGetCurrentUserQuery(undefined, { skip: !isAuthenticated });
   const { hasPermission, isLoading: permsLoading } = usePermissions();
 
-  if (!isAuthenticated) {
+  if (!hasStoredAuthSession()) {
     return <Navigate to="/login" replace state={{ from: location }} />;
   }
 
-  // wait for current user to load
-  if (!currentUser) return null;
+  // Wait for /auth/me (including silent token refresh + retry on 401/403)
+  if (isLoading || isFetching || (!currentUser && !isError)) {
+    return null;
+  }
+
+  if (!currentUser) {
+    return <Navigate to="/login" replace state={{ from: location }} />;
+  }
 
   // wait for permissions to load if role lookup is in progress
   if (permsLoading) return null;

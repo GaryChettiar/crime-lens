@@ -2,7 +2,6 @@ import { baseApi } from './baseApi';
 import {
   clearStoredAuthSession,
   getStoredAccessToken,
-  getStoredRefreshToken,
   getStoredSessionId,
   setStoredAuthSession,
   type AuthSession,
@@ -155,32 +154,9 @@ export const authApi = baseApi.injectEndpoints({
           if (roleId) {
             dispatch(rolesApi.endpoints.getRoleById.initiate(roleId));
           }
-        } catch (err: any) {
-          // If the /auth/me request returned 403, attempt a token refresh
-          const status = err?.error?.status ?? err?.status ?? err?.originalStatus;
-          if (status === 403) {
-            const refreshToken = getStoredRefreshToken();
-            const sessionId = getStoredSessionId();
-            if (refreshToken && sessionId) {
-              try {
-                // Trigger refresh and wait for it to complete
-                await dispatch(
-                  // use the injected endpoint to refresh
-                  // @ts-ignore - authApi is being defined in this module
-                  (authApi as any).endpoints.refreshToken.initiate({ sessionId, refreshToken }),
-                ).unwrap();
-
-                // After refreshing tokens, re-initiate the getCurrentUser fetch
-                dispatch((authApi as any).endpoints.getCurrentUser.initiate());
-                return;
-              } catch (e) {
-                // refresh failed — clear stored session below
-              }
-            }
-          }
-
-          // Any other errors (or failed refresh) should clear stored session
-          clearStoredAuthSession();
+        } catch {
+          // Token refresh + retry is handled globally in baseQueryWithReauth.
+          // Session is only cleared there if refresh fails.
         }
       },
       providesTags: ['Auth'],
