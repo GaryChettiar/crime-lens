@@ -49,7 +49,9 @@ import { useGetStationsQuery } from "@/services/policeStationsApi";
 import { useGetCrimeCategoriesQuery } from "@/services/crimeCategoryApi";
 import type { CreateCrimePayload, CrimeRecord } from "@/services/crimeApi";
 import type { GlobalFiltersState } from "@/store/slices/globalFiltersSlice";
-
+import { useGetCurrentUserQuery } from "@/services/authApi";
+import { useGetEfirsQuery } from "@/services/efirApi"; // ⚠️ confirm this matches your actual FIR service
+import { LocationPickerMap } from "@/components/common/LocationPickerMap";
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
@@ -139,10 +141,10 @@ function buildColumns(
         <span className="text-muted-foreground tabular-nums">
           {c.incidentDate
             ? new Date(c.incidentDate).toLocaleDateString("en-IN", {
-                day: "2-digit",
-                month: "short",
-                year: "numeric",
-              })
+              day: "2-digit",
+              month: "short",
+              year: "numeric",
+            })
             : "—"}
         </span>
       ),
@@ -328,7 +330,11 @@ export function CrimesListPage() {
     isError,
     refetch,
   } = useGetCrimesQuery(crimeQuery);
+  const { data: currentUser } = useGetCurrentUserQuery();
+  const isOfficer = Boolean(currentUser?.isOfficer);
+  const canViewDistrictFilter = !isOfficer || hasPermission("view_district_filter");
 
+  const { data: firs } = useGetEfirsQuery();
   // ---------------------------------------------------------------------------
   // Evidence Analysis
   // ---------------------------------------------------------------------------
@@ -353,11 +359,11 @@ export function CrimesListPage() {
 
   const filesWithRelatedCrimes = React.useMemo(() => {
     if (!analysisData?.success || !analysisData.data) return [];
-    
+
     return form.evidences?.filter(ev => {
       if (!ev.isConfirmed || !ev.afisResult) return false;
       const pathsForThisFile = ev.afisResult.map(m => m.metadata?.original_path || m.name || m.criminal_id);
-      
+
       const fileMatchesWithCrimes = analysisData.data.filter(
         d => pathsForThisFile.includes(d.path)
       );
@@ -402,7 +408,15 @@ export function CrimesListPage() {
     locationScope,
     prefetchCrimes,
   ]);
-
+  React.useEffect(() => {
+    if (showCreate && !canViewDistrictFilter) {
+      setForm((f) => ({
+        ...f,
+        district: contextDistrictId || f.district,
+        assignedStationId: contextStationId || f.assignedStationId,
+      }));
+    }
+  }, [showCreate, canViewDistrictFilter, contextDistrictId, contextStationId]);
   // ---------------------------------------------------------------------------
   // Column definitions
   // ---------------------------------------------------------------------------
@@ -422,13 +436,22 @@ export function CrimesListPage() {
   // ---------------------------------------------------------------------------
   const [createCrime, { isLoading: isCreating }] = useCreateCrimeMutation();
   const [deleteCrime] = useDeleteCrimeMutation();
-
+  const formatDateTimeForBackend = (isoLocal: string): string => {
+    // isoLocal is like "2026-07-24T08:25" (or "2026-07-24T08:25:00")
+    if (!isoLocal) return "";
+    const [datePart, timePart] = isoLocal.split("T");
+    const time = timePart?.length === 5 ? `${timePart}:00` : timePart;
+    return `${datePart} ${time}`;
+  };
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.title?.trim() || !form.crimeCategory) return;
     try {
       const payload = {
         ...(form as CreateCrimePayload),
+        createdBy:currentUser?.sysUserId,
+        incidentDate: formatDateTimeForBackend(form.incidentDate || ""),
+        incidentRegisteredDate: formatDateTimeForBackend(form.incidentDate || ""),
         evidences: form.evidences
           ?.filter((e) => e.isConfirmed)
           .map((e) => ({
@@ -437,6 +460,7 @@ export function CrimesListPage() {
             description: "Added from incident form",
           })),
       };
+      console.log(payload)
       const result = await createCrime(payload).unwrap();
       const newId = result.data?.id;
       setShowCreate(false);
@@ -668,64 +692,57 @@ export function CrimesListPage() {
                     />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-semibold uppercase text-muted-foreground">
-                      District Zone *
-                    </label>
-                    <select
-                      required
-                      value={form.district || ""}
-                      onChange={(e) =>
-                        setForm((f) => ({ ...f, district: e.target.value }))
-                      }
-                      className="w-full h-8.5 px-3 text-xs rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
-                    >
-                      <option value="">Select District</option>
-                      {(districts ?? []).map((d: any) => (
-                        <option key={d.id} value={d.id}>
-                          {d.name}
-                        </option>
-                      ))}
-                    </select>
+                {canViewDistrictFilter && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-semibold uppercase text-muted-foreground">
+                        District Zone *
+                      </label>
+                      <select
+                        required
+                        value={form.district || ""}
+                        onChange={(e) => setForm((f) => ({ ...f, district: e.target.value }))}
+                        className="w-full h-8.5 px-3 text-xs rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
+                      >
+                        <option value="">Select District</option>
+                        {(districts ?? []).map((d: any) => (
+                          <option key={d.id} value={d.id}>{d.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-semibold uppercase text-muted-foreground">
+                        Police Station *
+                      </label>
+                      <select
+                        required
+                        value={form.assignedStationId || ""}
+                        onChange={(e) => setForm((f) => ({ ...f, assignedStationId: e.target.value }))}
+                        className="w-full h-8.5 px-3 text-xs rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
+                      >
+                        <option value="">Select Station</option>
+                        {(stations ?? []).map((s: any) => (
+                          <option key={s.id} value={s.id}>{s.name}</option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-semibold uppercase text-muted-foreground">
-                      Police Station *
-                    </label>
-                    <select
-                      required
-                      value={form.assignedStationId || ""}
-                      onChange={(e) =>
-                        setForm((f) => ({
-                          ...f,
-                          assignedStationId: e.target.value,
-                        }))
-                      }
-                      className="w-full h-8.5 px-3 text-xs rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
-                    >
-                      <option value="">Select Station</option>
-                      {(stations ?? []).map((s: any) => (
-                        <option key={s.id} value={s.id}>
-                          {s.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
+                )}
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <label className="text-[10px] font-semibold uppercase text-muted-foreground">
                       FIR ID
                     </label>
-                    <Input
-                      placeholder="e.g. FIR/2023/1234"
+                    <select
                       value={form.firId || ""}
-                      onChange={(e) =>
-                        setForm((f) => ({ ...f, firId: e.target.value }))
-                      }
-                      className="h-8.5 text-xs"
-                    />
+                      onChange={(e) => setForm((f) => ({ ...f, firId: e.target.value }))}
+                      className="w-full h-8.5 px-3 text-xs rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
+                    >
+                      <option value="">Select FIR</option>
+                      {(firs ?? []).map((f) => (
+                        <option key={f.firId} value={f.firId}>{f.firId}</option>
+                      ))}
+                    </select>
                   </div>
                   <div className="space-y-1">
                     <label className="text-[10px] font-semibold uppercase text-muted-foreground">
@@ -741,55 +758,20 @@ export function CrimesListPage() {
                     />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-semibold uppercase text-muted-foreground">
-                      Latitude
-                    </label>
-                    <Input
-                      type="number"
-                      step="any"
-                      placeholder="e.g. 12.9716"
-                      value={form.location?.coordinates?.[0] ?? ""}
-                      onChange={(e) =>
-                        setForm((f) => ({
-                          ...f,
-                          location: {
-                            ...f.location,
-                            coordinates: [
-                              parseFloat(e.target.value) || 0,
-                              f.location?.coordinates?.[1] || 0,
-                            ],
-                          },
-                        }))
-                      }
-                      className="h-8.5 text-xs"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-semibold uppercase text-muted-foreground">
-                      Longitude
-                    </label>
-                    <Input
-                      type="number"
-                      step="any"
-                      placeholder="e.g. 77.5946"
-                      value={form.location?.coordinates?.[1] ?? ""}
-                      onChange={(e) =>
-                        setForm((f) => ({
-                          ...f,
-                          location: {
-                            ...f.location,
-                            coordinates: [
-                              f.location?.coordinates?.[0] || 0,
-                              parseFloat(e.target.value) || 0,
-                            ],
-                          },
-                        }))
-                      }
-                      className="h-8.5 text-xs"
-                    />
-                  </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-semibold uppercase text-muted-foreground">
+                    Crime Location (Map)
+                  </label>
+                  <LocationPickerMap
+                    latitude={form.location?.coordinates?.[0] ?? null}
+                    longitude={form.location?.coordinates?.[1] ?? null}
+                    onChange={(lat, lng) =>
+                      setForm((f) => ({
+                        ...f,
+                        location: { ...f.location, coordinates: [lat, lng] },
+                      }))
+                    }
+                  />
                 </div>
                 <div className="space-y-1">
                   <label className="text-[10px] font-semibold uppercase text-muted-foreground">
@@ -910,10 +892,10 @@ export function CrimesListPage() {
                                     evidences: f.evidences?.map((item) =>
                                       item.id === ev.id
                                         ? {
-                                            ...item,
-                                            file,
-                                            file_url: reader.result as string,
-                                          }
+                                          ...item,
+                                          file,
+                                          file_url: reader.result as string,
+                                        }
                                         : item,
                                     ),
                                   }));
@@ -947,11 +929,11 @@ export function CrimesListPage() {
                                 evidences: f.evidences?.map((item) =>
                                   item.id === ev.id
                                     ? {
-                                        ...item,
-                                        isConfirmed: false,
-                                        afisResult: undefined,
-                                        afisError: undefined,
-                                      }
+                                      ...item,
+                                      isConfirmed: false,
+                                      afisResult: undefined,
+                                      afisError: undefined,
+                                    }
                                     : item,
                                 ),
                               }));
@@ -973,10 +955,10 @@ export function CrimesListPage() {
                                 evidences: f.evidences?.map((item) =>
                                   item.id === ev.id
                                     ? {
-                                        ...item,
-                                        afisLoading: true,
-                                        afisError: undefined,
-                                      }
+                                      ...item,
+                                      afisLoading: true,
+                                      afisError: undefined,
+                                    }
                                     : item,
                                 ),
                               }));
@@ -1001,11 +983,11 @@ export function CrimesListPage() {
                                   evidences: f.evidences?.map((item) =>
                                     item.id === ev.id
                                       ? {
-                                          ...item,
-                                          afisLoading: false,
-                                          afisResult: matches,
-                                          isConfirmed: true,
-                                        }
+                                        ...item,
+                                        afisLoading: false,
+                                        afisResult: matches,
+                                        isConfirmed: true,
+                                      }
                                       : item,
                                   ),
                                 }));
@@ -1015,11 +997,11 @@ export function CrimesListPage() {
                                   evidences: f.evidences?.map((item) =>
                                     item.id === ev.id
                                       ? {
-                                          ...item,
-                                          afisLoading: false,
-                                          afisError: "AFIS API call failed",
-                                          isConfirmed: true,
-                                        }
+                                        ...item,
+                                        afisLoading: false,
+                                        afisError: "AFIS API call failed",
+                                        isConfirmed: true,
+                                      }
                                       : item,
                                   ),
                                 }));
@@ -1036,10 +1018,10 @@ export function CrimesListPage() {
                                 evidences: f.evidences?.map((item) =>
                                   item.id === ev.id
                                     ? {
-                                        ...item,
-                                        afisLoading: true,
-                                        afisError: undefined,
-                                      }
+                                      ...item,
+                                      afisLoading: true,
+                                      afisError: undefined,
+                                    }
                                     : item,
                                 ),
                               }));
@@ -1059,11 +1041,11 @@ export function CrimesListPage() {
                                   evidences: f.evidences?.map((item) =>
                                     item.id === ev.id
                                       ? {
-                                          ...item,
-                                          afisLoading: false,
-                                          afisResult: matches,
-                                          isConfirmed: true,
-                                        }
+                                        ...item,
+                                        afisLoading: false,
+                                        afisResult: matches,
+                                        isConfirmed: true,
+                                      }
                                       : item,
                                   ),
                                 }));
@@ -1073,11 +1055,11 @@ export function CrimesListPage() {
                                   evidences: f.evidences?.map((item) =>
                                     item.id === ev.id
                                       ? {
-                                          ...item,
-                                          afisLoading: false,
-                                          afisError: `${model} model API call failed`,
-                                          isConfirmed: true,
-                                        }
+                                        ...item,
+                                        afisLoading: false,
+                                        afisError: `${model} model API call failed`,
+                                        isConfirmed: true,
+                                      }
                                       : item,
                                   ),
                                 }));

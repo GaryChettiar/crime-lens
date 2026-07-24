@@ -173,6 +173,7 @@ export interface CreateCrimePayload {
   severity?: 'low' | 'medium' | 'high' | 'critical';
   firId?: string;
   incidentRegisteredDate?: string;
+  createdBy?: string; // ← add this
   evidences?: { evidence_type: string; file_url?: string; description?: string }[];
 }
 
@@ -535,6 +536,7 @@ export const crimeApi = baseApi.injectEndpoints({
           incident_registered_date: body.incidentRegisteredDate,
           fir_id: body.firId,
           criminal_ids: body.criminalIds,
+          created_by: body.createdBy, 
           evidences: body.evidences,
         },
       }),

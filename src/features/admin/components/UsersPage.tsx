@@ -12,6 +12,8 @@ import {
 } from '@/services/usersApi';
 import { useGetAllRolesQuery } from '@/services/rolesApi';
 import { useGetCurrentUserQuery } from '@/services/authApi';
+import { useGetRanksQuery } from '@/services/policeRanksApi';
+import { useGetStationsQuery } from '@/services/policeStationsApi';
 import { TableSkeleton, EmptyState, ErrorState } from '@/components/molecules/DataStates';
 import {
   Search,
@@ -64,14 +66,22 @@ export function UsersPage() {
   const [confirmDeleteId, setConfirmDeleteId] = React.useState<string | null>(null);
 
   // Invite form
-  const [inviteEmail, setInviteEmail] = React.useState('budgetwise02@gmail.com');
-  const [inviteFirstName, setInviteFirstName] = React.useState('John');
-  const [inviteLastName, setInviteLastName] = React.useState('Doe');
-  const [invitePhone, setInvitePhone] = React.useState('9876543210');
-  const [inviteRoleName, setInviteRoleName] = React.useState('OFFICER');
+  const [inviteEmail, setInviteEmail] = React.useState('');
+  const [inviteFirstName, setInviteFirstName] = React.useState('');
+  const [inviteLastName, setInviteLastName] = React.useState('');
+  const [invitePhone, setInvitePhone] = React.useState('');
+  const [inviteRoleName, setInviteRoleName] = React.useState('');
   const [inviteFeedback, setInviteFeedback] = React.useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [resendingEmail, setResendingEmail] = React.useState<string | null>(null);
 
+  // Officer fields
+  const [isOfficer, setIsOfficer] = React.useState(false);
+  const [officerRankId, setOfficerRankId] = React.useState('');
+  const [officerStationId, setOfficerStationId] = React.useState('');
+  const [officerBadgeNumber, setOfficerBadgeNumber] = React.useState('');
+
+  const { data: ranks } = useGetRanksQuery();
+  const { data: stations } = useGetStationsQuery();
   // Filtered users (client-side search on current page)
   const filteredUsers = React.useMemo(() => {
     return usersList.filter((u: any) => {
@@ -189,12 +199,22 @@ export function UsersPage() {
         phone: invitePhone.trim(),
         role_name: inviteRoleName,
         invited_by: inviterId,
+        ...(isOfficer && {
+          is_officer: true,
+          rank_id: officerRankId,
+          station_id: officerStationId,
+          badge_number: officerBadgeNumber.trim(),
+        }),
       }).unwrap();
-      setInviteEmail('budgetwise02@gmail.com');
-      setInviteFirstName('John');
-      setInviteLastName('Doe');
-      setInvitePhone('9876543210');
-      setInviteRoleName('OFFICER');
+      setInviteEmail('');
+      setInviteFirstName('');
+      setInviteLastName('');
+      setInvitePhone('');
+      setInviteRoleName('');
+      setIsOfficer(false);
+      setOfficerRankId('');
+      setOfficerStationId('');
+      setOfficerBadgeNumber('');
       setShowInviteModal(false);
       setActiveTab('invites');
       setInviteFeedback({ type: 'success', message: response.message || 'Invitation email sent successfully.' });
@@ -395,105 +415,106 @@ export function UsersPage() {
                         const statusKey = user.isArchived ? 'inactive' : 'active';
 
                         return (
-                        <React.Fragment key={user.id}>
-                          <tr className={selectedIds.has(user.id) ? 'selected' : ''}>
-                            <td>
-                              <input
-                                type="checkbox"
-                                checked={selectedIds.has(user.id)}
-                                onChange={() => handleSelect(user.id)}
-                                className="h-4 w-4 accent-primary"
-                              />
-                            </td>
-                            <td>
-                              <div className="flex items-center gap-3">
-                                <div
-                                  className="h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold text-primary-foreground bg-primary shrink-0"
-                                >
-                                  {name.split(' ').map((n: string) => n[0]).join('').slice(0, 2)}
-                                </div>
-                                <span className="font-semibold text-sm text-foreground">{name}</span>
-                              </div>
-                            </td>
-                            <td>
-                              <span className="text-sm text-muted-foreground">{email}</span>
-                            </td>
-                            <td>
-                              <select
-                                className="text-xs font-medium px-2 py-1 rounded-md border border-border bg-card text-foreground cursor-pointer"
-                                value={roleId}
-                                onChange={(e) => handleRoleChange(email, e.target.value)}
-                              >
-                                {(roles || []).map((r) => (
-                                  <option key={r.id} value={r.id}>{r.name}</option>
-                                ))}
-                              </select>
-                            </td>
-                            <td>
-                              <span className={cn(
-                                "admin-badge",
-                                statusKey === 'active' ? 'admin-badge-active' : 'admin-badge-inactive'
-                              )}>
-                                {statusKey === 'active' ? 'Active' : 'Inactive'}
-                              </span>
-                            </td>
-                            <td>
-                              <div className="flex items-center gap-1">
-                                <button
-                                  className="p-1.5 rounded-md hover:bg-muted"
-                                  title="Expand"
-                                  onClick={() => setExpandedRow(expandedRow === user.id ? null : user.id)}
-                                >
-                                  <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                          {expandedRow === user.id && (
-                            <tr>
-                              <td colSpan={6} className="bg-muted/30 p-4">
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                                  <div>
-                                    <p className="text-xs font-semibold text-muted-foreground">Phone</p>
-                                    <p className="text-foreground">{user.userInfo?.phone || '—'}</p>
-                                  </div>
-                                  <div>
-                                    <p className="text-xs font-semibold text-muted-foreground">ID</p>
-                                    <p className="text-foreground font-mono text-xs">{user.id}</p>
-                                  </div>
-                                </div>
-                                <div className="flex gap-2 mt-3">
-                                  {user.isArchived ? (
-                                    <button
-                                      className="admin-btn admin-btn-primary text-xs py-1.5"
-                                      onClick={async () => {
-                                        await activateUser(email);
-                                      }}
-                                    >
-                                      <Check className="h-3.5 w-3.5" /> Activate
-                                    </button>
-                                  ) : (
-                                    <button
-                                      className="admin-btn admin-btn-secondary text-xs py-1.5"
-                                      onClick={async () => {
-                                        await deactivateUser(email);
-                                      }}
-                                    >
-                                      <X className="h-3.5 w-3.5" /> Deactivate
-                                    </button>
-                                  )}
-                                  <button
-                                    className="admin-btn admin-btn-danger text-xs py-1.5"
-                                    onClick={() => setConfirmDeleteId(email)}
+                          <React.Fragment key={user.id}>
+                            <tr className={selectedIds.has(user.id) ? 'selected' : ''}>
+                              <td>
+                                <input
+                                  type="checkbox"
+                                  checked={selectedIds.has(user.id)}
+                                  onChange={() => handleSelect(user.id)}
+                                  className="h-4 w-4 accent-primary"
+                                />
+                              </td>
+                              <td>
+                                <div className="flex items-center gap-3">
+                                  <div
+                                    className="h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold text-primary-foreground bg-primary shrink-0"
                                   >
-                                    <Trash2 className="h-3.5 w-3.5" /> Delete
+                                    {name.split(' ').map((n: string) => n[0]).join('').slice(0, 2)}
+                                  </div>
+                                  <span className="font-semibold text-sm text-foreground">{name}</span>
+                                </div>
+                              </td>
+                              <td>
+                                <span className="text-sm text-muted-foreground">{email}</span>
+                              </td>
+                              <td>
+                                <select
+                                  className="text-xs font-medium px-2 py-1 rounded-md border border-border bg-card text-foreground cursor-pointer"
+                                  value={roleId}
+                                  onChange={(e) => handleRoleChange(email, e.target.value)}
+                                >
+                                  {(roles || []).map((r) => (
+                                    <option key={r.id} value={r.id}>{r.name}</option>
+                                  ))}
+                                </select>
+                              </td>
+                              <td>
+                                <span className={cn(
+                                  "admin-badge",
+                                  statusKey === 'active' ? 'admin-badge-active' : 'admin-badge-inactive'
+                                )}>
+                                  {statusKey === 'active' ? 'Active' : 'Inactive'}
+                                </span>
+                              </td>
+                              <td>
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    className="p-1.5 rounded-md hover:bg-muted"
+                                    title="Expand"
+                                    onClick={() => setExpandedRow(expandedRow === user.id ? null : user.id)}
+                                  >
+                                    <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
                                   </button>
                                 </div>
                               </td>
                             </tr>
-                          )}
-                        </React.Fragment>
-                      );})}
+                            {expandedRow === user.id && (
+                              <tr>
+                                <td colSpan={6} className="bg-muted/30 p-4">
+                                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                                    <div>
+                                      <p className="text-xs font-semibold text-muted-foreground">Phone</p>
+                                      <p className="text-foreground">{user.userInfo?.phone || '—'}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-xs font-semibold text-muted-foreground">ID</p>
+                                      <p className="text-foreground font-mono text-xs">{user.id}</p>
+                                    </div>
+                                  </div>
+                                  <div className="flex gap-2 mt-3">
+                                    {user.isArchived ? (
+                                      <button
+                                        className="admin-btn admin-btn-primary text-xs py-1.5"
+                                        onClick={async () => {
+                                          await activateUser(email);
+                                        }}
+                                      >
+                                        <Check className="h-3.5 w-3.5" /> Activate
+                                      </button>
+                                    ) : (
+                                      <button
+                                        className="admin-btn admin-btn-secondary text-xs py-1.5"
+                                        onClick={async () => {
+                                          await deactivateUser(email);
+                                        }}
+                                      >
+                                        <X className="h-3.5 w-3.5" /> Deactivate
+                                      </button>
+                                    )}
+                                    <button
+                                      className="admin-btn admin-btn-danger text-xs py-1.5"
+                                      onClick={() => setConfirmDeleteId(email)}
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" /> Delete
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                          </React.Fragment>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -572,7 +593,7 @@ export function UsersPage() {
                             <span className={cn(
                               "admin-badge",
                               inv.status === 'pending' ? 'admin-badge-pending' :
-                              inv.status === 'accepted' ? 'admin-badge-active' : 'admin-badge-inactive'
+                                inv.status === 'accepted' ? 'admin-badge-active' : 'admin-badge-inactive'
                             )}>
                               {inv.status}
                             </span>
@@ -666,11 +687,72 @@ export function UsersPage() {
                     value={inviteRoleName}
                     onChange={(e) => setInviteRoleName(e.target.value)}
                   >
+                    <option value="">Select Role</option>
                     {(roles || []).map((r) => (
                       <option key={r.id} value={r.name}>{r.name}</option>
                     ))}
                   </select>
                 </div>
+                {/* Is Officer Checkbox */}
+                <div className="flex items-center gap-2 pt-1">
+                  <input
+                    type="checkbox"
+                    id="isOfficer"
+                    checked={isOfficer}
+                    onChange={(e) => setIsOfficer(e.target.checked)}
+                    className="h-4 w-4 accent-primary cursor-pointer"
+                  />
+                  <label htmlFor="isOfficer" className="text-xs font-semibold text-muted-foreground cursor-pointer select-none">
+                    This user is a Police Officer
+                  </label>
+                </div>
+
+                {/* Officer-specific fields */}
+                {isOfficer && (
+                  <div className="space-y-4 rounded-lg border border-border bg-muted/20 p-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-semibold mb-1.5 text-muted-foreground">Rank</label>
+                        <select
+                          className="admin-input"
+                          required={isOfficer}
+                          value={officerRankId}
+                          onChange={(e) => setOfficerRankId(e.target.value)}
+                        >
+                          <option value="">Select Rank</option>
+                          {(ranks || []).map((r) => (
+                            <option key={r.id} value={r.id}>{r.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold mb-1.5 text-muted-foreground">Station</label>
+                        <select
+                          className="admin-input"
+                          required={isOfficer}
+                          value={officerStationId}
+                          onChange={(e) => setOfficerStationId(e.target.value)}
+                        >
+                          <option value="">Select Station</option>
+                          {(stations || []).map((s) => (
+                            <option key={s.id} value={s.id}>{s.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold mb-1.5 text-muted-foreground">Badge Number</label>
+                      <input
+                        className="admin-input"
+                        type="text"
+                        required={isOfficer}
+                        value={officerBadgeNumber}
+                        onChange={(e) => setOfficerBadgeNumber(e.target.value)}
+                        placeholder="e.g. BN-4521"
+                      />
+                    </div>
+                  </div>
+                )}
                 <div className="flex justify-end gap-2 pt-2">
                   <button type="button" className="admin-btn admin-btn-secondary" onClick={() => setShowInviteModal(false)}>
                     Cancel
