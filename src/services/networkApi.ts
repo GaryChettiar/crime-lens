@@ -132,6 +132,19 @@ export const networkApi = baseApi.injectEndpoints({
       providesTags: ['Network'],
     }),
 
+    getGlobalNetworkGraph: builder.query<GlobalNetworkGraphResponse, GlobalNetworkGraphParams | void>({
+      query: (params) => ({
+        url: '/network-analysis/global',
+        params: {
+          ...(params?.level ? { level: params.level } : {}),
+          ...(params?.nodeId ? { nodeId: params.nodeId } : {}),
+          ...(params?.districtId ? { districtId: params.districtId } : {}),
+          ...(params?.stationId ? { stationId: params.stationId } : {}),
+        },
+      }),
+      providesTags: ['Network'],
+    }),
+
     /**
      * NEO4J SHORTES PATH INVESTIGATION
      * Cypher Query:
@@ -292,6 +305,7 @@ export const networkApi = baseApi.injectEndpoints({
 
 export const {
   useGetNetworkGraphQuery,
+  useGetGlobalNetworkGraphQuery,
   useGetNetworkNodeQuery,
   useGetNetworkClustersQuery,
   useGetShortestPathQuery,
@@ -372,6 +386,42 @@ export interface CrimeNetworkGraphData {
 export interface CrimeNetworkGraphResponse {
   status: string;
   data: CrimeNetworkGraphData;
+}
+
+export interface GlobalNetworkGraphParams {
+  level?: string;
+  nodeId?: string;
+  districtId?: string;
+  stationId?: string;
+}
+
+export interface GlobalNetworkNode {
+  id: string;
+  label: string;
+  type: 'STATE' | 'DISTRICT' | 'STATION' | 'policeStation' | 'incident' | 'criminal' | 'vehicle' | 'alias' | 'evidence';
+  rawId?: string;
+  subtitle?: string;
+  properties?: Record<string, unknown>;
+  canDrillDown: boolean;
+  drillDown?: {
+    level: string;
+    nodeId: string;
+  } | null;
+}
+
+export interface GlobalNetworkEdge {
+  id: string;
+  source: string;
+  target: string;
+  label?: string;
+  relationship?: string;
+}
+
+export interface GlobalNetworkGraphResponse {
+  data: {
+    nodes: GlobalNetworkNode[];
+    edges: GlobalNetworkEdge[];
+  };
 }
 
 export interface CrimeNetworkGraphRequest {
