@@ -89,7 +89,7 @@ export function AnalyticsHeader({
 
   const isOfficer = Boolean(currentUser?.isOfficer);
   const canViewDistrictFilter =
-    !isOfficer || hasPermission("view_district_filter");
+    !isOfficer || hasPermission("view_district_filters");
 
   // Sync selections with Redux
   const activeDistrict = globalFilters.district || "all";
