@@ -21,6 +21,7 @@ import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { useAppSelector } from "@/store/hooks";
 import { useAnalyticsFilters } from "@/hooks/useAnalyticsFilters";
+import usePermissions from '@/hooks/usePermissions';
 import {
   TrendingUp,
   TrendingDown,
@@ -501,6 +502,7 @@ export function AnalyticsPage() {
   const globalFilters = useAppSelector((state) => state.globalFilters);
   const { districtId, stationId } = useAnalyticsFilters();
   const [search, setSearch] = React.useState("");
+  const { hasPermission } = usePermissions();
   // --- dashboardApi wiring -------------------------------------------------
 
   // Map global filters -> dashboardApi filter shape (single-value fields only;
@@ -678,18 +680,20 @@ export function AnalyticsPage() {
               icon={TrendingUp}
               accent
             />
-            <KpiCard
-              label="High Risk Districts"
-              value={isLoadingDistrictStats ? "—" : highRiskDistrictsCount}
-              delta={
-                isLoadingDistrictStats
-                  ? undefined
-                  : `of ${districtStats.length}`
-              }
-              deltaDir="neutral"
-              subtext="crime count above average"
-              icon={ShieldAlert}
-            />
+            {hasPermission('view_district_filters') && (
+              <KpiCard
+                label="High Risk Districts"
+                value={isLoadingDistrictStats ? "—" : highRiskDistrictsCount}
+                delta={
+                  isLoadingDistrictStats
+                    ? undefined
+                    : `of ${districtStats.length}`
+                }
+                deltaDir="neutral"
+                subtext="crime count above average"
+                icon={ShieldAlert}
+              />
+            )}
           </div>
         </div>
 
