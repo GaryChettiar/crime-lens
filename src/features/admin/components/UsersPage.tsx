@@ -86,6 +86,7 @@ export function UsersPage() {
   const [inviteFirstName, setInviteFirstName] = React.useState("");
   const [inviteLastName, setInviteLastName] = React.useState("");
   const [invitePhone, setInvitePhone] = React.useState("");
+  const [inviteDateOfJoining, setInviteDateOfJoining] = React.useState("");
   const [inviteRoleName, setInviteRoleName] = React.useState("");
   const [inviteFeedback, setInviteFeedback] = React.useState<{
     type: "success" | "error";
@@ -230,7 +231,7 @@ export function UsersPage() {
           rank_id: officerRankId,
           station_id: officerStationId,
           badge_number: officerBadgeNumber.trim(),
-          date_of_joining: new Date().toISOString().split("T")[0],
+          date_of_joining: inviteDateOfJoining || new Date().toISOString().split("T")[0],
           operational_status: "ACTIVE",
         }),
       }).unwrap();
@@ -238,6 +239,7 @@ export function UsersPage() {
       setInviteFirstName("");
       setInviteLastName("");
       setInvitePhone("");
+      setInviteDateOfJoining("");
       setInviteRoleName("");
       setIsOfficer(false);
       setOfficerRankId("");
@@ -914,6 +916,18 @@ export function UsersPage() {
                         value={officerBadgeNumber}
                         onChange={(e) => setOfficerBadgeNumber(e.target.value)}
                         placeholder="e.g. BN-4521"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold mb-1.5 text-muted-foreground">
+                        Date of Joining
+                      </label>
+                      <input
+                        type="date"
+                        className="admin-input"
+                        required={isOfficer}
+                        value={inviteDateOfJoining}
+                        onChange={(e) => setInviteDateOfJoining(e.target.value)}
                       />
                     </div>
                   </div>
