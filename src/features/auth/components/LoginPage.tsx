@@ -1,9 +1,10 @@
 import * as React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Lock, Eye, EyeOff } from 'lucide-react';
 import { useAppSelector } from '@/store/hooks';
 import { useLazyGetCurrentUserQuery, useLoginMutation } from '@/services/authApi';
 import usePermissions from '@/hooks/usePermissions';
+import { getDefaultRedirectPath, getRouteConfig } from '@/config/routes';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Typography } from '@/components/atoms/Typography';
@@ -19,6 +20,7 @@ export function LoginPage() {
   const [login, { isLoading }] = useLoginMutation();
   const [triggerGetCurrentUser] = useLazyGetCurrentUserQuery();
   const navigate = useNavigate();
+  const location = useLocation();
   const { isLoading: permsLoading, hasPermission } = usePermissions();
 
   const handleSignIn = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -53,21 +55,19 @@ export function LoginPage() {
 
       await waitForReady(3000);
 
-      // Choose first allowed route in preferred order
-      const ordered = [
-        { perm: 'view_dashboard', path: '/dashboard' },
-        { perm: 'view_crimes', path: '/entities/crimes' },
-        { perm: 'view_network_analysis', path: '/network' },
-        { perm: 'view_forecast', path: '/forecast' },
-        { perm: 'view_fir', path: '/efir' },
-      ];
+      const requestedPath = (location.state as { from?: { pathname?: string } })?.from?.pathname;
+      const requestedRoute = requestedPath ? getRouteConfig(requestedPath) : undefined;
+      const validReturnPath =
+        requestedPath &&
+        requestedPath !== '/no-access' &&
+        requestedRoute &&
+        (!requestedRoute.requiredPermission || hasPermission(requestedRoute.requiredPermission))
+          ? requestedPath
+          : undefined;
 
-      const target = ordered.find((o) => hasPermission(o.perm));
-      if (target) {
-        navigate(target.path);
-      } else {
-        navigate('/administration/profile');
-      }
+      const returnTo = validReturnPath || getDefaultRedirectPath(hasPermission);
+
+      navigate(returnTo, { replace: true });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Authentication failed.';
       setLoginError(message);

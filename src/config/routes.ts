@@ -198,6 +198,19 @@ export const ROUTES: RouteConfig[] = [
 /**
  * Get route config by pathname. Handles exact match and dynamic segments.
  */
+export const FALLBACK_ROUTES = [
+  { perm: 'view_dashboard', path: '/dashboard' },
+  { perm: 'view_crimes', path: '/entities/crimes' },
+  { perm: 'view_network_analysis', path: '/network' },
+  { perm: 'view_forecast', path: '/forecast' },
+  { perm: 'view_fir', path: '/efir' },
+];
+
+export function getDefaultRedirectPath(hasPermission: (perm: string) => boolean): string {
+  const target = FALLBACK_ROUTES.find((route) => hasPermission(route.perm));
+  return target?.path ?? '/administration/profile';
+}
+
 export function getRouteConfig(pathname: string): RouteConfig | undefined {
   // Handle dynamic paths
   if (pathname.startsWith('/entities/criminals/')) {

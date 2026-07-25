@@ -1,7 +1,7 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { hasStoredAuthSession } from '@/services/authStorage';
 import { useGetCurrentUserQuery } from '@/services/authApi';
-import { getRouteConfig } from '@/config/routes';
+import { getDefaultRedirectPath, getRouteConfig } from '@/config/routes';
 import usePermissions from '@/hooks/usePermissions';
 
 export function ProtectedRoute() {
@@ -34,7 +34,7 @@ export function ProtectedRoute() {
   const route = getRouteConfig(location.pathname);
   if (route?.requiredPermission && !hasPermission(route.requiredPermission)) {
     console.log(route.requiredPermission, currentUser.permissions);
-    return <Navigate to="/no-access" replace state={{ from: location }} />;
+    return <Navigate to={getDefaultRedirectPath(hasPermission)} replace />;
   }
 
   return <Outlet />;

@@ -37,6 +37,8 @@ import {
 } from '@/features/entities';
 
 import { AnalyticsFiltersProvider } from '@/hooks/useAnalyticsFilters';
+import usePermissions from '@/hooks/usePermissions';
+import { getDefaultRedirectPath } from '@/config/routes';
 import { InviteOnboardPage, LoginPage, ProtectedRoute, NoAccessPage } from '@/features/auth';
 
 /**
@@ -45,6 +47,14 @@ import { InviteOnboardPage, LoginPage, ProtectedRoute, NoAccessPage } from '@/fe
  * Configures application-wide routing with clean separation of feature pages,
  * living design system documentation, and session security verification gate.
  */
+function DefaultRedirect() {
+  const { hasPermission, isLoading } = usePermissions();
+
+  if (isLoading) return null;
+
+  return <Navigate to={getDefaultRedirectPath(hasPermission)} replace />;
+}
+
 function App() {
   return (
     <AnalyticsFiltersProvider>
@@ -54,7 +64,7 @@ function App() {
 
         <Route element={<ProtectedRoute />}>
           {/* Command Center Feature Routes */}
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/" element={<DefaultRedirect />} />
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/criminals/:criminalId" element={<CriminalProfilePage />} />
           <Route path="/analytics" element={<AnalyticsPage />} />
