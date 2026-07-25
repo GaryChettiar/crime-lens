@@ -53,6 +53,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Activity } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PermissionGuard } from '@/features/auth';
+import { buildCrimeQuery, haveCrimeFiltersChanged } from '@/utils/buildQueryParams';
 
 const CUSTOM_TOOLTIP_STYLE = {
   backgroundColor: 'hsl(var(--card))',
@@ -143,12 +144,29 @@ export function DashboardPage() {
   const [pageSize, setPageSize] = React.useState(10);
   const [currentPage, setCurrentPage] = React.useState(1);
   const [searchQuery, setSearchQuery] = React.useState("");
+  const prevFiltersRef = React.useRef(null as any);
+  const prevLocationRef = React.useRef({ districtId, stationId });
 
   // RTK Query hooks
   const { data: districtsMetrics = [], isLoading: isLoadingDistricts } =
     useGetDistrictMetricsQuery();
-  const { data: crimesResponse, isLoading: isLoadingIncidents } =
-    useGetCrimesQuery({ page: currentPage, pageSize: pageSize, search: searchQuery || undefined });
+  // Build server-side crime query using global + analytics filters
+  const tableState = React.useMemo(
+    () => ({ page: currentPage, pageSize, sortBy: 'crime_occured_date_time', sortOrder: 'desc' }),
+    [currentPage, pageSize],
+  );
+
+  const locationScope = React.useMemo(
+    () => ({ districtId: districtId || undefined, stationId: stationId || undefined }),
+    [districtId, stationId],
+  );
+
+  const crimeQuery = React.useMemo(
+    () => buildCrimeQuery(tableState, globalFilters, searchQuery || '', locationScope),
+    [tableState, globalFilters, searchQuery, locationScope],
+  );
+
+  const { data: crimesResponse, isLoading: isLoadingIncidents } = useGetCrimesQuery(crimeQuery);
   const { data: categories = [] } = useGetCrimeCategoriesQuery();
 
   const incidents  = React.useMemo(() => {
@@ -232,17 +250,23 @@ export function DashboardPage() {
   const [selectedIncident, setSelectedIncident] =
     React.useState<CrimeIncident | null>(null);
 
-  // Reset pagination on filter change
+  // Reset pagination when relevant global filters or analytics location change
   React.useEffect(() => {
-    setCurrentPage(1);
-  }, [
-    district,
-    crimeType,
-    startDate,
-    endDate,
-    selectedSeverities,
-    searchQuery,
-  ]);
+    if (haveCrimeFiltersChanged(prevFiltersRef.current, globalFilters)) {
+      setCurrentPage(1);
+    }
+    prevFiltersRef.current = globalFilters;
+  }, [globalFilters]);
+
+  React.useEffect(() => {
+    if (
+      prevLocationRef.current.districtId !== districtId ||
+      prevLocationRef.current.stationId !== stationId
+    ) {
+      setCurrentPage(1);
+      prevLocationRef.current = { districtId, stationId };
+    }
+  }, [districtId, stationId]);
 
   // Sync handler
   const handleRefresh = React.useCallback(() => {
@@ -346,74 +370,8 @@ export function DashboardPage() {
     return list;
   }, [district, crimeType, startDate, endDate, selectedSeverities, categories]);
 
-  // Compute filtered incidents
-  const filteredIncidents = React.useMemo(() => {
-    return incidents.filter((inc) => {
-      // District check
-      if (ctxDistrict) {
-        const matchesDistrict = inc.district
-          ? inc.district.toLowerCase() === ctxDistrict.toLowerCase()
-          : inc.location
-              .toLowerCase()
-              .includes(ctxDistrict.toLowerCase());
-        if (!matchesDistrict) return false;
-      }
-      // Police Station check
-      if (
-        globalFilters.selectedPoliceStations &&
-        globalFilters.selectedPoliceStations.length > 0
-      ) {
-        if (
-          !inc.policeStation ||
-          !globalFilters.selectedPoliceStations.includes(inc.policeStation)
-        ) {
-          return false;
-        }
-      }
-      // Type check
-      if (
-        crimeCategory &&
-        (inc as any).categoryId !== crimeCategory
-      ) {
-        return false;
-      }
-      // Severity check
-      if (
-        globalFilters.severities.length > 0 &&
-        !globalFilters.severities.includes(inc.severity)
-      ) {
-        return false;
-      }
-      // Search text check
-      if (searchQuery) {
-        const query = searchQuery.toLowerCase();
-        const matchesSearch =
-          inc.caseNumber.toLowerCase().includes(query) ||
-          inc.type.toLowerCase().includes(query) ||
-          inc.description.toLowerCase().includes(query) ||
-          inc.location.toLowerCase().includes(query);
-        if (!matchesSearch) return false;
-      }
-      // Date bounds
-      if (
-        ctxStart &&
-        inc.timestamp < ctxStart
-      )
-        return false;
-      if (
-        ctxEnd &&
-        inc.timestamp > `${ctxEnd} 23:59`
-      )
-        return false;
-
-      return true;
-    });
-  }, [incidents, globalFilters, searchQuery, ctxDistrict, crimeCategory, ctxStart, ctxEnd]);
-
-  // Paginated incidents slice (server paginates, so we just use filteredIncidents)
-  const paginatedIncidents = React.useMemo(() => {
-    return filteredIncidents;
-  }, [filteredIncidents]);
+  // Use server-side filtered/paginated incidents directly
+  const paginatedIncidents = React.useMemo(() => incidents, [incidents]);
 
   // Alert actions
   const handleMarkAlertRead = React.useCallback((id: string) => {

@@ -90,8 +90,11 @@ const encodeDescription = (payload: any, existingTimeline?: any[]) => {
 
 export const efirApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    getEfirs: builder.query<Efir[], void>({
-      query: () => '/firs/getAll',
+    getEfirs: builder.query<Efir[], { districtId?: string; stationId?: string } | void>({
+      query: (params) => ({
+        url: '/firs/getAll',
+        params: params || undefined,
+      }),
       transformResponse: (response: any) => {
         const list = response.data ?? response ?? [];
         return list.map(decodeEfir);
