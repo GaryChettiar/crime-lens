@@ -454,8 +454,78 @@ export function GeospatialMapContainer({
                   <span>Overview</span>
                 </Button>
               </PopoverTrigger>
-              <PopoverContent /* ...unchanged... */>
-                {/* ...unchanged... */}
+              <PopoverContent
+                className="w-auto p-0 border-none bg-transparent shadow-none ring-0"
+                side="bottom"
+                align="start"
+              >
+                <Card className="p-3 bg-card/95 backdrop-blur-md border border-border w-[220px] shadow-lg">
+                  <Typography
+                    variant="caption"
+                    color="muted"
+                    className="font-bold uppercase tracking-wider block mb-1"
+                  >
+                    {activeDistrict === "all"
+                      ? "State Overview"
+                      : "District Insights"}
+                  </Typography>
+                  <Typography
+                    variant="body-sm"
+                    className="font-bold text-foreground capitalize truncate"
+                  >
+                    {activeDistrict === "all"
+                      ? "Karnataka State"
+                      : activeDistrict}
+                  </Typography>
+                  <Separator className="my-1.5" />
+                  <div className="space-y-1.5 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground font-medium">
+                        Crimes (30d):
+                      </span>
+                      <span className="font-data font-bold text-foreground">
+                        {activeSummary.crimeCount}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground font-medium">
+                        Risk Index:
+                      </span>
+                      <Badge
+                        variant={
+                          activeSummary.riskScore >= 75
+                            ? "risk-critical"
+                            : activeSummary.riskScore >= 50
+                              ? "risk-high"
+                              : "secondary"
+                        }
+                        size="sm"
+                        className="py-0 px-1 text-[10px]"
+                      >
+                        {activeSummary.riskScore}/100
+                      </Badge>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground font-medium">
+                        Trend:
+                      </span>
+                      <Badge
+                        variant={
+                          activeSummary.trend === "increasing"
+                            ? "risk-high"
+                            : activeSummary.trend === "decreasing"
+                              ? "success"
+                              : "secondary"
+                        }
+                        dot
+                        size="sm"
+                        className="py-0 px-1 text-[10px] capitalize"
+                      >
+                        {activeSummary.trend}
+                      </Badge>
+                    </div>
+                  </div>
+                </Card>
               </PopoverContent>
             </Popover>
           </div>

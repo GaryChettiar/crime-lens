@@ -14,7 +14,7 @@ export function PoliceOfficersPage() {
 
   const { data: ranks } = useGetRanksQuery();
   const { data: stations } = useGetStationsQuery();
-  const { data: usersData } = useGetAllUsersQuery({ limit: 1000 });
+  // const { data: usersData } = useGetAllUsersQuery({ limit: 1000 });
 
   const [selectedRankFilter, setSelectedRankFilter] = React.useState('');
   const [selectedStationFilter, setSelectedStationFilter] = React.useState('');
@@ -29,23 +29,20 @@ export function PoliceOfficersPage() {
 
   const { data: officers, isLoading, isError, refetch } = useGetAllPoliceOfficersQuery();
 
-  const mappedOfficers = React.useMemo(() => {
-    if (!officers) return [];
-    return officers.map((o) => {
-      const matchingUser = usersData?.users?.find((u) => u.id === o.userId);
-      const matchingRank = ranks?.find((r) => r.id === o.rankId);
-      const matchingStation = stations?.find((s) => s.id === o.stationId);
-      return {
-        ...o,
-        name: matchingUser?.userInfo?.name || 'Unknown Officer',
-        email: matchingUser?.userInfo?.email || '—',
-        phone: o.phone || matchingUser?.userInfo?.phone || '—',
-        rankName: matchingRank?.name || 'No Rank',
-        stationName: matchingStation?.name || 'Unassigned',
-      };
-    });
-  }, [officers, usersData, ranks, stations]);
-
+ const mappedOfficers = React.useMemo(() => {
+  if (!officers) return [];
+  return officers.map((o) => {
+    const matchingRank = ranks?.find((r) => r.id === o.rankId);
+    const matchingStation = stations?.find((s) => s.id === o.stationId);
+    return {
+      ...o,
+      name: o.name || 'Unknown Officer',
+      phone: o.phone || o.contactNumber || '—', // adjust to whatever your API transform names it
+      rankName: matchingRank?.name || 'No Rank',
+      stationName: matchingStation?.name || 'Unassigned',
+    };
+  });
+}, [officers, ranks, stations]);
   const filteredOfficers = React.useMemo(() => {
     return mappedOfficers.filter((o) => {
       const matchSearch =
@@ -164,11 +161,7 @@ export function PoliceOfficersPage() {
                       </td>
                       <td>
                         <div className="text-xs space-y-0.5">
-                          {o.email !== '—' && (
-                            <div className="flex items-center gap-1 text-muted-foreground flex-wrap">
-                              <Mail className="h-3 w-3" /> {o.email}
-                            </div>
-                          )}
+                         
                           {o.phone !== '—' && (
                             <div className="flex items-center gap-1 text-muted-foreground flex-wrap">
                               <Phone className="h-3 w-3" /> {o.phone}

@@ -220,13 +220,13 @@ export function ProfilePage() {
                   className="admin-btn admin-btn-primary shrink-0"
                 >
                   <ExternalLink className="h-4 w-4 mr-2" />
-                  Catalyst Auth Settings
+                  Reset password
                 </button>
               </div>
             </div>
 
             {/* Platform Branding */}
-            <div className="admin-card p-6 space-y-4">
+            {/* <div className="admin-card p-6 space-y-4">
               <div className="flex items-center gap-2 border-b border-border pb-3">
                 <Palette className="h-5 w-5 text-primary" />
                 <h3 className="text-sm font-bold text-foreground">Platform Branding & Email</h3>
@@ -303,11 +303,11 @@ export function ProfilePage() {
                   Save Branding
                 </button>
               </div>
-            </div>
+            </div> */}
           </div>
 
           {/* Preferences Column */}
-          <div className="space-y-6">
+          {/* <div className="space-y-6">
             <div className="admin-card p-6 space-y-4">
               <div className="flex items-center gap-2 border-b border-border pb-3">
                 <Settings className="h-5 w-5 text-primary" />
@@ -343,7 +343,7 @@ export function ProfilePage() {
                 </button>
               </div>
             </div>
-          </div>
+          </div> */}
         </div>
       </div>
     </AdminLayout>

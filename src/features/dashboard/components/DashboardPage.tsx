@@ -204,19 +204,33 @@ export function DashboardPage() {
   // Search query (local to page search input) moved up
 
   // ── Crime trend chart: driven by real API data ──
-  const trendQueryFilters = React.useMemo(
-    () => ({
+  const trendQueryFilters = React.useMemo(() => {
+    const singleDate =
+      globalFilters.singleDate ||
+      (ctxStart && ctxEnd && ctxStart === ctxEnd ? ctxStart : undefined);
+
+    const baseFilters = {
       districtId: districtId || undefined,
       stationId: stationId || undefined,
-      categoryId: globalFilters.crimeTypes[0] || undefined,
-      fromDate: globalFilters.dateRange.start || undefined,
-      toDate: globalFilters.dateRange.end || undefined,
-    }),
-    [globalFilters, districtId, stationId],
-  );
+      categoryId: crimeCategory || globalFilters.crimeTypes[0] || undefined,
+    };
+
+    return singleDate
+      ? {
+          ...baseFilters,
+          date: singleDate,
+        }
+      : {
+          ...baseFilters,
+          fromDate: ctxStart || globalFilters.dateRange.start || undefined,
+          toDate: ctxEnd || globalFilters.dateRange.end || undefined,
+        };
+  }, [crimeCategory, ctxStart, ctxEnd, globalFilters, districtId, stationId]);
 
   const { data: countWithPrevYear, isLoading: isLoadingTrend } =
-    useGetCrimeCountWithPreviousYearQuery(trendQueryFilters);
+    useGetCrimeCountWithPreviousYearQuery(trendQueryFilters, {
+      refetchOnMountOrArgChange: true,
+    });
 
   // Merge current & previous series by index into recharts-friendly rows
   const trendData = React.useMemo(() => {

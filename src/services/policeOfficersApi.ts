@@ -11,6 +11,7 @@ export interface PoliceOfficerResponse {
   badgeNumber?: string;
   email?: string;
   phone?: string;
+  contactNumber?: string;
   rankId?: string;
   rankName?: string;
   stationId?: string;
@@ -148,6 +149,7 @@ export const policeOfficersApi = baseApi.injectEndpoints({
         const list = response.data ?? response ?? [];
         return list.map((o: any) => ({
           id: o.ROWID || o.id,
+          name:o.name,
           userId: o.user_id,
           badgeNumber: o.badge_number,
           rankId: o.rank_id,

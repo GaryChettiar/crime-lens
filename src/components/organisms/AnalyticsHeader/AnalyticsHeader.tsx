@@ -1,5 +1,6 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
+import { useLocation } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
   setDistrict,
@@ -17,7 +18,11 @@ import usePermissions from "@/hooks/usePermissions";
 import { useGetCurrentUserQuery } from "@/services/authApi";
 import { Calendar as CalendarIcon } from "lucide-react";
 import { Calendar as ShadcnCalendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 
 export interface AnalyticsHeaderProps extends React.HTMLAttributes<HTMLDivElement> {
@@ -86,7 +91,11 @@ export function AnalyticsHeader({
   const globalFilters = useAppSelector((state) => state.globalFilters);
   const { data: currentUser } = useGetCurrentUserQuery();
   const { hasPermission } = usePermissions();
+  const location = useLocation();
 
+  const hideCrimeAndDateFilters =
+    location.pathname.includes("entities/criminals") ||
+    location.pathname.includes("entities/officers");
   const isOfficer = Boolean(currentUser?.isOfficer);
   const canViewDistrictFilter =
     !isOfficer || hasPermission("view_district_filters");
@@ -215,7 +224,7 @@ export function AnalyticsHeader({
   const onTimeWindowChange = propOnTimeWindowChange || setLocalTimeWindow;
 
   // ── Date Picker states ──────────────────────────────────────
-  const [dateMode, setDateMode] = React.useState<'single' | 'range'>('range');
+  const [dateMode, setDateMode] = React.useState<"single" | "range">("range");
   const [isCalendarOpen, setIsCalendarOpen] = React.useState(false);
 
   const [selectedSingle, setSelectedSingle] = React.useState<Date>(() => {
@@ -225,15 +234,26 @@ export function AnalyticsHeader({
     return new Date("2026-06-20");
   });
 
-  const [selectedRange, setSelectedRange] = React.useState<{ from: Date | null; to: Date | null }>(() => {
-    const from = globalFilters.dateRange.start ? new Date(globalFilters.dateRange.start) : new Date("2025-06-20");
-    const to = globalFilters.dateRange.end ? new Date(globalFilters.dateRange.end) : new Date("2026-06-20");
+  const [selectedRange, setSelectedRange] = React.useState<{
+    from: Date | null;
+    to: Date | null;
+  }>(() => {
+    const from = globalFilters.dateRange.start
+      ? new Date(globalFilters.dateRange.start)
+      : new Date("2025-06-20");
+    const to = globalFilters.dateRange.end
+      ? new Date(globalFilters.dateRange.end)
+      : new Date("2026-06-20");
     return { from, to };
   });
 
   // Computed active range dates
-  const activeStart = dateMode === 'single' ? selectedSingle : (selectedRange.from || MIN_DATE);
-  const activeEnd = dateMode === 'single' ? selectedSingle : (selectedRange.to || selectedRange.from || MAX_DATE);
+  const activeStart =
+    dateMode === "single" ? selectedSingle : selectedRange.from || MIN_DATE;
+  const activeEnd =
+    dateMode === "single"
+      ? selectedSingle
+      : selectedRange.to || selectedRange.from || MAX_DATE;
 
   const dispatchRange = React.useCallback(
     (start: Date, end: Date) => {
@@ -241,10 +261,10 @@ export function AnalyticsHeader({
         setDateRange({
           start: formatDateISO(start),
           end: formatDateISO(end),
-        })
+        }),
       );
     },
-    [dispatch]
+    [dispatch],
   );
 
   // Synchronize local states if global filters change from outside (e.g. presets)
@@ -255,19 +275,25 @@ export function AnalyticsHeader({
       const isSameDate = startD.getTime() === endD.getTime();
 
       if (isSameDate) {
-        setDateMode('single');
+        setDateMode("single");
         setSelectedSingle(startD);
       } else {
-        setDateMode('range');
+        setDateMode("range");
         setSelectedRange({ from: startD, to: endD });
       }
     } else if (!globalFilters.dateRange.start && !globalFilters.dateRange.end) {
-      setSelectedRange({ from: new Date("2025-06-20"), to: new Date("2026-06-20") });
-      setSelectedSingle(new Date("2026-06-20"));
-      setDateMode('range');
+      const defaultFrom = new Date("2025-06-20");
+      const defaultTo = new Date("2026-06-20");
+      setSelectedRange({ from: defaultFrom, to: defaultTo });
+      setSelectedSingle(defaultTo);
+      setDateMode("range");
+      dispatchRange(defaultFrom, defaultTo);
     }
-  }, [globalFilters.dateRange.start, globalFilters.dateRange.end]);
-
+  }, [
+    globalFilters.dateRange.start,
+    globalFilters.dateRange.end,
+    dispatchRange,
+  ]);
   const [isLocationOpen, setIsLocationOpen] = React.useState(false);
   const [isCrimeTypeOpen, setIsCrimeTypeOpen] = React.useState(false);
   const dropdownRef = React.useRef<HTMLDivElement>(null);
@@ -321,283 +347,288 @@ export function AnalyticsHeader({
       )}
       {...props}
     >
-     
       {/* Row 2: Control Ribbon */}
       <div className="flex flex-row lg:items-center gap-4 w-full bg-card  shadow-sm">
         {/* Crime Type (Indicator) Dropdown */}
-        <div ref={crimeTypeRef} className="relative shrink-0">
-          <button
-            onClick={() => setIsCrimeTypeOpen(!isCrimeTypeOpen)}
-            className="relative border border-border/80 rounded-lg px-3 py-1 bg-background text-[11px] font-semibold min-w-[210px] h-9 flex flex-col justify-center text-left cursor-pointer hover:border-border/100 transition-colors"
-          >
-            <span className="absolute -top-2 left-2 px-1 text-[8px] bg-card text-muted-foreground font-bold uppercase tracking-wider">
-              Crime Category
-            </span>
-            <div className="flex items-center justify-between text-foreground w-full">
-              <span className="truncate pr-4">{activeCrimeTypeLabel}</span>
-              <span className="text-[9px] text-muted-foreground">▼</span>
-            </div>
-          </button>
+        {!hideCrimeAndDateFilters && (
+          <div ref={crimeTypeRef} className="relative shrink-0">
+            <button
+              onClick={() => setIsCrimeTypeOpen(!isCrimeTypeOpen)}
+              className="relative border border-border/80 rounded-lg px-3 py-1 bg-background text-[11px] font-semibold min-w-[210px] h-9 flex flex-col justify-center text-left cursor-pointer hover:border-border/100 transition-colors"
+            >
+              <span className="absolute -top-2 left-2 px-1 text-[8px] bg-card text-muted-foreground font-bold uppercase tracking-wider">
+                Crime Category
+              </span>
+              <div className="flex items-center justify-between text-foreground w-full">
+                <span className="truncate pr-4">{activeCrimeTypeLabel}</span>
+                <span className="text-[9px] text-muted-foreground">▼</span>
+              </div>
+            </button>
 
-          {/* Custom Dropdown Menu Overlay */}
-          {isCrimeTypeOpen && (
-            <div className="absolute top-full mt-1.5 left-0 w-[220px] bg-card border border-border rounded-lg shadow-xl z-50 flex flex-col overflow-hidden max-h-72">
-              <div className="overflow-y-auto flex-1 py-1.5 scrollbar-thin scrollbar-thumb-muted-foreground/30 scrollbar-track-transparent">
-                <button
-                  onClick={() => {
-                    handleIndicatorChange("all");
-                    setIsCrimeTypeOpen(false);
-                  }}
-                  className="relative w-full text-left pl-7 pr-3 py-1 text-xs text-foreground hover:bg-muted/80 cursor-pointer transition-colors"
-                >
-                  {activeCrimeType === "all" && (
-                    <span className="absolute left-3 text-primary font-bold">
-                      ✓
-                    </span>
-                  )}
-                  <span
-                    className={cn(
-                      activeCrimeType === "all" && "font-semibold text-primary",
-                    )}
-                  >
-                    All Crime Types
-                  </span>
-                </button>
-                {crimeTypes.map((type) => (
+            {/* Custom Dropdown Menu Overlay */}
+            {isCrimeTypeOpen && (
+              <div className="absolute top-full mt-1.5 left-0 w-[220px] bg-card border border-border rounded-lg shadow-xl z-50 flex flex-col overflow-hidden max-h-72">
+                <div className="overflow-y-auto flex-1 py-1.5 scrollbar-thin scrollbar-thumb-muted-foreground/30 scrollbar-track-transparent">
                   <button
-                    key={type.value}
                     onClick={() => {
-                      handleIndicatorChange(type.value);
+                      handleIndicatorChange("all");
                       setIsCrimeTypeOpen(false);
                     }}
                     className="relative w-full text-left pl-7 pr-3 py-1 text-xs text-foreground hover:bg-muted/80 cursor-pointer transition-colors"
                   >
-                    {activeCrimeType === type.value && (
+                    {activeCrimeType === "all" && (
                       <span className="absolute left-3 text-primary font-bold">
                         ✓
                       </span>
                     )}
                     <span
                       className={cn(
-                        activeCrimeType === type.value &&
+                        activeCrimeType === "all" &&
                           "font-semibold text-primary",
                       )}
                     >
-                      {type.label}
+                      All Crime Types
                     </span>
                   </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* District (Location) Dropdown — hidden for officers without view_district_filter */}
-        {canViewDistrictFilter && (
-        <div ref={dropdownRef} className="relative shrink-0">
-          <button
-            onClick={() => setIsLocationOpen(!isLocationOpen)}
-            className="relative border border-border/80 rounded-lg px-3 py-1 bg-background text-[11px] font-semibold min-w-[170px] h-9 flex flex-col justify-center text-left cursor-pointer hover:border-border/100 transition-colors"
-          >
-            <span className="absolute -top-2 left-2 px-1 text-[8px] bg-card text-muted-foreground font-bold uppercase tracking-wider">
-              District / Station
-            </span>
-            <div className="flex items-center justify-between text-foreground w-full">
-              <span className="truncate pr-4">
-                {activeStation
-                  ? activeStation
-                  : formatDistrictName(activeDistrict)}
-              </span>
-              <span className="text-[9px] text-muted-foreground">▼</span>
-            </div>
-          </button>
-
-          {/* Grouped Custom Dropdown Menu Overlay */}
-          {isLocationOpen && (
-            <div className="absolute top-full mt-1.5 left-0 w-[260px] bg-card border border-border rounded-lg shadow-xl z-50 flex flex-col overflow-hidden max-h-72">
-              <div className="overflow-y-auto flex-1 py-1.5 scrollbar-thin scrollbar-thumb-muted-foreground/30 scrollbar-track-transparent">
-                {/* ── Districts Group ── */}
-                <div className="px-3 py-1 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-                  Districts
-                </div>
-
-                <button
-                  onClick={() => handleSelectDistrict("all")}
-                  className="relative w-full text-left pl-7 pr-3 py-1 text-xs text-foreground hover:bg-muted/80 cursor-pointer transition-colors"
-                >
-                  {activeDistrict === "all" && !activeStation && (
-                    <span className="absolute left-3 text-primary font-bold">
-                      ✓
-                    </span>
-                  )}
-                  <span
-                    className={cn(
-                      activeDistrict === "all" &&
-                        !activeStation &&
-                        "font-semibold text-primary",
-                    )}
-                  >
-                    All Districts
-                  </span>
-                </button>
-
-                {districts.map((d, index) => (
-                  <button
-                    key={d || `district-${index}`}
-                    onClick={() => handleSelectDistrict(d)}
-                    className="relative w-full text-left pl-7 pr-3 py-1 text-xs text-foreground hover:bg-muted/80 cursor-pointer transition-colors"
-                  >
-                    {activeDistrict === d && !activeStation && (
-                      <span className="absolute left-3 text-primary font-bold">
-                        ✓
-                      </span>
-                    )}
-                    <span
-                      className={cn(
-                        activeDistrict === d &&
-                          !activeStation &&
-                          "font-semibold text-primary",
-                      )}
-                    >
-                      {formatDistrictName(d)}
-                    </span>
-                  </button>
-                ))}
-
-                {/* ── Sub-Divisions / Stations Group ── */}
-                <div className="px-3 py-1 text-[10px] font-bold text-muted-foreground uppercase tracking-wider border-t border-border/40 mt-2 pt-2">
-                  Sub-Divisions / Stations
-                </div>
-
-                {activeDistrict === "all" ? (
-                  <div className="pl-7 pr-3 py-1.5 text-[10px] text-muted-foreground italic">
-                    Select a district to view stations
-                  </div>
-                ) : activeStations.length === 0 ? (
-                  <div className="pl-7 pr-3 py-1.5 text-[10px] text-muted-foreground italic">
-                    No stations found
-                  </div>
-                ) : (
-                  activeStations.map((station) => (
+                  {crimeTypes.map((type) => (
                     <button
-                      key={station.id}
-                      onClick={() => handleSelectStation(station.name)}
+                      key={type.value}
+                      onClick={() => {
+                        handleIndicatorChange(type.value);
+                        setIsCrimeTypeOpen(false);
+                      }}
                       className="relative w-full text-left pl-7 pr-3 py-1 text-xs text-foreground hover:bg-muted/80 cursor-pointer transition-colors"
                     >
-                      {activeStation === station.name && (
+                      {activeCrimeType === type.value && (
                         <span className="absolute left-3 text-primary font-bold">
                           ✓
                         </span>
                       )}
                       <span
                         className={cn(
-                          activeStation === station.name &&
+                          activeCrimeType === type.value &&
                             "font-semibold text-primary",
                         )}
                       >
-                        {station.name}
+                        {type.label}
                       </span>
                     </button>
-                  ))
-                )}
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
+
+        {/* District (Location) Dropdown — hidden for officers without view_district_filter */}
+        {canViewDistrictFilter && (
+          <div ref={dropdownRef} className="relative shrink-0">
+            <button
+              onClick={() => setIsLocationOpen(!isLocationOpen)}
+              className="relative border border-border/80 rounded-lg px-3 py-1 bg-background text-[11px] font-semibold min-w-[170px] h-9 flex flex-col justify-center text-left cursor-pointer hover:border-border/100 transition-colors"
+            >
+              <span className="absolute -top-2 left-2 px-1 text-[8px] bg-card text-muted-foreground font-bold uppercase tracking-wider">
+                District / Station
+              </span>
+              <div className="flex items-center justify-between text-foreground w-full">
+                <span className="truncate pr-4">
+                  {activeStation
+                    ? activeStation
+                    : formatDistrictName(activeDistrict)}
+                </span>
+                <span className="text-[9px] text-muted-foreground">▼</span>
+              </div>
+            </button>
+
+            {/* Grouped Custom Dropdown Menu Overlay */}
+            {isLocationOpen && (
+              <div className="absolute top-full mt-1.5 left-0 w-[260px] bg-card border border-border rounded-lg shadow-xl z-50 flex flex-col overflow-hidden max-h-72">
+                <div className="overflow-y-auto flex-1 py-1.5 scrollbar-thin scrollbar-thumb-muted-foreground/30 scrollbar-track-transparent">
+                  {/* ── Districts Group ── */}
+                  <div className="px-3 py-1 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                    Districts
+                  </div>
+
+                  <button
+                    onClick={() => handleSelectDistrict("all")}
+                    className="relative w-full text-left pl-7 pr-3 py-1 text-xs text-foreground hover:bg-muted/80 cursor-pointer transition-colors"
+                  >
+                    {activeDistrict === "all" && !activeStation && (
+                      <span className="absolute left-3 text-primary font-bold">
+                        ✓
+                      </span>
+                    )}
+                    <span
+                      className={cn(
+                        activeDistrict === "all" &&
+                          !activeStation &&
+                          "font-semibold text-primary",
+                      )}
+                    >
+                      All Districts
+                    </span>
+                  </button>
+
+                  {districts.map((d, index) => (
+                    <button
+                      key={d || `district-${index}`}
+                      onClick={() => handleSelectDistrict(d)}
+                      className="relative w-full text-left pl-7 pr-3 py-1 text-xs text-foreground hover:bg-muted/80 cursor-pointer transition-colors"
+                    >
+                      {activeDistrict === d && !activeStation && (
+                        <span className="absolute left-3 text-primary font-bold">
+                          ✓
+                        </span>
+                      )}
+                      <span
+                        className={cn(
+                          activeDistrict === d &&
+                            !activeStation &&
+                            "font-semibold text-primary",
+                        )}
+                      >
+                        {formatDistrictName(d)}
+                      </span>
+                    </button>
+                  ))}
+
+                  {/* ── Sub-Divisions / Stations Group ── */}
+                  <div className="px-3 py-1 text-[10px] font-bold text-muted-foreground uppercase tracking-wider border-t border-border/40 mt-2 pt-2">
+                    Sub-Divisions / Stations
+                  </div>
+
+                  {activeDistrict === "all" ? (
+                    <div className="pl-7 pr-3 py-1.5 text-[10px] text-muted-foreground italic">
+                      Select a district to view stations
+                    </div>
+                  ) : activeStations.length === 0 ? (
+                    <div className="pl-7 pr-3 py-1.5 text-[10px] text-muted-foreground italic">
+                      No stations found
+                    </div>
+                  ) : (
+                    activeStations.map((station) => (
+                      <button
+                        key={station.id}
+                        onClick={() => handleSelectStation(station.name)}
+                        className="relative w-full text-left pl-7 pr-3 py-1 text-xs text-foreground hover:bg-muted/80 cursor-pointer transition-colors"
+                      >
+                        {activeStation === station.name && (
+                          <span className="absolute left-3 text-primary font-bold">
+                            ✓
+                          </span>
+                        )}
+                        <span
+                          className={cn(
+                            activeStation === station.name &&
+                              "font-semibold text-primary",
+                          )}
+                        >
+                          {station.name}
+                        </span>
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
         )}
 
         {/* Date / Date Range Picker */}
-        <div className="relative shrink-0">
-          <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                className="relative border border-border/80 rounded-lg px-3 py-1 bg-background text-[11px] font-semibold min-w-[220px] h-9 flex flex-col justify-center text-left cursor-pointer hover:border-border/100 transition-colors font-data select-none"
-              >
-                <span className="absolute -top-2 left-2 px-1 text-[8px] bg-card text-muted-foreground font-bold uppercase tracking-wider">
-                  Date / Timeframe
-                </span>
-                <div className="flex items-center gap-2 text-foreground w-full">
-                  <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                  <span className="truncate pr-4">
-                    {dateMode === "single"
-                      ? formatDateLabel(selectedSingle)
-                      : selectedRange.from
-                        ? selectedRange.to
-                          ? `${formatDateLabel(selectedRange.from)} - ${formatDateLabel(selectedRange.to)}`
-                          : `${formatDateLabel(selectedRange.from)} - Select End`
-                        : "Select dates..."}
+        {!hideCrimeAndDateFilters && (
+          <div className="relative shrink-0">
+            <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="relative border border-border/80 rounded-lg px-3 py-1 bg-background text-[11px] font-semibold min-w-[220px] h-9 flex flex-col justify-center text-left cursor-pointer hover:border-border/100 transition-colors font-data select-none"
+                >
+                  <span className="absolute -top-2 left-2 px-1 text-[8px] bg-card text-muted-foreground font-bold uppercase tracking-wider">
+                    Date / Timeframe
                   </span>
-                  <span className="text-[9px] text-muted-foreground ml-auto">▼</span>
+                  <div className="flex items-center gap-2 text-foreground w-full">
+                    <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    <span className="truncate pr-4">
+                      {dateMode === "single"
+                        ? formatDateLabel(selectedSingle)
+                        : selectedRange.from
+                          ? selectedRange.to
+                            ? `${formatDateLabel(selectedRange.from)} - ${formatDateLabel(selectedRange.to)}`
+                            : `${formatDateLabel(selectedRange.from)} - Select End`
+                          : "Select dates..."}
+                    </span>
+                    <span className="text-[9px] text-muted-foreground ml-auto">
+                      ▼
+                    </span>
+                  </div>
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent
+                align="start"
+                className="p-0 z-50 bg-card border border-border shadow-2xl rounded-lg flex flex-col"
+              >
+                {/* Mode selection toggle */}
+                <div className="flex border-b border-border/60 p-1.5 gap-1 bg-muted/20">
+                  <button
+                    type="button"
+                    className={cn(
+                      "flex-1 text-[11px] font-bold py-1.5 px-2.5 rounded transition-all cursor-pointer",
+                      dateMode === "single"
+                        ? "bg-primary text-primary-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted/40",
+                    )}
+                    onClick={() => setDateMode("single")}
+                  >
+                    Single Date
+                  </button>
+                  <button
+                    type="button"
+                    className={cn(
+                      "flex-1 text-[11px] font-bold py-1.5 px-2.5 rounded transition-all cursor-pointer",
+                      dateMode === "range"
+                        ? "bg-primary text-primary-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted/40",
+                    )}
+                    onClick={() => setDateMode("range")}
+                  >
+                    Date Range
+                  </button>
                 </div>
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent
-              align="start"
-              className="p-0 z-50 bg-card border border-border shadow-2xl rounded-lg flex flex-col"
-            >
-              {/* Mode selection toggle */}
-              <div className="flex border-b border-border/60 p-1.5 gap-1 bg-muted/20">
-                <button
-                  type="button"
-                  className={cn(
-                    "flex-1 text-[11px] font-bold py-1.5 px-2.5 rounded transition-all cursor-pointer",
-                    dateMode === "single"
-                      ? "bg-primary text-primary-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted/40",
-                  )}
-                  onClick={() => setDateMode("single")}
-                >
-                  Single Date
-                </button>
-                <button
-                  type="button"
-                  className={cn(
-                    "flex-1 text-[11px] font-bold py-1.5 px-2.5 rounded transition-all cursor-pointer",
-                    dateMode === "range"
-                      ? "bg-primary text-primary-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted/40",
-                  )}
-                  onClick={() => setDateMode("range")}
-                >
-                  Date Range
-                </button>
-              </div>
 
-              {/* Calendar */}
-              <div className="p-1">
-                {dateMode === "single" ? (
-                  <ShadcnCalendar
-                    mode="single"
-                    selected={selectedSingle}
-                    onSelect={(date) => {
-                      if (date) {
-                        setSelectedSingle(date);
-                        setIsCalendarOpen(false);
-                        dispatchRange(date, date);
-                      }
-                    }}
-                    disabledDates={(d) => d < MIN_DATE || d > MAX_DATE}
-                  />
-                ) : (
-                  <ShadcnCalendar
-                    mode="range"
-                    selected={selectedRange}
-                    onSelect={(range) => {
-                      setSelectedRange(range || { from: null, to: null });
-                      if (range && range.from && range.to) {
-                        setIsCalendarOpen(false);
-                        dispatchRange(range.from, range.to);
-                      }
-                    }}
-                    disabledDates={(d) => d < MIN_DATE || d > MAX_DATE}
-                  />
-                )}
-              </div>
-            </PopoverContent>
-          </Popover>
-        </div>
-
+                {/* Calendar */}
+                <div className="p-1">
+                  {dateMode === "single" ? (
+                    <ShadcnCalendar
+                      mode="single"
+                      selected={selectedSingle}
+                      onSelect={(date) => {
+                        if (date) {
+                          setSelectedSingle(date);
+                          setIsCalendarOpen(false);
+                          dispatchRange(date, date);
+                        }
+                      }}
+                      disabledDates={(d) => d < MIN_DATE || d > MAX_DATE}
+                    />
+                  ) : (
+                    <ShadcnCalendar
+                      mode="range"
+                      selected={selectedRange}
+                      onSelect={(range) => {
+                        setSelectedRange(range || { from: null, to: null });
+                        if (range && range.from && range.to) {
+                          setIsCalendarOpen(false);
+                          dispatchRange(range.from, range.to);
+                        }
+                      }}
+                      disabledDates={(d) => d < MIN_DATE || d > MAX_DATE}
+                    />
+                  )}
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
+        )}
         {/* Temporal Timeline Playback (manages its own date range via Redux) */}
         {/* <TemporalCrimePlayback
           startDate={formatDateISO(activeStart)}

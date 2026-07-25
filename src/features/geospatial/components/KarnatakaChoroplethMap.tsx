@@ -1,9 +1,9 @@
-import * as React from 'react';
-import { useMap, GeoJSON } from 'react-leaflet';
-import { type DistrictMetric } from '../types/geospatial';
-import { useGetDistrictsGeoJsonQuery } from '@/services/districtsApi';
-import { convertToGeoJson } from '@/utils/geoJsonHelper';
-import { useAnalyticsFilters } from '@/hooks/useAnalyticsFilters';
+import * as React from "react";
+import { useMap, GeoJSON } from "react-leaflet";
+import { type DistrictMetric } from "../types/geospatial";
+import { useGetDistrictsGeoJsonQuery } from "@/services/districtsApi";
+import { convertToGeoJson } from "@/utils/geoJsonHelper";
+import { useAnalyticsFilters } from "@/hooks/useAnalyticsFilters";
 
 export interface KarnatakaChoroplethMapProps {
   metrics: DistrictMetric[];
@@ -14,30 +14,31 @@ export interface KarnatakaChoroplethMapProps {
 }
 
 const getChoroplethColor = (riskIndex: number, isDark: boolean = true) => {
-  if (riskIndex >= 75) return '#B91C1C';
-  if (riskIndex >= 50) return '#C2410C';
-  if (riskIndex >= 30) return '#B45309';
-  if (riskIndex >= 15) return isDark ? '#1E3A8A' : '#3B82F6';
-  return isDark ? '#1E293B' : '#F1F5F9';
+  if (riskIndex >= 75) return "#B91C1C";
+  if (riskIndex >= 50) return "#C2410C";
+  if (riskIndex >= 30) return "#B45309";
+  if (riskIndex >= 15) return isDark ? "#1E3A8A" : "#3B82F6";
+  return isDark ? "#1E293B" : "#F1F5F9";
 };
 
 // Flat neutral fill used for non-selected districts once focus mode is on —
 // deliberately NOT on the risk ramp so it reads as "inactive/backdrop", not data.
-const FOCUS_MODE_MUTED_FILL = (isDark: boolean) => (isDark ? '#0F172A' : '#F1F5F9');
+const FOCUS_MODE_MUTED_FILL = (isDark: boolean) =>
+  isDark ? "#0F172A" : "#F1F5F9";
 
-const SELECTED_OUTLINE = '#22D3EE';
+const SELECTED_OUTLINE = "#22D3EE";
 
 const DISTRICT_NAME_ALIASES: Record<string, string> = {
-  'bengaluru urban': 'bangalore urban',
-  'bengaluru rural': 'bangalore rural',
-  'mysuru': 'mysore',
-  'belagavi': 'belgaum',
-  'hubballi-dharwad': 'dharwad',
-  'kalaburagi': 'gulbarga',
-  'ballari': 'bellary',
-  'tumakuru': 'tumkur',
-  'shivamogga': 'shimoga',
-  'vijayapura': 'bijapur',
+  "bengaluru urban": "bangalore urban",
+  "bengaluru rural": "bangalore rural",
+  mysuru: "mysore",
+  belagavi: "belgaum",
+  "hubballi-dharwad": "dharwad",
+  kalaburagi: "gulbarga",
+  ballari: "bellary",
+  tumakuru: "tumkur",
+  shivamogga: "shimoga",
+  vijayapura: "bijapur",
 };
 const REVERSE_ALIASES: Record<string, string> = Object.fromEntries(
   Object.entries(DISTRICT_NAME_ALIASES).map(([k, v]) => [v, k]),
@@ -75,7 +76,7 @@ export function KarnatakaChoroplethMap({
   // match it first; the name is only a fallback for map-driven selections.
   const hasSelection =
     Boolean(activeDistrictId) ||
-    (Boolean(selectedDistrict) && selectedDistrict !== 'all');
+    (Boolean(selectedDistrict) && selectedDistrict !== "all");
 
   const isActiveDistrict = (feature: any) => {
     const dName = feature?.properties?.name || feature?.properties?.NAME_2;
@@ -94,26 +95,23 @@ export function KarnatakaChoroplethMap({
     const isSelected = isActiveDistrict(feature);
 
     if (isSelected) {
-      const risk = metric ? metric.riskIndex : 0;
       return {
-        fillColor: getChoroplethColor(risk, isDark),
-        fillOpacity: 0.92,
+        fillColor: isDark ? "#164E63" : "#CFFAFE", // single highlight color
+        fillOpacity: 0.9,
         color: SELECTED_OUTLINE,
         weight: 6,
-        dashArray: '',
-        className: 'district-selected-glow',
+        dashArray: "",
+        className: "district-selected-glow",
       };
     }
 
     if (hasSelection) {
-      // Focus mode: strip the choropleth entirely for everything else —
-      // flat neutral fill, no risk color, no data signal.
       return {
         fillColor: FOCUS_MODE_MUTED_FILL(isDark),
-        fillOpacity: 0.5,
-        color: isDark ? '#1E293B' : '#E2E8F0',
+        fillOpacity: 0.45,
+        color: isDark ? "#334155" : "#CBD5E1",
         weight: 1,
-        dashArray: '',
+        dashArray: "",
       };
     }
 
@@ -122,20 +120,27 @@ export function KarnatakaChoroplethMap({
     return {
       fillColor: getChoroplethColor(risk, isDark),
       fillOpacity: 0.45,
-      color: isDark ? '#475569' : '#CBD5E1',
+      color: isDark ? "#475569" : "#CBD5E1",
       weight: 1,
-      dashArray: '3',
+      dashArray: "3",
     };
   };
 
-  const getDistrictTooltip = (districtName: string, metric?: DistrictMetric) => `
+  const getDistrictTooltip = (
+    districtName: string,
+    metric?: DistrictMetric,
+  ) => `
     <div class="p-1.5 font-sans space-y-0.5 text-foreground bg-card text-[11px]">
       <div class="font-bold border-b border-border/60 pb-0.5 capitalize">${districtName} District</div>
-      ${metric ? `
+      ${
+        metric
+          ? `
         <div>Active Crimes (30d): <b>${metric.crimeCount}</b></div>
         <div>Clearance Rate: <b>${metric.resolutionRate}%</b></div>
         <div>Risk index: <b style="color: ${getChoroplethColor(metric.riskIndex, isDark)}">${metric.riskIndex}/100</b></div>
-      ` : ''}
+      `
+          : ""
+      }
     </div>
   `;
 
@@ -159,15 +164,15 @@ export function KarnatakaChoroplethMap({
 
     if (!interactive) {
       const el = layer.getElement?.();
-      if (el) el.style.cursor = 'default';
+      if (el) el.style.cursor = "default";
       return;
     }
 
     // In focus mode, non-selected districts are visually inert — no hover
     // feedback either, since they've already been stripped of data meaning.
     if (hasSelection && !isSelected) {
-      layer.off('mouseover');
-      layer.off('mouseout');
+      layer.off("mouseover");
+      layer.off("mouseout");
       layer.on({
         click: (e: any) => {
           const bounds = e.target.getBounds();
@@ -206,7 +211,8 @@ export function KarnatakaChoroplethMap({
     let matched: any = null;
     geoLayer.eachLayer((lyr: any) => {
       lyr.setStyle(getStyle(lyr.feature));
-      const dName = lyr.feature?.properties?.name || lyr.feature?.properties?.NAME_2;
+      const dName =
+        lyr.feature?.properties?.name || lyr.feature?.properties?.NAME_2;
       const metric = metrics.find((m) => districtNamesMatch(m.district, dName));
       const isSelected = hasSelection && isActiveDistrict(lyr.feature);
 
@@ -231,7 +237,7 @@ export function KarnatakaChoroplethMap({
       map.fitBounds(matched.getBounds(), { padding: [20, 20] });
     } else if (hasSelection) {
       console.warn(
-        `[KarnatakaChoroplethMap] No polygon matched selectedDistrict="${selectedDistrict}".`
+        `[KarnatakaChoroplethMap] No polygon matched selectedDistrict="${selectedDistrict}".`,
       );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
