@@ -131,12 +131,13 @@ export function DashboardPage() {
     crimeCategory,
     startDate: ctxStart,
     endDate: ctxEnd,
+    districtId,
+    stationId,
     setDistrict: setCtxDistrict,
     setCrimeCategory,
     setStartDate,
     setEndDate,
   } = useAnalyticsFilters();
-
 
   // Table state
   const [pageSize, setPageSize] = React.useState(10);
@@ -186,12 +187,13 @@ export function DashboardPage() {
   // ── Crime trend chart: driven by real API data ──
   const trendQueryFilters = React.useMemo(
     () => ({
-      districtId: ctxDistrict || undefined,
-      categoryId: crimeCategory || undefined,
-      fromDate: ctxStart || undefined,
-      toDate: ctxEnd || undefined,
+      districtId: districtId || undefined,
+      stationId: stationId || undefined,
+      categoryId: globalFilters.crimeTypes[0] || undefined,
+      fromDate: globalFilters.dateRange.start || undefined,
+      toDate: globalFilters.dateRange.end || undefined,
     }),
-    [ctxDistrict, crimeCategory, ctxStart, ctxEnd],
+    [globalFilters, districtId, stationId],
   );
 
   const { data: countWithPrevYear, isLoading: isLoadingTrend } =
