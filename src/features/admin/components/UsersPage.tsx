@@ -1,5 +1,5 @@
-import * as React from 'react';
-import { AdminLayout } from '@/components/templates/AdminLayout/AdminLayout';
+import * as React from "react";
+import { AdminLayout } from "@/components/templates/AdminLayout/AdminLayout";
 import {
   useGetAllUsersQuery,
   useUpdateUserRoleMutation,
@@ -9,12 +9,16 @@ import {
   useInviteUserMutation,
   useGetInvitesQuery,
   useReinviteUserMutation,
-} from '@/services/usersApi';
-import { useGetAllRolesQuery } from '@/services/rolesApi';
-import { useGetCurrentUserQuery } from '@/services/authApi';
-import { useGetRanksQuery } from '@/services/policeRanksApi';
-import { useGetStationsQuery } from '@/services/policeStationsApi';
-import { TableSkeleton, EmptyState, ErrorState } from '@/components/molecules/DataStates';
+} from "@/services/usersApi";
+import { useGetAllRolesQuery } from "@/services/rolesApi";
+import { useGetCurrentUserQuery } from "@/services/authApi";
+import { useGetRanksQuery } from "@/services/policeRanksApi";
+import { useGetStationsQuery } from "@/services/policeStationsApi";
+import {
+  TableSkeleton,
+  EmptyState,
+  ErrorState,
+} from "@/components/molecules/DataStates";
 import {
   Search,
   RefreshCw,
@@ -31,65 +35,83 @@ import {
   Loader2,
   CheckCircle2,
   AlertTriangle,
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
+} from "lucide-react";
+import { cn } from "@/lib/utils";
 
-type TabType = 'all' | 'invites';
+type TabType = "all" | "invites";
 
 export function UsersPage() {
   const [page, setPage] = React.useState(1);
   const pageSize = 10;
 
   // API data
-  const { data: usersData, isLoading, isError, refetch: refetchUsers } = useGetAllUsersQuery({ page, limit: pageSize });
+  const {
+    data: usersData,
+    isLoading,
+    isError,
+    refetch: refetchUsers,
+  } = useGetAllUsersQuery({ page, limit: pageSize });
   const { data: roles } = useGetAllRolesQuery();
   const { data: currentUser } = useGetCurrentUserQuery();
-  const { data: invites, isLoading: invitesLoading, refetch: refetchInvites } = useGetInvitesQuery();
+  const {
+    data: invites,
+    isLoading: invitesLoading,
+    refetch: refetchInvites,
+  } = useGetInvitesQuery();
 
   // Mutations
   const [updateUserRole] = useUpdateUserRoleMutation();
   const [activateUser] = useActivateUserMutation();
   const [deactivateUser] = useDeactivateUserMutation();
   const [deleteUsers] = useDeleteUsersMutation();
-  const [inviteUserMutation, { isLoading: isInviting }] = useInviteUserMutation();
+  const [inviteUserMutation, { isLoading: isInviting }] =
+    useInviteUserMutation();
   const [reinviteUser] = useReinviteUserMutation();
 
   const usersList = usersData?.users || [];
   const totalUsers = usersData?.total || 0;
 
-  const [search, setSearch] = React.useState('');
-  const [activeTab, setActiveTab] = React.useState<TabType>('all');
+  const [search, setSearch] = React.useState("");
+  const [activeTab, setActiveTab] = React.useState<TabType>("all");
   const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set());
   const [showInviteModal, setShowInviteModal] = React.useState(false);
   const [expandedRow, setExpandedRow] = React.useState<string | null>(null);
   const [showBulkMenu, setShowBulkMenu] = React.useState(false);
-  const [confirmDeleteId, setConfirmDeleteId] = React.useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = React.useState<string | null>(
+    null,
+  );
 
   // Invite form
-  const [inviteEmail, setInviteEmail] = React.useState('');
-  const [inviteFirstName, setInviteFirstName] = React.useState('');
-  const [inviteLastName, setInviteLastName] = React.useState('');
-  const [invitePhone, setInvitePhone] = React.useState('');
-  const [inviteRoleName, setInviteRoleName] = React.useState('');
-  const [inviteFeedback, setInviteFeedback] = React.useState<{ type: 'success' | 'error'; message: string } | null>(null);
-  const [resendingEmail, setResendingEmail] = React.useState<string | null>(null);
+  const [inviteEmail, setInviteEmail] = React.useState("");
+  const [inviteFirstName, setInviteFirstName] = React.useState("");
+  const [inviteLastName, setInviteLastName] = React.useState("");
+  const [invitePhone, setInvitePhone] = React.useState("");
+  const [inviteRoleName, setInviteRoleName] = React.useState("");
+  const [inviteFeedback, setInviteFeedback] = React.useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
+  const [resendingEmail, setResendingEmail] = React.useState<string | null>(
+    null,
+  );
 
   // Officer fields
   const [isOfficer, setIsOfficer] = React.useState(false);
-  const [officerRankId, setOfficerRankId] = React.useState('');
-  const [officerStationId, setOfficerStationId] = React.useState('');
-  const [officerBadgeNumber, setOfficerBadgeNumber] = React.useState('');
+  const [officerRankId, setOfficerRankId] = React.useState("");
+  const [officerStationId, setOfficerStationId] = React.useState("");
+  const [officerBadgeNumber, setOfficerBadgeNumber] = React.useState("");
 
   const { data: ranks } = useGetRanksQuery();
   const { data: stations } = useGetStationsQuery();
   // Filtered users (client-side search on current page)
   const filteredUsers = React.useMemo(() => {
     return usersList.filter((u: any) => {
-      const email = u.userInfo?.email || '';
-      const name = u.userInfo?.name || '';
+      const email = u.userInfo?.email || "";
+      const name = u.userInfo?.name || "";
       if (search) {
         const q = search.toLowerCase();
-        if (!name.toLowerCase().includes(q) && !email.toLowerCase().includes(q)) return false;
+        if (!name.toLowerCase().includes(q) && !email.toLowerCase().includes(q))
+          return false;
       }
       return true;
     });
@@ -103,15 +125,15 @@ export function UsersPage() {
       return Array.from({ length: totalPages }, (_, i) => i + 1);
     }
 
-    const buttons: Array<number | '...'> = [];
+    const buttons: Array<number | "..."> = [];
     const delta = 2;
     const start = Math.max(2, page - delta);
     const end = Math.min(totalPages - 1, page + delta);
 
     buttons.push(1);
-    if (start > 2) buttons.push('...');
+    if (start > 2) buttons.push("...");
     for (let i = start; i <= end; i += 1) buttons.push(i);
-    if (end < totalPages - 1) buttons.push('...');
+    if (end < totalPages - 1) buttons.push("...");
     buttons.push(totalPages);
 
     return buttons;
@@ -147,16 +169,19 @@ export function UsersPage() {
     if (ids.length === 0) return;
 
     try {
-      if (action === 'activate') {
+      if (action === "activate") {
         for (const u of filteredUsers) {
           if (ids.includes(u.id)) await activateUser(u.userInfo.email).unwrap();
         }
-      } else if (action === 'deactivate') {
+      } else if (action === "deactivate") {
         for (const u of filteredUsers) {
-          if (ids.includes(u.id)) await deactivateUser(u.userInfo.email).unwrap();
+          if (ids.includes(u.id))
+            await deactivateUser(u.userInfo.email).unwrap();
         }
-      } else if (action === 'delete') {
-        const emails = filteredUsers.filter(u => ids.includes(u.id)).map(u => u.userInfo.email);
+      } else if (action === "delete") {
+        const emails = filteredUsers
+          .filter((u) => ids.includes(u.id))
+          .map((u) => u.userInfo.email);
         await deleteUsers(emails).unwrap();
       }
     } catch (e) {
@@ -182,11 +207,12 @@ export function UsersPage() {
     if (!inviteEmail) return;
     setInviteFeedback(null);
 
-    const inviterId = currentUser?.sysUserId || currentUser?.id || '';
+    const inviterId = currentUser?.sysUserId || currentUser?.id || "";
     if (!inviterId) {
       setInviteFeedback({
-        type: 'error',
-        message: 'Unable to determine the current user id for the invitation request.',
+        type: "error",
+        message:
+          "Unable to determine the current user id for the invitation request.",
       });
       return;
     }
@@ -204,26 +230,33 @@ export function UsersPage() {
           rank_id: officerRankId,
           station_id: officerStationId,
           badge_number: officerBadgeNumber.trim(),
+          date_of_joining: new Date().toISOString().split("T")[0],
+          operational_status: "ACTIVE",
         }),
       }).unwrap();
-      setInviteEmail('');
-      setInviteFirstName('');
-      setInviteLastName('');
-      setInvitePhone('');
-      setInviteRoleName('');
+      setInviteEmail("");
+      setInviteFirstName("");
+      setInviteLastName("");
+      setInvitePhone("");
+      setInviteRoleName("");
       setIsOfficer(false);
-      setOfficerRankId('');
-      setOfficerStationId('');
-      setOfficerBadgeNumber('');
+      setOfficerRankId("");
+      setOfficerStationId("");
+      setOfficerBadgeNumber("");
       setShowInviteModal(false);
-      setActiveTab('invites');
-      setInviteFeedback({ type: 'success', message: response.message || 'Invitation email sent successfully.' });
+      setActiveTab("invites");
+      setInviteFeedback({
+        type: "success",
+        message: response.message || "Invitation email sent successfully.",
+      });
       refetchInvites();
       refetchUsers();
     } catch (e) {
       setInviteFeedback({
-        type: 'error',
-        message: (e as { data?: { message?: string } })?.data?.message || 'Unable to send the invitation. Please try again.',
+        type: "error",
+        message:
+          (e as { data?: { message?: string } })?.data?.message ||
+          "Unable to send the invitation. Please try again.",
       });
     }
   };
@@ -233,21 +266,36 @@ export function UsersPage() {
     setResendingEmail(email);
     try {
       const response = await reinviteUser({ email }).unwrap();
-      setInviteFeedback({ type: 'success', message: response.message || `Invitation resent to ${email}.` });
+      setInviteFeedback({
+        type: "success",
+        message: response.message || `Invitation resent to ${email}.`,
+      });
       refetchInvites();
     } catch (e) {
       setInviteFeedback({
-        type: 'error',
-        message: (e as { data?: { message?: string } })?.data?.message || `Unable to resend the invitation to ${email}.`,
+        type: "error",
+        message:
+          (e as { data?: { message?: string } })?.data?.message ||
+          `Unable to resend the invitation to ${email}.`,
       });
     } finally {
       setResendingEmail(null);
     }
   };
 
-  const TABS: { key: TabType; label: string; icon: React.ElementType; count: number }[] = [
-    { key: 'all', label: 'Users', icon: UserCheck, count: totalUsers },
-    { key: 'invites', label: 'Invites', icon: Mail, count: invites?.length ?? 0 },
+  const TABS: {
+    key: TabType;
+    label: string;
+    icon: React.ElementType;
+    count: number;
+  }[] = [
+    { key: "all", label: "Users", icon: UserCheck, count: totalUsers },
+    {
+      key: "invites",
+      label: "Invites",
+      icon: Mail,
+      count: invites?.length ?? 0,
+    },
   ];
 
   return (
@@ -256,7 +304,9 @@ export function UsersPage() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
-            <h1 className="text-xl font-bold text-foreground">User Management</h1>
+            <h1 className="text-xl font-bold text-foreground">
+              User Management
+            </h1>
             <p className="text-sm mt-0.5 text-muted-foreground">
               Manage platform users, roles, and invitations.
             </p>
@@ -273,14 +323,18 @@ export function UsersPage() {
         {inviteFeedback && (
           <div
             className={cn(
-              'flex items-center gap-2 rounded-lg border px-3 py-2.5 text-sm',
-              inviteFeedback.type === 'success'
-                ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-500'
-                : 'border-danger/30 bg-danger/10 text-danger',
+              "flex items-center gap-2 rounded-lg border px-3 py-2.5 text-sm",
+              inviteFeedback.type === "success"
+                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-500"
+                : "border-danger/30 bg-danger/10 text-danger",
             )}
             role="status"
           >
-            {inviteFeedback.type === 'success' ? <CheckCircle2 className="h-4 w-4 shrink-0" /> : <AlertTriangle className="h-4 w-4 shrink-0" />}
+            {inviteFeedback.type === "success" ? (
+              <CheckCircle2 className="h-4 w-4 shrink-0" />
+            ) : (
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+            )}
             <span>{inviteFeedback.message}</span>
           </div>
         )}
@@ -295,12 +349,21 @@ export function UsersPage() {
                 className="admin-input pl-10"
                 placeholder="Search users..."
                 value={search}
-                onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
               />
             </div>
 
             {/* Refresh */}
-            <button className="admin-btn admin-btn-secondary" onClick={() => { refetchUsers(); refetchInvites(); }}>
+            <button
+              className="admin-btn admin-btn-secondary"
+              onClick={() => {
+                refetchUsers();
+                refetchInvites();
+              }}
+            >
               <RefreshCw className="h-4 w-4" />
               Refresh
             </button>
@@ -319,20 +382,20 @@ export function UsersPage() {
                   <div className="absolute top-full mt-1 right-0 bg-card border border-border rounded-lg shadow-lg p-1 z-20 min-w-[160px]">
                     <button
                       className="w-full text-left px-3 py-2 text-sm rounded-md hover:bg-muted flex items-center gap-2 text-foreground"
-                      onClick={() => handleBulkAction('activate')}
+                      onClick={() => handleBulkAction("activate")}
                     >
                       <Check className="h-3.5 w-3.5 text-success" /> Activate
                     </button>
                     <button
                       className="w-full text-left px-3 py-2 text-sm rounded-md hover:bg-muted flex items-center gap-2 text-foreground"
-                      onClick={() => handleBulkAction('deactivate')}
+                      onClick={() => handleBulkAction("deactivate")}
                     >
                       <X className="h-3.5 w-3.5 text-warning" /> Deactivate
                     </button>
                     <div className="border-t border-border my-1" />
                     <button
                       className="w-full text-left px-3 py-2 text-sm rounded-md hover:bg-danger/10 flex items-center gap-2 text-danger"
-                      onClick={() => handleBulkAction('delete')}
+                      onClick={() => handleBulkAction("delete")}
                     >
                       <Trash2 className="h-3.5 w-3.5" /> Delete
                     </button>
@@ -347,8 +410,11 @@ export function UsersPage() {
             {TABS.map((tab) => (
               <button
                 key={tab.key}
-                className={`admin-tab ${activeTab === tab.key ? 'active' : ''}`}
-                onClick={() => { setActiveTab(tab.key); setPage(1); }}
+                className={`admin-tab ${activeTab === tab.key ? "active" : ""}`}
+                onClick={() => {
+                  setActiveTab(tab.key);
+                  setPage(1);
+                }}
               >
                 {tab.label}
                 {tab.count > 0 && (
@@ -356,8 +422,8 @@ export function UsersPage() {
                     className={cn(
                       "ml-1.5 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full text-[10px] font-bold px-1.5",
                       activeTab === tab.key
-                        ? 'bg-primary/10 text-primary'
-                        : 'bg-muted text-muted-foreground'
+                        ? "bg-primary/10 text-primary"
+                        : "bg-muted text-muted-foreground",
                     )}
                   >
                     {tab.count}
@@ -369,7 +435,7 @@ export function UsersPage() {
         </div>
 
         {/* Users Tab */}
-        {activeTab === 'all' && (
+        {activeTab === "all" && (
           <>
             {isLoading && <TableSkeleton columns={6} rows={6} />}
             {isError && (
@@ -383,7 +449,11 @@ export function UsersPage() {
               <EmptyState
                 icon={Users}
                 title="No users found"
-                description={search ? 'Try a different search term.' : 'No users have been created yet.'}
+                description={
+                  search
+                    ? "Try a different search term."
+                    : "No users have been created yet."
+                }
               />
             )}
             {!isLoading && !isError && filteredUsers.length > 0 && (
@@ -395,7 +465,10 @@ export function UsersPage() {
                         <th className="w-[40px]">
                           <input
                             type="checkbox"
-                            checked={selectedIds.size === filteredUsers.length && filteredUsers.length > 0}
+                            checked={
+                              selectedIds.size === filteredUsers.length &&
+                              filteredUsers.length > 0
+                            }
                             onChange={handleSelectAll}
                             className="h-4 w-4 accent-primary"
                           />
@@ -409,14 +482,20 @@ export function UsersPage() {
                     </thead>
                     <tbody>
                       {filteredUsers.map((user: any) => {
-                        const name = user.userInfo?.name || 'Unknown';
-                        const email = user.userInfo?.email || '';
-                        const roleId = user.roles?.[0]?.id || '';
-                        const statusKey = user.isArchived ? 'inactive' : 'active';
+                        const name = user.userInfo?.name || "Unknown";
+                        const email = user.userInfo?.email || "";
+                        const roleId = user.roles?.[0]?.id || "";
+                        const statusKey = user.isArchived
+                          ? "inactive"
+                          : "active";
 
                         return (
                           <React.Fragment key={user.id}>
-                            <tr className={selectedIds.has(user.id) ? 'selected' : ''}>
+                            <tr
+                              className={
+                                selectedIds.has(user.id) ? "selected" : ""
+                              }
+                            >
                               <td>
                                 <input
                                   type="checkbox"
@@ -427,34 +506,50 @@ export function UsersPage() {
                               </td>
                               <td>
                                 <div className="flex items-center gap-3">
-                                  <div
-                                    className="h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold text-primary-foreground bg-primary shrink-0"
-                                  >
-                                    {name.split(' ').map((n: string) => n[0]).join('').slice(0, 2)}
+                                  <div className="h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold text-primary-foreground bg-primary shrink-0">
+                                    {name
+                                      .split(" ")
+                                      .map((n: string) => n[0])
+                                      .join("")
+                                      .slice(0, 2)}
                                   </div>
-                                  <span className="font-semibold text-sm text-foreground">{name}</span>
+                                  <span className="font-semibold text-sm text-foreground">
+                                    {name}
+                                  </span>
                                 </div>
                               </td>
                               <td>
-                                <span className="text-sm text-muted-foreground">{email}</span>
+                                <span className="text-sm text-muted-foreground">
+                                  {email}
+                                </span>
                               </td>
                               <td>
                                 <select
                                   className="text-xs font-medium px-2 py-1 rounded-md border border-border bg-card text-foreground cursor-pointer"
                                   value={roleId}
-                                  onChange={(e) => handleRoleChange(email, e.target.value)}
+                                  onChange={(e) =>
+                                    handleRoleChange(email, e.target.value)
+                                  }
                                 >
                                   {(roles || []).map((r) => (
-                                    <option key={r.id} value={r.id}>{r.name}</option>
+                                    <option key={r.id} value={r.id}>
+                                      {r.name}
+                                    </option>
                                   ))}
                                 </select>
                               </td>
                               <td>
-                                <span className={cn(
-                                  "admin-badge",
-                                  statusKey === 'active' ? 'admin-badge-active' : 'admin-badge-inactive'
-                                )}>
-                                  {statusKey === 'active' ? 'Active' : 'Inactive'}
+                                <span
+                                  className={cn(
+                                    "admin-badge",
+                                    statusKey === "active"
+                                      ? "admin-badge-active"
+                                      : "admin-badge-inactive",
+                                  )}
+                                >
+                                  {statusKey === "active"
+                                    ? "Active"
+                                    : "Inactive"}
                                 </span>
                               </td>
                               <td>
@@ -462,7 +557,13 @@ export function UsersPage() {
                                   <button
                                     className="p-1.5 rounded-md hover:bg-muted"
                                     title="Expand"
-                                    onClick={() => setExpandedRow(expandedRow === user.id ? null : user.id)}
+                                    onClick={() =>
+                                      setExpandedRow(
+                                        expandedRow === user.id
+                                          ? null
+                                          : user.id,
+                                      )
+                                    }
                                   >
                                     <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
                                   </button>
@@ -474,12 +575,20 @@ export function UsersPage() {
                                 <td colSpan={6} className="bg-muted/30 p-4">
                                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                                     <div>
-                                      <p className="text-xs font-semibold text-muted-foreground">Phone</p>
-                                      <p className="text-foreground">{user.userInfo?.phone || '—'}</p>
+                                      <p className="text-xs font-semibold text-muted-foreground">
+                                        Phone
+                                      </p>
+                                      <p className="text-foreground">
+                                        {user.userInfo?.phone || "—"}
+                                      </p>
                                     </div>
                                     <div>
-                                      <p className="text-xs font-semibold text-muted-foreground">ID</p>
-                                      <p className="text-foreground font-mono text-xs">{user.id}</p>
+                                      <p className="text-xs font-semibold text-muted-foreground">
+                                        ID
+                                      </p>
+                                      <p className="text-foreground font-mono text-xs">
+                                        {user.id}
+                                      </p>
                                     </div>
                                   </div>
                                   <div className="flex gap-2 mt-3">
@@ -490,7 +599,8 @@ export function UsersPage() {
                                           await activateUser(email);
                                         }}
                                       >
-                                        <Check className="h-3.5 w-3.5" /> Activate
+                                        <Check className="h-3.5 w-3.5" />{" "}
+                                        Activate
                                       </button>
                                     ) : (
                                       <button
@@ -526,24 +636,29 @@ export function UsersPage() {
                       Page {page} of {totalPages} ({totalUsers} total)
                     </span>
                     <div className="flex items-center gap-1">
-                      {pageButtons.map((item, idx) => (
-                        item === '...' ? (
-                          <span key={`ellipsis-${idx}`} className="h-8 px-2 flex items-center text-xs text-muted-foreground">…</span>
+                      {pageButtons.map((item, idx) =>
+                        item === "..." ? (
+                          <span
+                            key={`ellipsis-${idx}`}
+                            className="h-8 px-2 flex items-center text-xs text-muted-foreground"
+                          >
+                            …
+                          </span>
                         ) : (
                           <button
                             key={item}
                             className={cn(
                               "h-8 min-w-[2rem] rounded-md text-xs font-medium transition-colors",
                               item === page
-                                ? 'bg-primary text-primary-foreground font-bold shadow-sm'
-                                : 'text-muted-foreground hover:bg-muted'
+                                ? "bg-primary text-primary-foreground font-bold shadow-sm"
+                                : "text-muted-foreground hover:bg-muted",
                             )}
                             onClick={() => setPage(item)}
                           >
                             {item}
                           </button>
-                        )
-                      ))}
+                        ),
+                      )}
                     </div>
                   </div>
                 )}
@@ -553,7 +668,7 @@ export function UsersPage() {
         )}
 
         {/* Invites Tab */}
-        {activeTab === 'invites' && (
+        {activeTab === "invites" && (
           <>
             {invitesLoading && <TableSkeleton columns={5} rows={4} />}
             {!invitesLoading && (!invites || invites.length === 0) && (
@@ -562,7 +677,10 @@ export function UsersPage() {
                 title="No invitations"
                 description="No pending user invitations. Send an invite to get started."
                 action={
-                  <button className="admin-btn admin-btn-primary text-xs" onClick={() => setShowInviteModal(true)}>
+                  <button
+                    className="admin-btn admin-btn-primary text-xs"
+                    onClick={() => setShowInviteModal(true)}
+                  >
                     <UserPlus className="h-3.5 w-3.5" /> Invite User
                   </button>
                 }
@@ -584,29 +702,46 @@ export function UsersPage() {
                     <tbody>
                       {invites.map((inv) => (
                         <tr key={inv.id}>
-                          <td className="font-semibold text-foreground">{inv.email}</td>
-                          <td>
-                            <span className="admin-badge admin-badge-role">{inv.roleName || inv.roleId || 'Default role'}</span>
+                          <td className="font-semibold text-foreground">
+                            {inv.email}
                           </td>
-                          <td className="text-muted-foreground">{inv.invited_by_name || '—'}</td>
                           <td>
-                            <span className={cn(
-                              "admin-badge",
-                              inv.status === 'pending' ? 'admin-badge-pending' :
-                                inv.status === 'accepted' ? 'admin-badge-active' : 'admin-badge-inactive'
-                            )}>
+                            <span className="admin-badge admin-badge-role">
+                              {inv.roleName || inv.roleId || "Default role"}
+                            </span>
+                          </td>
+                          <td className="text-muted-foreground">
+                            {inv.invited_by_name || "—"}
+                          </td>
+                          <td>
+                            <span
+                              className={cn(
+                                "admin-badge",
+                                inv.status === "pending"
+                                  ? "admin-badge-pending"
+                                  : inv.status === "accepted"
+                                    ? "admin-badge-active"
+                                    : "admin-badge-inactive",
+                              )}
+                            >
                               {inv.status}
                             </span>
                           </td>
                           <td>
-                            {inv.status !== 'accepted' && (
+                            {inv.status !== "accepted" && (
                               <button
                                 className="admin-btn admin-btn-ghost text-xs py-1 px-2 gap-1.5"
                                 onClick={() => handleReinvite(inv.email)}
                                 disabled={resendingEmail === inv.email}
                               >
-                                {resendingEmail === inv.email ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
-                                {resendingEmail === inv.email ? 'Sending...' : 'Resend'}
+                                {resendingEmail === inv.email ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <Send className="h-3 w-3" />
+                                )}
+                                {resendingEmail === inv.email
+                                  ? "Sending..."
+                                  : "Resend"}
                               </button>
                             )}
                           </td>
@@ -623,8 +758,13 @@ export function UsersPage() {
         {/* Invite Modal */}
         {showInviteModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
-            <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-lg p-6" onClick={(e) => e.stopPropagation()}>
-              <h2 className="text-lg font-bold mb-1 text-foreground">Invite User</h2>
+            <div
+              className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-lg p-6"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h2 className="text-lg font-bold mb-1 text-foreground">
+                Invite User
+              </h2>
               <p className="text-sm mb-5 text-muted-foreground">
                 Fill in the details below to invite a new platform user.
               </p>
@@ -632,7 +772,9 @@ export function UsersPage() {
                 {/* Row: First Name + Last Name */}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-semibold mb-1.5 text-muted-foreground">First Name</label>
+                    <label className="block text-xs font-semibold mb-1.5 text-muted-foreground">
+                      First Name
+                    </label>
                     <input
                       className="admin-input"
                       type="text"
@@ -643,7 +785,9 @@ export function UsersPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold mb-1.5 text-muted-foreground">Last Name</label>
+                    <label className="block text-xs font-semibold mb-1.5 text-muted-foreground">
+                      Last Name
+                    </label>
                     <input
                       className="admin-input"
                       type="text"
@@ -656,7 +800,9 @@ export function UsersPage() {
                 </div>
                 {/* Email */}
                 <div>
-                  <label className="block text-xs font-semibold mb-1.5 text-muted-foreground">Email Address</label>
+                  <label className="block text-xs font-semibold mb-1.5 text-muted-foreground">
+                    Email Address
+                  </label>
                   <input
                     className="admin-input"
                     type="email"
@@ -668,7 +814,9 @@ export function UsersPage() {
                 </div>
                 {/* Phone */}
                 <div>
-                  <label className="block text-xs font-semibold mb-1.5 text-muted-foreground">Phone Number</label>
+                  <label className="block text-xs font-semibold mb-1.5 text-muted-foreground">
+                    Phone Number
+                  </label>
                   <input
                     className="admin-input"
                     type="tel"
@@ -680,7 +828,9 @@ export function UsersPage() {
                 </div>
                 {/* Role */}
                 <div>
-                  <label className="block text-xs font-semibold mb-1.5 text-muted-foreground">Role</label>
+                  <label className="block text-xs font-semibold mb-1.5 text-muted-foreground">
+                    Role
+                  </label>
                   <select
                     className="admin-input"
                     required
@@ -689,7 +839,9 @@ export function UsersPage() {
                   >
                     <option value="">Select Role</option>
                     {(roles || []).map((r) => (
-                      <option key={r.id} value={r.name}>{r.name}</option>
+                      <option key={r.id} value={r.name}>
+                        {r.name}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -702,7 +854,10 @@ export function UsersPage() {
                     onChange={(e) => setIsOfficer(e.target.checked)}
                     className="h-4 w-4 accent-primary cursor-pointer"
                   />
-                  <label htmlFor="isOfficer" className="text-xs font-semibold text-muted-foreground cursor-pointer select-none">
+                  <label
+                    htmlFor="isOfficer"
+                    className="text-xs font-semibold text-muted-foreground cursor-pointer select-none"
+                  >
                     This user is a Police Officer
                   </label>
                 </div>
@@ -712,7 +867,9 @@ export function UsersPage() {
                   <div className="space-y-4 rounded-lg border border-border bg-muted/20 p-3">
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-xs font-semibold mb-1.5 text-muted-foreground">Rank</label>
+                        <label className="block text-xs font-semibold mb-1.5 text-muted-foreground">
+                          Rank
+                        </label>
                         <select
                           className="admin-input"
                           required={isOfficer}
@@ -721,12 +878,16 @@ export function UsersPage() {
                         >
                           <option value="">Select Rank</option>
                           {(ranks || []).map((r) => (
-                            <option key={r.id} value={r.id}>{r.name}</option>
+                            <option key={r.id} value={r.id}>
+                              {r.name}
+                            </option>
                           ))}
                         </select>
                       </div>
                       <div>
-                        <label className="block text-xs font-semibold mb-1.5 text-muted-foreground">Station</label>
+                        <label className="block text-xs font-semibold mb-1.5 text-muted-foreground">
+                          Station
+                        </label>
                         <select
                           className="admin-input"
                           required={isOfficer}
@@ -735,13 +896,17 @@ export function UsersPage() {
                         >
                           <option value="">Select Station</option>
                           {(stations || []).map((s) => (
-                            <option key={s.id} value={s.id}>{s.name}</option>
+                            <option key={s.id} value={s.id}>
+                              {s.name}
+                            </option>
                           ))}
                         </select>
                       </div>
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold mb-1.5 text-muted-foreground">Badge Number</label>
+                      <label className="block text-xs font-semibold mb-1.5 text-muted-foreground">
+                        Badge Number
+                      </label>
                       <input
                         className="admin-input"
                         type="text"
@@ -754,11 +919,23 @@ export function UsersPage() {
                   </div>
                 )}
                 <div className="flex justify-end gap-2 pt-2">
-                  <button type="button" className="admin-btn admin-btn-secondary" onClick={() => setShowInviteModal(false)}>
+                  <button
+                    type="button"
+                    className="admin-btn admin-btn-secondary"
+                    onClick={() => setShowInviteModal(false)}
+                  >
                     Cancel
                   </button>
-                  <button type="submit" className="admin-btn admin-btn-primary" disabled={isInviting}>
-                    {isInviting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                  <button
+                    type="submit"
+                    className="admin-btn admin-btn-primary"
+                    disabled={isInviting}
+                  >
+                    {isInviting ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Send className="h-4 w-4" />
+                    )}
                     Send Invite
                   </button>
                 </div>
@@ -771,15 +948,24 @@ export function UsersPage() {
         {confirmDeleteId && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
             <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-sm p-6">
-              <h2 className="text-lg font-bold mb-2 text-foreground">Delete User</h2>
+              <h2 className="text-lg font-bold mb-2 text-foreground">
+                Delete User
+              </h2>
               <p className="text-sm text-muted-foreground mb-5">
-                Are you sure you want to permanently delete this user? This action cannot be undone.
+                Are you sure you want to permanently delete this user? This
+                action cannot be undone.
               </p>
               <div className="flex justify-end gap-2">
-                <button className="admin-btn admin-btn-secondary" onClick={() => setConfirmDeleteId(null)}>
+                <button
+                  className="admin-btn admin-btn-secondary"
+                  onClick={() => setConfirmDeleteId(null)}
+                >
                   Cancel
                 </button>
-                <button className="admin-btn admin-btn-danger" onClick={() => handleDeleteUser(confirmDeleteId)}>
+                <button
+                  className="admin-btn admin-btn-danger"
+                  onClick={() => handleDeleteUser(confirmDeleteId)}
+                >
                   <Trash2 className="h-4 w-4" /> Delete
                 </button>
               </div>
