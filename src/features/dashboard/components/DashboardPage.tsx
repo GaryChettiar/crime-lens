@@ -54,6 +54,7 @@ import { Activity } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PermissionGuard } from '@/features/auth';
 import { buildCrimeQuery, haveCrimeFiltersChanged } from '@/utils/buildQueryParams';
+import type { TableQueryState } from '@/types/pagination';
 
 const CUSTOM_TOOLTIP_STYLE = {
   backgroundColor: 'hsl(var(--card))',
@@ -151,8 +152,8 @@ export function DashboardPage() {
   const { data: districtsMetrics = [], isLoading: isLoadingDistricts } =
     useGetDistrictMetricsQuery();
   // Build server-side crime query using global + analytics filters
-  const tableState = React.useMemo(
-    () => ({ page: currentPage, pageSize, sortBy: 'crime_occured_date_time', sortOrder: 'desc' }),
+  const tableState = React.useMemo<TableQueryState>(
+    () => ({ page: currentPage, pageSize, sortBy: 'crime_occured_date_time', sortOrder: 'DESC' }),
     [currentPage, pageSize],
   );
 
