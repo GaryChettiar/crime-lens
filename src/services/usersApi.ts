@@ -30,6 +30,7 @@ export interface InviteResponse {
   roleId?: string;
   roleName?: string;
   status: 'pending' | 'accepted' | 'expired';
+  invited_by_name:string;
   invitedBy?: string;
   invitedAt?: string;
   expiresAt?: string;

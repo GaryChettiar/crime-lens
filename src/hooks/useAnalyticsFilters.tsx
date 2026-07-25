@@ -17,7 +17,7 @@ interface AnalyticsFiltersState {
   setCrimeCategory: (category: string | null) => void;
 }
 
-const AnalyticsFiltersContext = createContext<AnalyticsFiltersState | undefined>(undefined);
+export const AnalyticsFiltersContext = createContext<AnalyticsFiltersState | undefined>(undefined);
 
 export function AnalyticsFiltersProvider({ children }: { children: ReactNode }) {
   const [startDate, setStartDate] = useState<string | null>(null);

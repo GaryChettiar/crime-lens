@@ -187,7 +187,7 @@ export function PrimaryTopNav({ showMobileMenu = false }: PrimaryTopNavProps) {
         {/* Actions */}
         <div className="flex items-center gap-2 order-2 ml-auto shrink-0 h-12 md:h-auto">
           {/* Notifications */}
-          <Tooltip>
+          {/* <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 variant="ghost"
@@ -203,7 +203,7 @@ export function PrimaryTopNav({ showMobileMenu = false }: PrimaryTopNavProps) {
               </Button>
             </TooltipTrigger>
             <TooltipContent>Notifications</TooltipContent>
-          </Tooltip>
+          </Tooltip> */}
 
           {/* Divider */}
           <div className="h-6 w-px mx-1 bg-border" />

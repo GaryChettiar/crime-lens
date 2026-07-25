@@ -20,6 +20,7 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { useAppSelector } from "@/store/hooks";
+import { useAnalyticsFilters } from "@/hooks/useAnalyticsFilters";
 import {
   TrendingUp,
   TrendingDown,
@@ -39,7 +40,12 @@ import {
   Activity,
   Target,
 } from "lucide-react";
-
+import {
+  useGetCrimeCountWithPreviousYearQuery,
+  useGetCrimeGrowthQuery,
+  useGetDistrictCrimeStatsQuery,
+  useLazyGetCategoryVolumeRankingQuery,
+} from "@/services/dashboardApi";
 // ─── Karnataka Mock Data ───────────────────────────────────────────────────
 
 const KARNATAKA_DISTRICTS = [
@@ -125,37 +131,13 @@ const KARNATAKA_DISTRICTS = [
   },
 ];
 
-const CRIME_CATEGORIES = [
-  { category: "Theft", count: 487, growth: 18.4, color: "#F43F5E", icon: "🔓" },
-  {
-    category: "Cyber Crime",
-    count: 312,
-    growth: 31.7,
-    color: "#6366F1",
-    icon: "💻",
-  },
-  {
-    category: "Assault",
-    count: 278,
-    growth: 6.2,
-    color: "#F59E0B",
-    icon: "⚠️",
-  },
-  { category: "Fraud", count: 241, growth: 22.1, color: "#8B5CF6", icon: "📋" },
-  {
-    category: "Drug Offenses",
-    count: 198,
-    growth: 8.9,
-    color: "#EC4899",
-    icon: "💊",
-  },
-  {
-    category: "Traffic Violations",
-    count: 163,
-    growth: -3.4,
-    color: "#10B981",
-    icon: "🚦",
-  },
+const CATEGORY_BAR_COLORS = [
+  "#F43F5E",
+  "#6366F1",
+  "#F59E0B",
+  "#8B5CF6",
+  "#EC4899",
+  "#10B981",
 ];
 
 const AI_INSIGHTS = [
@@ -517,8 +499,87 @@ const CUSTOM_TOOLTIP_STYLE = {
 
 export function AnalyticsPage() {
   const globalFilters = useAppSelector((state) => state.globalFilters);
+  const { districtId, stationId } = useAnalyticsFilters();
   const [search, setSearch] = React.useState("");
+  // --- dashboardApi wiring -------------------------------------------------
 
+  // Map global filters -> dashboardApi filter shape (single-value fields only;
+  // multi-select crimeTypes/severities aren't supported by these endpoints).
+  const apiFilters = React.useMemo(
+    () => ({
+      districtId: districtId || undefined,
+      stationId: stationId || undefined,
+      categoryId: globalFilters.crimeTypes[0] || undefined,
+      fromDate: globalFilters.dateRange.start || undefined,
+      toDate: globalFilters.dateRange.end || undefined,
+    }),
+    [globalFilters, districtId, stationId],
+  );
+
+  // Crime growth requires fromDate/toDate — default to a trailing 30-day
+  // window when the user hasn't picked an explicit range.
+  const growthFilters = React.useMemo(() => {
+    const toDate =
+      globalFilters.dateRange.end || new Date().toISOString().slice(0, 10);
+    const defaultFrom = new Date();
+    defaultFrom.setDate(defaultFrom.getDate() - 30);
+    const fromDate =
+      globalFilters.dateRange.start || defaultFrom.toISOString().slice(0, 10);
+
+    return {
+      districtId: districtId || undefined,
+      stationId: stationId || undefined,
+      categoryId: globalFilters.crimeTypes[0] || undefined,
+      fromDate,
+      toDate,
+    };
+  }, [globalFilters, districtId, stationId]);
+
+  const { data: yoyCounts, isLoading: isLoadingTotal } =
+    useGetCrimeCountWithPreviousYearQuery(apiFilters);
+
+  const { data: crimeGrowth, isLoading: isLoadingGrowth } =
+    useGetCrimeGrowthQuery(growthFilters);
+
+  const [fetchCategoryVolumes, {
+    data: categoryVolumes = [],
+    isLoading: isLoadingCategoryVolumes,
+  }] = useLazyGetCategoryVolumeRankingQuery();
+
+  React.useEffect(() => {
+    // Trigger explicitly after the page commits so the category-volume request
+    // is always issued, including after a hot reload or cached prior query.
+    fetchCategoryVolumes(growthFilters, false);
+  }, [fetchCategoryVolumes, growthFilters]);
+  // Keep the page resilient while the API response is being normalized or if
+  // an older backend deployment returns a non-array payload.
+  const categoryVolumeItems = Array.isArray(categoryVolumes)
+    ? categoryVolumes
+    : [];
+
+  const { data: districtStats = [], isLoading: isLoadingDistrictStats } =
+    useGetDistrictCrimeStatsQuery();
+
+  // "High risk" = crimeCount above the statewide average across districts
+  // returned by the API (no riskScore field exists on DistrictCrimeStat,
+  // so this is a stand-in heuristic — swap in a real threshold if/when
+  // the backend exposes one).
+  const highRiskDistrictsCount = React.useMemo(() => {
+    if (districtStats.length === 0) return 0;
+    const avg =
+      districtStats.reduce((sum, d) => sum + d.crimeCount, 0) /
+      districtStats.length;
+    return districtStats.filter((d) => d.crimeCount > avg).length;
+  }, [districtStats]);
+
+  const totalDeltaPct = React.useMemo(() => {
+    if (!yoyCounts || !yoyCounts.previousYearCount) return 0;
+    return (
+      ((yoyCounts.currentPeriodCount - yoyCounts.previousYearCount) /
+        yoyCounts.previousYearCount) *
+      100
+    );
+  }, [yoyCounts]);
   const filteredIncidents = INCIDENTS.filter((inc) => {
     // 1. Global District Filter
     if (
@@ -562,13 +623,15 @@ export function AnalyticsPage() {
     return true;
   });
 
-  const maxCategoryCount = Math.max(...CRIME_CATEGORIES.map((c) => c.count));
+  const maxCategoryCount = Math.max(
+    1,
+    ...categoryVolumeItems.map((category) => category.count),
+  );
 
   return (
     <DashboardLayout title="Crime Intelligence Analytics">
       <div className=" pb-16 px-1">
         {/* ── 1. Page Header ── */}
-       
 
         {/* ── 2. KPI Intelligence Row ── */}
         <div>
@@ -576,29 +639,55 @@ export function AnalyticsPage() {
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mt-3">
             <KpiCard
               label="Total Crimes Analyzed"
-              value="1,847"
-              delta="12.3%"
-              deltaDir="up"
-              subtext="vs last month"
+              value={
+                isLoadingTotal
+                  ? "—"
+                  : (yoyCounts?.currentPeriodCount ?? 0).toLocaleString()
+              }
+              delta={
+                isLoadingTotal
+                  ? undefined
+                  : `${totalDeltaPct >= 0 ? "+" : ""}${totalDeltaPct.toFixed(1)}%`
+              }
+              deltaDir={
+                totalDeltaPct > 0
+                  ? "up"
+                  : totalDeltaPct < 0
+                    ? "down"
+                    : "neutral"
+              }
+              subtext="vs same period last year"
               icon={BarChart3}
             />
             <KpiCard
               label="Crime Growth"
-              value="+12.3%"
-              delta="MoM"
-              deltaDir="up"
+              value={
+                isLoadingGrowth || !crimeGrowth
+                  ? "—"
+                  : `${crimeGrowth.growthPercentage >= 0 ? "+" : ""}${crimeGrowth.growthPercentage.toFixed(1)}%`
+              }
+              delta="Period-over-period"
+              deltaDir={
+                !crimeGrowth
+                  ? "neutral"
+                  : crimeGrowth.growthPercentage > 0
+                    ? "up"
+                    : "down"
+              }
               subtext="statewide"
               icon={TrendingUp}
               accent
             />
-            {/* <KpiCard label="Emerging Hotspots" value="18" delta="+4" deltaDir="up" subtext="new this week" icon={Flame} accent /> */}
-            {/* <KpiCard label="Active Anomalies" value="5" delta="3 critical" deltaDir="up" subtext="under review" icon={Zap} accent /> */}
             <KpiCard
               label="High Risk Districts"
-              value="7"
-              delta="+2"
-              deltaDir="up"
-              subtext="risk score ≥60"
+              value={isLoadingDistrictStats ? "—" : highRiskDistrictsCount}
+              delta={
+                isLoadingDistrictStats
+                  ? undefined
+                  : `of ${districtStats.length}`
+              }
+              deltaDir="neutral"
+              subtext="crime count above average"
               icon={ShieldAlert}
             />
           </div>
@@ -619,46 +708,58 @@ export function AnalyticsPage() {
               </CardHeader>
 
               <CardContent className="p-4 pt-3 space-y-3">
-                {CRIME_CATEGORIES.map((cat) => (
-                  <div key={cat.category} className="space-y-1">
-                    <div className="flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-2">
-                        <span className="text-base leading-none">
-                          {cat.icon}
-                        </span>
-                        <span className="font-semibold text-foreground">
-                          {cat.category}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center gap-3">
-                        <span className="font-data font-bold text-foreground">
-                          {cat.count.toLocaleString()}
-                        </span>
-
-                        <span
-                          className={cn(
-                            "font-bold text-[10px]",
-                            cat.growth > 0 ? "text-danger" : "text-success",
-                          )}
-                        >
-                          {cat.growth > 0 ? "+" : ""}
-                          {cat.growth}%
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="h-1.5 bg-muted/30 rounded-full overflow-hidden">
-                      <div
-                        className="h-full rounded-full transition-all duration-700"
-                        style={{
-                          width: `${(cat.count / maxCategoryCount) * 100}%`,
-                          backgroundColor: cat.color,
-                        }}
-                      />
-                    </div>
+                {isLoadingCategoryVolumes ? (
+                  <div className="py-8 text-center text-xs text-muted-foreground">
+                    Loading category volumes…
                   </div>
-                ))}
+                ) : categoryVolumeItems.length === 0 ? (
+                  <div className="py-8 text-center text-xs text-muted-foreground">
+                    No category data for the selected period.
+                  </div>
+                ) : (
+                  categoryVolumeItems.map((cat, index) => (
+                    <div key={cat.categoryId} className="space-y-1">
+                      <div className="flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-foreground">
+                            {cat.categoryName}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                          <span className="font-data font-bold text-foreground">
+                            {cat.count.toLocaleString()}
+                          </span>
+
+                          <span
+                            className={cn(
+                              "font-bold text-[10px]",
+                              cat.growthPercentage > 0
+                                ? "text-danger"
+                                : "text-success",
+                            )}
+                          >
+                            {cat.growthPercentage > 0 ? "+" : ""}
+                            {cat.growthPercentage}%
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="h-1.5 bg-muted/30 rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all duration-700"
+                          style={{
+                            width: `${(cat.count / maxCategoryCount) * 100}%`,
+                            backgroundColor:
+                              CATEGORY_BAR_COLORS[
+                                index % CATEGORY_BAR_COLORS.length
+                              ],
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ))
+                )}
               </CardContent>
             </Card>
 

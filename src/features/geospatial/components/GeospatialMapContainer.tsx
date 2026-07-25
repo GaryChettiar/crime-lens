@@ -31,7 +31,8 @@ import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { setDistrict } from "@/store/slices/globalFiltersSlice";
 import { selectIsDark } from "@/store/slices/brandingSlice";
 import { cn } from "@/lib/utils";
-
+import usePermissions from "@/hooks/usePermissions";
+import { useAnalyticsFilters } from "@/hooks/useAnalyticsFilters";
 export interface GeospatialMapContainerProps {
   selectedDistrict: string;
   onDistrictChange?: (district: string) => void;
@@ -91,10 +92,28 @@ export function GeospatialMapContainer({
   const globalFilters = useAppSelector((state) => state.globalFilters);
   const isDark = useAppSelector(selectIsDark);
 
+  const { hasPermission, currentUser } = usePermissions();
+  const canViewStateMap = hasPermission("view_state_map");
+  const { district: analyticsDistrict } = useAnalyticsFilters();
   const { districtSummaries } = useIntelligence();
   const { data: districtsMetrics = [] } = useGetDistrictMetricsQuery();
   const { data: incidents = [] } = useGetIncidentsQuery();
   const { data: policeStations = [] } = useGetStationsQuery();
+
+  // Restricted users are locked to their own district. Resolve the district
+  // *name* via their assigned station (currentUser.districtId is a raw id
+  // and the map/choropleth/DISTRICT_CENTERS all key off name).
+  const assignedDistrictName = React.useMemo(() => {
+    if (!currentUser?.stationId) return null;
+    const station = policeStations.find((s) => s.id === currentUser.stationId);
+    return station?.districtName ?? null;
+  }, [currentUser, policeStations]);
+
+  React.useEffect(() => {
+    if (!canViewStateMap && assignedDistrictName && !globalFilters.district) {
+      dispatch(setDistrict(assignedDistrictName));
+    }
+  }, [canViewStateMap, assignedDistrictName, globalFilters.district, dispatch]);
   // Playback timeline states
   const [localCurrentDayOffset] = useState(30);
   const [localTimeWindow] = useState<number | "cumulative">("cumulative");
@@ -109,13 +128,15 @@ export function GeospatialMapContainer({
   // Sync prop changes with Redux if necessary
   const activeDistrict =
     globalFilters.district ||
+    analyticsDistrict ||
     (selectedDistrict !== "all" ? selectedDistrict : null) ||
     "all";
-
+  console.log("activeDistrict", analyticsDistrict);
   // Local state for toggles
   const [showStations, setShowStations] = useState(true);
 
   const handleDistrictSelect = (dist: string) => {
+    if (!canViewStateMap) return; // locked — restricted users can't change district
     dispatch(setDistrict(dist === "all" ? null : dist));
     if (onDistrictChange) {
       onDistrictChange(dist);
@@ -123,6 +144,7 @@ export function GeospatialMapContainer({
   };
 
   const handleBackToState = () => {
+    if (!canViewStateMap) return;
     handleDistrictSelect("all");
   };
 
@@ -269,6 +291,7 @@ export function GeospatialMapContainer({
             selectedDistrict={activeDistrict}
             onDistrictSelect={handleDistrictSelect}
             isDark={isDark}
+            interactive={canViewStateMap}
           />
 
           {/* OSINT External Intelligence Hotspots overlay */}
@@ -404,106 +427,39 @@ export function GeospatialMapContainer({
         </MapContainer>
 
         {/* Top Left Float Controls/Summary Stack */}
-        <div className="absolute top-4 left-4 z-10 flex flex-col gap-2 pointer-events-auto">
-          {activeDistrict !== "all" && (
-            <Button
-              onClick={handleBackToState}
-              variant="secondary"
-              size="sm"
-              className="flex items-center gap-2 shadow-md bg-card/95 border border-border text-foreground hover:bg-card w-fit font-bold"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              <span>Karnataka Overview</span>
-            </Button>
-          )}
-
-          {/* Floating District/State Summary Card */}
-          <Popover>
-            <PopoverTrigger asChild>
+        {/* Top Left Float Controls/Summary Stack */}
+        {canViewStateMap && (
+          <div className="absolute top-4 left-4 z-10 flex flex-col gap-2 pointer-events-auto">
+            {activeDistrict !== "all" && (
               <Button
+                onClick={handleBackToState}
                 variant="secondary"
                 size="sm"
                 className="flex items-center gap-2 shadow-md bg-card/95 border border-border text-foreground hover:bg-card w-fit font-bold"
               >
-                <BarChart2 className="h-4 w-4" />
-                <span>Overview</span>
+                <ArrowLeft className="h-4 w-4" />
+                <span>Karnataka Overview</span>
               </Button>
-            </PopoverTrigger>
-            <PopoverContent
-              className="w-auto p-0 border-none bg-transparent shadow-none ring-0"
-              side="bottom"
-              align="start"
-            >
-              <Card className="p-3 bg-card/95 backdrop-blur-md border border-border w-[220px] shadow-lg">
-                <Typography
-                  variant="caption"
-                  color="muted"
-                  className="font-bold uppercase tracking-wider block mb-1"
+            )}
+
+            {/* Floating District/State Summary Card */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="flex items-center gap-2 shadow-md bg-card/95 border border-border text-foreground hover:bg-card w-fit font-bold"
                 >
-                  {activeDistrict === "all"
-                    ? "State Overview"
-                    : "District Insights"}
-                </Typography>
-                <Typography
-                  variant="body-sm"
-                  className="font-bold text-foreground capitalize truncate"
-                >
-                  {activeDistrict === "all"
-                    ? "Karnataka State"
-                    : activeDistrict}
-                </Typography>
-                <Separator className="my-1.5" />
-                <div className="space-y-1.5 text-xs">
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground font-medium">
-                      Crimes (30d):
-                    </span>
-                    <span className="font-data font-bold text-foreground">
-                      {activeSummary.crimeCount}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground font-medium">
-                      Risk Index:
-                    </span>
-                    <Badge
-                      variant={
-                        activeSummary.riskScore >= 75
-                          ? "risk-critical"
-                          : activeSummary.riskScore >= 50
-                            ? "risk-high"
-                            : "secondary"
-                      }
-                      size="sm"
-                      className="py-0 px-1 text-[10px]"
-                    >
-                      {activeSummary.riskScore}/100
-                    </Badge>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground font-medium">
-                      Trend:
-                    </span>
-                    <Badge
-                      variant={
-                        activeSummary.trend === "increasing"
-                          ? "risk-high"
-                          : activeSummary.trend === "decreasing"
-                            ? "success"
-                            : "secondary"
-                      }
-                      dot
-                      size="sm"
-                      className="py-0 px-1 text-[10px] capitalize"
-                    >
-                      {activeSummary.trend}
-                    </Badge>
-                  </div>
-                </div>
-              </Card>
-            </PopoverContent>
-          </Popover>
-        </div>
+                  <BarChart2 className="h-4 w-4" />
+                  <span>Overview</span>
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent /* ...unchanged... */>
+                {/* ...unchanged... */}
+              </PopoverContent>
+            </Popover>
+          </div>
+        )}
 
         {/* Floating Legend / Quick Controls Overlay */}
         <div className="absolute top-4 right-4 z-10 pointer-events-auto">

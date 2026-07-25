@@ -200,7 +200,7 @@ export function UsersPage() {
         role_name: inviteRoleName,
         invited_by: inviterId,
         ...(isOfficer && {
-          is_officer: true,
+          isOfficer: true,
           rank_id: officerRankId,
           station_id: officerStationId,
           badge_number: officerBadgeNumber.trim(),
@@ -588,7 +588,7 @@ export function UsersPage() {
                           <td>
                             <span className="admin-badge admin-badge-role">{inv.roleName || inv.roleId || 'Default role'}</span>
                           </td>
-                          <td className="text-muted-foreground">{inv.invitedBy || '—'}</td>
+                          <td className="text-muted-foreground">{inv.invited_by_name || '—'}</td>
                           <td>
                             <span className={cn(
                               "admin-badge",

@@ -162,6 +162,7 @@ export const baseApi = createApi({
     'CrimeLegalSection',
     'CrimeActivity',
     'CrimeCategory',
+    'DashboardStats'
   ],
   endpoints: () => ({}),
 });

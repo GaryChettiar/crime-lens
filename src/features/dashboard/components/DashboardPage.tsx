@@ -47,26 +47,12 @@ import { useGetDistrictMetricsQuery } from "@/services/districtsApi";
 import { useGetCrimesQuery } from "@/services/crimeApi";
 import { useGetCrimeCategoriesQuery } from "@/services/crimeCategoryApi";
 import { useGetRiskForecastsQuery } from "@/services/riskApi";
+import { useGetCrimeCountWithPreviousYearQuery } from "@/services/dashboardApi";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Activity } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PermissionGuard } from '@/features/auth';
-
-const TREND_30D = Array.from({ length: 30 }, (_, i) => {
-  const base = 28 + Math.sin(i / 4) * 6;
-  return {
-    day: `Jun ${i + 1}`,
-    current: Math.round(base + Math.random() * 8),
-    previous: Math.round(base * 0.88 + Math.random() * 6),
-  };
-});
-
-const TREND_90D = Array.from({ length: 13 }, (_, i) => ({
-  day: `W${i + 1}`,
-  current: Math.round(190 + Math.sin(i / 3) * 30 + Math.random() * 20),
-  previous: Math.round(170 + Math.sin(i / 3) * 25 + Math.random() * 15),
-}));
 
 const CUSTOM_TOOLTIP_STYLE = {
   backgroundColor: 'hsl(var(--card))',
@@ -75,6 +61,14 @@ const CUSTOM_TOOLTIP_STYLE = {
   fontSize: '11px',
   color: 'hsl(var(--foreground))',
 };
+
+// Formats an ISO date string ("2025-04-06") into a short chart label ("Apr 6")
+function formatChartDate(dateStr: string): string {
+  if (!dateStr) return "";
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return dateStr;
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
@@ -189,8 +183,36 @@ export function DashboardPage() {
 
   // Search query (local to page search input) moved up
 
-  const [trendWindow, setTrendWindow] = React.useState<'30d' | '90d'>('30d');
-  const trendData = trendWindow === '30d' ? TREND_30D : TREND_90D;
+  // ── Crime trend chart: driven by real API data ──
+  const trendQueryFilters = React.useMemo(
+    () => ({
+      districtId: ctxDistrict || undefined,
+      categoryId: crimeCategory || undefined,
+      fromDate: ctxStart || undefined,
+      toDate: ctxEnd || undefined,
+    }),
+    [ctxDistrict, crimeCategory, ctxStart, ctxEnd],
+  );
+
+  const { data: countWithPrevYear, isLoading: isLoadingTrend } =
+    useGetCrimeCountWithPreviousYearQuery(trendQueryFilters);
+
+  // Merge current & previous series by index into recharts-friendly rows
+  const trendData = React.useMemo(() => {
+    const currentSeries = countWithPrevYear?.currentPeriodSeries ?? [];
+    const previousSeries = countWithPrevYear?.previousYearSeries ?? [];
+    const length = Math.max(currentSeries.length, previousSeries.length);
+
+    return Array.from({ length }, (_, i) => {
+      const currentPoint = currentSeries[i];
+      const previousPoint = previousSeries[i];
+      return {
+        day: formatChartDate(currentPoint?.date ?? previousPoint?.date ?? ""),
+        current: currentPoint?.count ?? null,
+        previous: previousPoint?.count ?? null,
+      };
+    });
+  }, [countWithPrevYear]);
 
   // Lifted temporal playback states
   const [currentDayOffset, setCurrentDayOffset] = React.useState(30);
@@ -430,35 +452,6 @@ export function DashboardPage() {
     <DashboardLayout title="Dashboard">
       <div className=" pb-12 px-1">
 
-        {/* <PermissionGuard permissions={['view_analytics']} fallback={null}>
-          <div className="grid grid-cols-1 sm:grid-cols-[19fr_19fr_19fr_3fr] gap-4 p-2 border border-border rounded-lg bg-card/10">
-          <MetricCard
-            label="Total Crimes (Active Selection)"
-            value={filteredIncidents.length}
-            change={12.4}
-            changeLabel="vs historic average"
-            sparklineData={[]}
-            isLoading={showKpisLoading}
-            status={filteredIncidents.length > 50 ? "warning" : "success"}
-          />
-          <MetricCard
-            label="High Risk Districts"
-            value={`${highRiskDistrictsCount || 5} Areas`}
-            change={0}
-            changeLabel="No change from yesterday"
-            sparklineData={[]}
-            isLoading={showKpisLoading}
-            status="danger"
-          />
-        
-          <Link
-            to="/analytics"
-            className="flex flex-col justify-center items-center p-4 rounded-lg border bg-card text-card-foreground shadow-xs relative overflow-hidden transition-all duration-200 hover:border-primary/50 hover:shadow-md group cursor-pointer"
-          >
-            <ChevronRight className="h-10 w-10 text-primary transition-transform duration-200 group-hover:translate-x-1" />
-          </Link>
-          </div>
-        </PermissionGuard> */}
         {/* KPI Overview (with Loading skeletons support) */}
         <PermissionGuard permissions={['view_map']} fallback={null}>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4   border border-border rounded-lg bg-card/10 ">
@@ -492,23 +485,12 @@ export function DashboardPage() {
           <div className="mt-4">
           <div className="flex items-center justify-between mb-3">
             <SectionLabel>Crime Trend Analysis</SectionLabel>
-            {/* <div className="flex items-center gap-1 bg-card border border-border rounded-md p-0.5">
-              {(['30d', '90d'] as const).map(w => (
-                <button key={w} onClick={() => setTrendWindow(w)}
-                  className={cn(
-                    'px-3 py-1 text-[10px] font-bold uppercase rounded-sm transition-all',
-                    trendWindow === w ? 'bg-primary text-white' : 'text-muted-foreground hover:text-foreground'
-                  )}>
-                  {w === '30d' ? 'Last 30 Days' : 'Last 90 Days'}
-                </button>
-              ))}
-            </div> */}
           </div>
           <Card className="border-border bg-card">
             <CardHeader className="p-4 pb-2 border-b border-border flex flex-row items-center justify-between">
               <CardTitle className="text-sm font-bold text-foreground flex items-center gap-1.5">
                 <Activity className="size-4 text-primary" />
-                Crime Volume — {trendWindow === '30d' ? 'Daily (Last 30 Days)' : 'Weekly (Last 90 Days)'}
+                Crime Volume — Current vs Previous Year
               </CardTitle>
               <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
                 <div className="flex items-center gap-1"><div className="size-2 rounded-full bg-primary" /> Current Period</div>
@@ -516,35 +498,40 @@ export function DashboardPage() {
               </div>
             </CardHeader>
             <CardContent className="p-4 pt-3">
-              <ResponsiveContainer width="100%" height={280}>
-                <AreaChart data={trendData} margin={{ top: 4, right: 8, bottom: 0, left: -16 }}>
-                  <defs>
-                    <linearGradient id="gradCurrent" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%"  stopColor="#3B82F6" stopOpacity={0.35} />
-                      <stop offset="95%" stopColor="#3B82F6" stopOpacity={0} />
-                    </linearGradient>
-                    <linearGradient id="gradPrev" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%"  stopColor="#64748B" stopOpacity={0.2} />
-                      <stop offset="95%" stopColor="#64748B" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.5} />
-                  <XAxis dataKey="day" tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} tickLine={false} />
-                  <YAxis tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} tickLine={false} axisLine={false} />
-                  <RechartsTooltip contentStyle={CUSTOM_TOOLTIP_STYLE} />
-                  <Area type="monotone" dataKey="previous" stroke="#64748B" strokeWidth={1.5} fill="url(#gradPrev)" strokeDasharray="4 2" dot={false} name="Previous Period" />
-                  <Area type="monotone" dataKey="current"  stroke="#3B82F6" strokeWidth={2} fill="url(#gradCurrent)" dot={false} name="Current Period" />
-                </AreaChart>
-              </ResponsiveContainer>
+              {isLoadingTrend ? (
+                <div className="h-[280px] flex items-center justify-center text-xs text-muted-foreground">
+                  Loading trend data...
+                </div>
+              ) : trendData.length === 0 ? (
+                <div className="h-[280px] flex items-center justify-center text-xs text-muted-foreground">
+                  No trend data available for the current filters.
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height={280}>
+                  <AreaChart data={trendData} margin={{ top: 4, right: 8, bottom: 0, left: -16 }}>
+                    <defs>
+                      <linearGradient id="gradCurrent" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%"  stopColor="#3B82F6" stopOpacity={0.35} />
+                        <stop offset="95%" stopColor="#3B82F6" stopOpacity={0} />
+                      </linearGradient>
+                      <linearGradient id="gradPrev" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%"  stopColor="#64748B" stopOpacity={0.2} />
+                        <stop offset="95%" stopColor="#64748B" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.5} />
+                    <XAxis dataKey="day" tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} tickLine={false} />
+                    <YAxis tick={{ fontSize: 9, fill: 'hsl(var(--muted-foreground))' }} tickLine={false} axisLine={false} />
+                    <RechartsTooltip contentStyle={CUSTOM_TOOLTIP_STYLE} />
+                    <Area type="monotone" dataKey="previous" stroke="#64748B" strokeWidth={1.5} fill="url(#gradPrev)" strokeDasharray="4 2" dot={false} name="Previous Period" connectNulls />
+                    <Area type="monotone" dataKey="current"  stroke="#3B82F6" strokeWidth={2} fill="url(#gradCurrent)" dot={false} name="Current Period" connectNulls />
+                  </AreaChart>
+                </ResponsiveContainer>
+              )}
             </CardContent>
           </Card>
           </div>
         </PermissionGuard>
-
-        {/* External Intelligence Layer */}
-      
-
-        
 
         {/* Incident Logs (TanStack Table) */}
         <PermissionGuard permissions={['view_crimes']} fallback={null}>
