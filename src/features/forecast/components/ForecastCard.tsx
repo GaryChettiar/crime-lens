@@ -25,13 +25,17 @@ export function ForecastCard({ data, className = '' }: ForecastCardProps) {
     ? data.change > 0 ? 'up' : data.change < 0 ? 'down' : 'flat'
     : null;
 
+  const formattedValue = typeof data.value === 'number'
+    ? data.value.toLocaleString()
+    : data.value;
+
   return (
     <div className={`bg-card/60 border border-border/60 rounded-xl p-4 backdrop-blur-sm ${className}`}>
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="text-xs text-muted-foreground truncate">{data.label}</p>
           <p className="text-2xl font-bold text-foreground font-data mt-1 leading-none">
-            {data.value}
+            {formattedValue}
             {data.unit && <span className="text-sm font-normal text-muted-foreground ml-1">{data.unit}</span>}
           </p>
           {data.district && (

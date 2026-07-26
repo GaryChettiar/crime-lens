@@ -70,7 +70,9 @@ export function DistrictForecastTable({ data }: DistrictForecastTableProps) {
             </tr>
           </thead>
           <tbody>
-            {tableData.map((row) => (
+            {tableData.map((row) => {
+              const resolvedRiskLevel = row.riskLevel.toString().toLowerCase();
+              return (
               <tr key={row.district} className="border-b border-border/20 hover:bg-muted/20 transition-colors">
                 <td className="px-4 py-2.5 font-medium text-foreground">{row.district}</td>
                 <td className="px-4 py-2.5 font-data text-foreground font-bold">{row.predictedIncidents}</td>
@@ -87,10 +89,10 @@ export function DistrictForecastTable({ data }: DistrictForecastTableProps) {
                 <td className="px-4 py-2.5">
                   <span
                     className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border capitalize ${
-                      RISK_COLORS[row.riskLevel]
+                      RISK_COLORS[resolvedRiskLevel] ?? RISK_COLORS.low
                     }`}
                   >
-                    {row.riskLevel}
+                    {resolvedRiskLevel}
                   </span>
                 </td>
                 <td className="px-4 py-2.5 text-muted-foreground">{row.topCategory}</td>
@@ -112,7 +114,8 @@ export function DistrictForecastTable({ data }: DistrictForecastTableProps) {
                   </div>
                 </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>

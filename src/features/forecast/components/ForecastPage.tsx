@@ -6,6 +6,7 @@ import { ForecastTrendChart } from './ForecastTrendChart';
 import { DistrictForecastTable } from './DistrictForecastTable';
 import { PredictionSummaryCard } from './PredictionSummaryCard';
 import {
+  useGetModelStatusQuery,
   useGetPredictedIncidentsQuery,
   useGetHighRiskDistrictsQuery,
   useGetCrimeTrendQuery,
@@ -31,6 +32,13 @@ export function ForecastPage() {
   const [trainStatusMessage, setTrainStatusMessage] = React.useState<string | null>(null);
 
   const [trainModel, { isLoading: isTraining }] = useTrainModelMutation();
+
+  const {
+    data: modelStatusData,
+    isLoading: isLoadingModelStatus,
+    isError: isErrorModelStatus,
+    refetch: refetchModelStatus,
+  } = useGetModelStatusQuery();
 
   // Fetch forecast data with start_date and end_date
   const queryParams = React.useMemo(() => {
@@ -62,25 +70,27 @@ export function ForecastPage() {
     refetch: refetchTrend,
   } = useGetCrimeTrendQuery(queryParams);
 
-  const isLoading = isLoadingPredicted || isLoadingHighRisk || isLoadingTrend;
-  const isError = isErrorPredicted || isErrorHighRisk || isErrorTrend;
+  const isLoading = isLoadingPredicted || isLoadingHighRisk || isLoadingTrend || isLoadingModelStatus;
+  const isError = isErrorPredicted || isErrorHighRisk || isErrorTrend || isErrorModelStatus;
 
   const handleRefresh = () => {
     refetchPredicted();
     refetchHighRisk();
     refetchTrend();
+    refetchModelStatus();
   };
 
   const handleTrainModel = async () => {
     try {
-      setTrainStatusMessage('Training CatBoost model...');
+      setTrainStatusMessage('Training forecast model...');
       const res = await trainModel().unwrap();
-      setTrainStatusMessage(`CatBoost Model Trained! (${res.training_records || 0} records)`);
-      setTimeout(() => setTrainStatusMessage(null), 5000);
+      const detail = res.message || (res.model_type ? `Model: ${res.model_type}` : 'Model refreshed');
+      setTrainStatusMessage(`Forecast model ready. ${detail}`);
+      setTimeout(() => setTrainStatusMessage(null), 6000);
       handleRefresh();
     } catch (err) {
       setTrainStatusMessage('Model training failed.');
-      setTimeout(() => setTrainStatusMessage(null), 5000);
+      setTimeout(() => setTrainStatusMessage(null), 6000);
     }
   };
 
@@ -131,18 +141,37 @@ export function ForecastPage() {
   const summaryData = React.useMemo(() => {
     if (!predictedData || !highRiskData) return undefined;
 
+    const modelMetadata = (modelStatusData?.model_metadata ?? {}) as Record<string, unknown>;
+    const trainingState = (modelStatusData?.training_state ?? {}) as Record<string, unknown>;
+    const modelName =
+      typeof predictedData.model_used === 'string' && predictedData.model_used.trim()
+        ? predictedData.model_used
+        : typeof modelMetadata.model_type === 'string' && modelMetadata.model_type.trim()
+          ? modelMetadata.model_type
+          : 'CrimeLens AI Forecaster (AppSail)';
+
+    const notes = [
+      `Direction: ${predictedData.change_vs_last_30_days.direction.toUpperCase()} (${predictedData.change_vs_last_30_days.percent_change ?? 0}% vs previous 30 days).`,
+      typeof modelMetadata.message === 'string' && modelMetadata.message.trim()
+        ? modelMetadata.message
+        : undefined,
+    ].filter(Boolean) as string[];
+
     return {
       totalPredictedIncidents: predictedData.next_30_days.predicted_total_incidents,
       highRiskDistricts: highRiskData.high_risk_district_count,
-      avgConfidence: 85,
+      avgConfidence: modelStatusData?.warm ? 86 : 72,
       forecastPeriod: `${predictedData.next_30_days.start_date} → ${predictedData.next_30_days.end_date}`,
-      modelName: 'CrimeLens AI Forecaster (AppSail)',
-      lastUpdated: predictedData.as_of,
-      notes: `Direction: ${predictedData.change_vs_last_30_days.direction.toUpperCase()} (${
-        predictedData.change_vs_last_30_days.percent_change ?? 0
-      }% vs previous 30 days).`,
+      modelName,
+      lastUpdated:
+        typeof predictedData.as_of === 'string'
+          ? predictedData.as_of
+          : typeof trainingState.last_trained_at === 'string'
+            ? trainingState.last_trained_at
+            : undefined,
+      notes: notes.join(' '),
     };
-  }, [predictedData, highRiskData]);
+  }, [predictedData, highRiskData, modelStatusData]);
 
   // Map district data for DistrictForecastTable
   const districtTableData = React.useMemo(() => {
@@ -263,10 +292,12 @@ export function ForecastPage() {
               </div>
               <div>
                 <p className="text-xs font-semibold text-emerald-400">
-                  Crime Forecast Engine Online
+                  {modelStatusData?.warm ? 'Crime Forecast Engine Online' : 'Forecast model warming up'}
                 </p>
                 <p className="text-[11px] text-emerald-400/80 mt-0.5 font-mono">
-                  Connected to forecast-50043087097.development.catalystappsail.in
+                  {typeof (modelStatusData?.model_metadata as Record<string, unknown> | undefined)?.model_type === 'string'
+                    ? (modelStatusData?.model_metadata as Record<string, unknown>).model_type
+                    : 'Connected to forecast-50043087097.development.catalystappsail.in'}
                 </p>
               </div>
             </div>

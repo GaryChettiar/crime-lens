@@ -7,6 +7,8 @@ const FORECAST_API_URL =
 export interface PredictedIncidentsResponse {
   as_of: string;
   forecast_horizon_days: number;
+  model_used?: string;
+  model_metadata?: Record<string, unknown>;
   last_30_days: {
     start_date: string;
     end_date: string;
@@ -62,16 +64,32 @@ export interface CrimeTrendResponse {
   trend: CrimeTrendItem[];
 }
 
+export interface ModelStatusResponse {
+  warm: boolean;
+  model_metadata?: Record<string, unknown>;
+  training_state?: {
+    status?: string;
+    last_trained_at?: string;
+    district_id?: string | null;
+    station_id?: string | null;
+    incident_count?: number;
+  };
+}
+
 export interface TrainModelResponse {
   status: string;
-  model_type: string;
-  trained_at: string;
-  training_records: number;
-  days_covered: number;
-  start_date: string;
-  end_date: string;
-  features: string[];
-  iterations: number;
+  model_type?: string;
+  model_source?: string;
+  message?: string;
+  trained_at?: string;
+  training_records?: number;
+  days_covered?: number;
+  start_date?: string;
+  end_date?: string;
+  features?: string[];
+  iterations?: number;
+  fallback?: boolean;
+  fallback_reason?: string;
 }
 
 export const forecastApi = createApi({
@@ -81,6 +99,13 @@ export const forecastApi = createApi({
   }),
   tagTypes: ['Forecast'],
   endpoints: (builder) => ({
+    getModelStatus: builder.query<ModelStatusResponse, void>({
+      query: () => ({
+        url: '/api/forecast/model-status',
+      }),
+      providesTags: ['Forecast'],
+    }),
+
     getPredictedIncidents: builder.query<
       PredictedIncidentsResponse,
       { start_date?: string; end_date?: string; as_of?: string } | void
@@ -137,6 +162,7 @@ export const forecastApi = createApi({
 });
 
 export const {
+  useGetModelStatusQuery,
   useGetPredictedIncidentsQuery,
   useGetHighRiskDistrictsQuery,
   useGetCrimeTrendQuery,
