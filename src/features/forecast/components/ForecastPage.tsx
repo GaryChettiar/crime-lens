@@ -296,7 +296,7 @@ export function ForecastPage() {
                 </p>
                 <p className="text-[11px] text-emerald-400/80 mt-0.5 font-mono">
                   {typeof (modelStatusData?.model_metadata as Record<string, unknown> | undefined)?.model_type === 'string'
-                    ? (modelStatusData?.model_metadata as Record<string, unknown>).model_type
+                    ? String((modelStatusData?.model_metadata as Record<string, unknown>).model_type)
                     : 'Connected to forecast-50043087097.development.catalystappsail.in'}
                 </p>
               </div>
