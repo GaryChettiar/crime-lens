@@ -4,6 +4,29 @@ const FORECAST_API_URL =
   import.meta.env.VITE_FORECAST_API_URL ||
   'https://forecast-50043087097.development.catalystappsail.in';
 
+type ForecastQueryParams = {
+  start_date?: string;
+  end_date?: string;
+  as_of?: string;
+  district_id?: string;
+  station_id?: string;
+};
+
+const buildForecastUrl = (endpoint: string, params?: ForecastQueryParams | void) => {
+  const districtId = params?.district_id;
+  const stationId = params?.station_id;
+
+  if (districtId && stationId) {
+    return `/api/forecast/district/${encodeURIComponent(districtId)}/station/${encodeURIComponent(stationId)}${endpoint}`;
+  }
+
+  if (districtId) {
+    return `/api/forecast/district/${encodeURIComponent(districtId)}${endpoint}`;
+  }
+
+  return `/api/forecast${endpoint}`;
+};
+
 export interface PredictedIncidentsResponse {
   as_of: string;
   forecast_horizon_days: number;
@@ -108,10 +131,10 @@ export const forecastApi = createApi({
 
     getPredictedIncidents: builder.query<
       PredictedIncidentsResponse,
-      { start_date?: string; end_date?: string; as_of?: string } | void
+      ForecastQueryParams | void
     >({
       query: (params) => ({
-        url: '/api/forecast/predicted-incidents',
+        url: buildForecastUrl('/predicted-incidents', params),
         params: {
           ...(params?.start_date ? { start_date: params.start_date } : {}),
           ...(params?.end_date ? { end_date: params.end_date } : {}),
@@ -123,10 +146,10 @@ export const forecastApi = createApi({
 
     getHighRiskDistricts: builder.query<
       HighRiskDistrictsResponse,
-      { start_date?: string; end_date?: string; as_of?: string } | void
+      ForecastQueryParams | void
     >({
       query: (params) => ({
-        url: '/api/forecast/high-risk-districts',
+        url: buildForecastUrl('/high-risk-districts', params),
         params: {
           ...(params?.start_date ? { start_date: params.start_date } : {}),
           ...(params?.end_date ? { end_date: params.end_date } : {}),
@@ -138,10 +161,10 @@ export const forecastApi = createApi({
 
     getCrimeTrend: builder.query<
       CrimeTrendResponse,
-      { start_date?: string; end_date?: string; as_of?: string } | void
+      ForecastQueryParams | void
     >({
       query: (params) => ({
-        url: '/api/forecast/crime-trend',
+        url: buildForecastUrl('/crime-trend', params),
         params: {
           ...(params?.start_date ? { start_date: params.start_date } : {}),
           ...(params?.end_date ? { end_date: params.end_date } : {}),

@@ -12,8 +12,11 @@ import {
   useGetCrimeTrendQuery,
   useTrainModelMutation,
 } from '@/services/forecastApi';
+import { useAnalyticsFilters } from '@/hooks/useAnalyticsFilters';
 
 export function ForecastPage() {
+  const { districtId, stationId } = useAnalyticsFilters();
+
   const defaultDates = React.useMemo(() => {
     const now = new Date();
     const start = new Date(now);
@@ -42,12 +45,14 @@ export function ForecastPage() {
 
   // Fetch forecast data with start_date and end_date
   const queryParams = React.useMemo(() => {
-    const params: { start_date?: string; end_date?: string; as_of?: string } = {};
+    const params: { start_date?: string; end_date?: string; as_of?: string; district_id?: string; station_id?: string } = {};
     if (startDate) params.start_date = startDate;
     if (endDate) params.end_date = endDate;
     if (asOfDate) params.as_of = asOfDate;
+    if (districtId) params.district_id = districtId;
+    if (stationId) params.station_id = stationId;
     return params;
-  }, [startDate, endDate, asOfDate]);
+  }, [startDate, endDate, asOfDate, districtId, stationId]);
 
   const {
     data: predictedData,
