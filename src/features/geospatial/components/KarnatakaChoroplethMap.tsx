@@ -63,6 +63,19 @@ export function KarnatakaChoroplethMap({
 }: KarnatakaChoroplethMapProps) {
   const map = useMap();
   const geoJsonRef = React.useRef<any>(null);
+  const latestRef = React.useRef<{
+    metrics: DistrictMetric[];
+    hasSelection: boolean;
+    selectedDistrict: string;
+    activeDistrictId: string | null;
+    isDark: boolean;
+  }>({
+    metrics,
+    hasSelection: false,
+    selectedDistrict,
+    activeDistrictId: null,
+    isDark,
+  });
   const { districtId: activeDistrictId } = useAnalyticsFilters();
 
   const { data: records, isLoading, isError } = useGetDistrictsGeoJsonQuery();
@@ -78,7 +91,18 @@ export function KarnatakaChoroplethMap({
     Boolean(activeDistrictId) ||
     (Boolean(selectedDistrict) && selectedDistrict !== "all");
 
+  React.useEffect(() => {
+    latestRef.current = {
+      metrics,
+      hasSelection,
+      selectedDistrict,
+      activeDistrictId,
+      isDark,
+    };
+  });
+
   const isActiveDistrict = (feature: any) => {
+    const { activeDistrictId, selectedDistrict } = latestRef.current;
     const dName = feature?.properties?.name || feature?.properties?.NAME_2;
     const featureDistrictId = feature?.properties?.id;
 
@@ -90,6 +114,7 @@ export function KarnatakaChoroplethMap({
   };
 
   const getStyle = (feature: any) => {
+    const { metrics, hasSelection, isDark } = latestRef.current;
     const dName = feature?.properties?.name || feature?.properties?.NAME_2;
     const metric = metrics.find((m) => districtNamesMatch(m.district, dName));
     const isSelected = isActiveDistrict(feature);
@@ -129,7 +154,9 @@ export function KarnatakaChoroplethMap({
   const getDistrictTooltip = (
     districtName: string,
     metric?: DistrictMetric,
-  ) => `
+  ) => {
+    const { isDark } = latestRef.current;
+    return `
     <div class="p-1.5 font-sans space-y-0.5 text-foreground bg-card text-[11px]">
       <div class="font-bold border-b border-border/60 pb-0.5 capitalize">${districtName} District</div>
       ${
@@ -143,6 +170,7 @@ export function KarnatakaChoroplethMap({
       }
     </div>
   `;
+  };
 
   const onEachFeature = (feature: any, layer: any) => {
     const dName = feature?.properties?.name || feature?.properties?.NAME_2;
@@ -186,7 +214,9 @@ export function KarnatakaChoroplethMap({
     layer.on({
       mouseover: (e: any) => {
         const lyr = e.target;
+        const currentStyle = getStyle(feature);
         lyr.setStyle({
+          ...currentStyle,
           fillOpacity: 0.92,
           weight: 6,
           color: SELECTED_OUTLINE,
@@ -241,7 +271,7 @@ export function KarnatakaChoroplethMap({
       );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedDistrict, activeDistrictId, geoJsonData, map]);
+  }, [selectedDistrict, activeDistrictId, geoJsonData, metrics, map]);
 
   if (isLoading || isError || !geoJsonData) {
     return null;

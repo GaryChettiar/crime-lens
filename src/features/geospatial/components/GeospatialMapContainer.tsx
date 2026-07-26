@@ -11,7 +11,7 @@ import {
 import { useIntelligence } from "@/features/intelligence";
 import { KarnatakaChoroplethMap } from "./KarnatakaChoroplethMap";
 import { TemporalCrimePlayback } from "./TemporalCrimePlayback";
-import { useGetDistrictMetricsQuery } from "@/services/districtsApi";
+import { useGetDistrictCrimeStatsQuery } from "@/services/dashboardApi";
 import { useGetIncidentsQuery } from "@/services/crimeApi";
 import { DISTRICT_CENTERS } from "../data/mockGeospatialData";
 import { useGetStationsQuery } from "@/services/policeStationsApi";
@@ -96,7 +96,58 @@ export function GeospatialMapContainer({
   const canViewStateMap = hasPermission("view_state_map");
   const { district: analyticsDistrict } = useAnalyticsFilters();
   const { districtSummaries } = useIntelligence();
-  const { data: districtsMetrics = [] } = useGetDistrictMetricsQuery();
+
+  const defaultEndDate = new Date().toISOString().split("T")[0];
+  const defaultStartDate = React.useMemo(() => {
+    const date = new Date();
+    date.setDate(date.getDate() - 30);
+    return date.toISOString().split("T")[0];
+  }, []);
+
+  const districtCrimeStatsFilters = React.useMemo(() => {
+    if (globalFilters.singleDate) {
+      return { date: globalFilters.singleDate };
+    }
+
+    return {
+      fromDate: globalFilters.dateRange.start || defaultStartDate,
+      toDate: globalFilters.dateRange.end || defaultEndDate,
+    };
+  }, [
+    globalFilters.dateRange.end,
+    globalFilters.dateRange.start,
+    globalFilters.singleDate,
+    defaultEndDate,
+    defaultStartDate,
+  ]);
+
+  const { data: districtCrimeStats = [] } =
+    useGetDistrictCrimeStatsQuery(districtCrimeStatsFilters);
+
+  const districtsMetrics = React.useMemo(() => {
+    const maxCrimeCount =
+      districtCrimeStats.reduce(
+        (max, stat) => Math.max(max, stat.crimeCount),
+        0,
+      ) || 1;
+
+    return districtCrimeStats.map((stat) => ({
+      district: stat.districtName ?? stat.districtId ?? "Unknown",
+      crimeCount: stat.crimeCount,
+      resolutionRate:
+        stat.crimeCount > 0 && stat.solvedCount !== undefined
+          ? Math.round((stat.solvedCount / stat.crimeCount) * 100)
+          : 0,
+      riskIndex: Math.min(
+        100,
+        Math.round((stat.crimeCount / maxCrimeCount) * 100),
+      ),
+      trend: "stable" as const,
+      growthRate: 0,
+      policeStationsCount: 0,
+    }));
+  }, [districtCrimeStats]);
+
   const { data: incidents = [] } = useGetIncidentsQuery();
   const { data: policeStations = [] } = useGetStationsQuery();
 

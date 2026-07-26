@@ -4,6 +4,12 @@ import { baseApi } from './baseApi';
 // Types
 // ---------------------------------------------------------------------------
 
+export interface DistrictCrimeStationStat {
+  stationId: string;
+  stationName: string;
+  crimeCount: number;
+}
+
 export interface DistrictCrimeStat {
   districtId: string;
   districtName?: string;
@@ -11,6 +17,7 @@ export interface DistrictCrimeStat {
   solvedCount?: number;
   pendingCount?: number;
   updatedAt?: string;
+  stations?: DistrictCrimeStationStat[];
 }
 
 export interface TotalCrimeCount {
@@ -68,12 +75,22 @@ export interface CrimeGrowthFilters extends Omit<DashboardCrimeFilters, 'date'> 
 // ---------------------------------------------------------------------------
 
 const decodeDistrictCrimeStat = (d: any): DistrictCrimeStat => ({
-  districtId: d.district_id || d.ROWID || d.id,
-  districtName: d.district_name || d.district || '',
-  crimeCount: Number(d.crime_count ?? 0),
-  solvedCount: d.solved_count !== undefined ? Number(d.solved_count) : undefined,
-  pendingCount: d.pending_count !== undefined ? Number(d.pending_count) : undefined,
+  districtId:
+    String(d.districtId ?? d.district_id ?? d.ROWID ?? d.id ?? ''),
+  districtName: String(d.districtName ?? d.district_name ?? d.district ?? ''),
+  crimeCount: Number(d.totalCrimeCount ?? d.crime_count ?? 0),
+  solvedCount: d.solvedCount ?? d.solved_count !== undefined ? Number(d.solved_count) : undefined,
+  pendingCount:
+    d.pendingCount ??
+    (d.pending_count !== undefined ? Number(d.pending_count) : undefined),
   updatedAt: d.updatedAt || d.updated_at,
+  stations: Array.isArray(d.stations)
+    ? d.stations.map((station: any) => ({
+        stationId: String(station.stationId ?? station.station_id ?? ''),
+        stationName: String(station.stationName ?? station.station_name ?? ''),
+        crimeCount: Number(station.crimeCount ?? station.crime_count ?? 0),
+      }))
+    : undefined,
 });
 
 const decodeTotalCrimeCount = (r: any): TotalCrimeCount => ({
@@ -129,13 +146,30 @@ const decodeCategoryVolumeRanking = (response: any): CategoryVolumeRankingItem[]
 
 export const dashboardApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    getDistrictCrimeStats: builder.query<DistrictCrimeStat[], void>({
-      query: () => '/dashboard/district-crime-stats',
+    getDistrictCrimeStats: builder.query<DistrictCrimeStat[], DashboardCrimeFilters | void>({
+      query: (params) => ({
+        url: '/dashboard/district-crime-stats',
+        params: params
+          ? {
+              stationId: params.stationId || undefined,
+              districtId: params.districtId || undefined,
+              categoryId: params.categoryId || undefined,
+              gender: params.gender || undefined,
+              date: params.date || undefined,
+              fromDate: params.fromDate || undefined,
+              toDate: params.toDate || undefined,
+            }
+          : undefined,
+      }),
       transformResponse: (response: any): DistrictCrimeStat[] => {
         const nestedData = response?.data ?? response;
         const rawList = Array.isArray(nestedData)
           ? nestedData
-          : (Array.isArray(nestedData?.data) ? nestedData.data : []);
+          : Array.isArray(nestedData?.districts)
+          ? nestedData.districts
+          : Array.isArray(nestedData?.data)
+          ? nestedData.data
+          : [];
         return rawList.map(decodeDistrictCrimeStat);
       },
       providesTags: [{ type: 'DashboardStats', id: 'DISTRICT_LIST' }],
