@@ -11,20 +11,25 @@ import { useGetStationsQuery } from '@/services/policeStationsApi';
 import { useGetAllUsersQuery } from '@/services/usersApi';
 import { TableSkeleton, EmptyState, ErrorState } from '@/components/molecules/DataStates';
 import { Plus, Trash2, Edit2, User, Mail, Phone, Loader2, Check, Award, Landmark } from 'lucide-react';
+import usePermissions from '@/hooks/usePermissions';
 
 export function PoliceOfficersPage() {
   const { data: ranks } = useGetRanksQuery();
   const { data: stations } = useGetStationsQuery();
   const { data: usersData } = useGetAllUsersQuery({ limit: 1000 });
+  const { hasPermission } = usePermissions();
+  const canViewMap = hasPermission('view_map');
 
   const [selectedRankFilter, setSelectedRankFilter] = React.useState('');
   const [selectedStationFilter, setSelectedStationFilter] = React.useState('');
   const [searchQuery, setSearchQuery] = React.useState('');
 
-  const { data: officers, isLoading, isError, refetch } = useGetOfficersQuery({
+  const officerQueryParams = React.useMemo(() => ({
     rankId: selectedRankFilter || undefined,
-    stationId: selectedStationFilter || undefined,
-  });
+    ...(canViewMap ? {} : { stationId: selectedStationFilter || undefined }),
+  }), [selectedRankFilter, selectedStationFilter, canViewMap]);
+
+  const { data: officers, isLoading, isError, refetch } = useGetOfficersQuery(officerQueryParams);
 
   const [createOfficer, { isLoading: isCreating }] = useCreateOfficerMutation();
   const [updateOfficer, { isLoading: isUpdating }] = useUpdateOfficerMutation();

@@ -39,6 +39,7 @@ import { IntelligenceSummaryCard } from './IntelligenceSummaryCard';
 import { MetricsGrid } from './MetricsGrid';
 import { RiskFactorsCard } from './RiskFactorsCard';
 import { CriminalDistrictMap } from './CriminalDistrictMap';
+import { GlobalNetworkGraph } from '@/features/network/components/GlobalNetworkGraph';
 
 // ---------------------------------------------------------------------------
 // Status badge colour helper
@@ -807,6 +808,24 @@ export function CriminalProfilePage() {
                 </CardContent>
               </Card>
             </div>
+
+            <Card className="bg-card/40 border-border/80 backdrop-blur-sm shadow-md">
+              <CardHeader className="p-4 border-b border-border bg-card/20">
+                <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                  <ShieldAlert className="h-3.5 w-3.5 text-primary" />
+                  Global Network Analysis
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-4">
+                <GlobalNetworkGraph
+                  title={`Criminal Network: ${profile?.criminal_name || criminal?.name || criminalId}`}
+                  description={`View the global network graph for ${profile?.criminal_name || criminal?.name || criminalId}.`}
+                  initialParams={{ nodeId: criminalId }}
+                  initialLabel={profile?.criminal_name || criminal?.name || criminalId || 'Criminal'}
+                  showTrail={false}
+                />
+              </CardContent>
+            </Card>
 
             {/* Risk Factors Breakdown */}
             <RiskFactorsCard riskFactors={riskFactorsData?.riskFactors || []} />

@@ -7,10 +7,11 @@ import ReactFlow, {
   type Node,
   type Edge,
   MarkerType,
+  ReactFlowProvider,
 } from "reactflow";
 import "reactflow/dist/style.css";
 import { Button } from "@/components/ui/button";
-import { useGetCurrentUserQuery } from "@/services/authApi";
+import usePermissions from "@/hooks/usePermissions";
 import {
   useGetGlobalNetworkGraphQuery,
   type GlobalNetworkGraphParams,
@@ -33,12 +34,6 @@ const TYPE_STYLES: Record<
   alias: { background: "#78350f", border: "#f59e0b", color: "#fffbeb" },
   evidence: { background: "#4b5563", border: "#94a3b8", color: "#e2e8f0" },
 };
-
-function parseNumericSuffix(id: string) {
-  const match = id.match(/(\d+)$/);
-  if (!match) return 1;
-  return Number(match[1]) || 1;
-}
 
 function calculateLayout(nodes: GlobalNetworkNode[]) {
   const groups: Record<string, GlobalNetworkNode[]> = {};
@@ -145,34 +140,52 @@ function buildFlowEdges(edges: GlobalNetworkEdge[]) {
   }));
 }
 
-export function GlobalNetworkGraph() {
-  const { data: currentUser, isLoading: userLoading } =
-    useGetCurrentUserQuery();
+interface GlobalNetworkGraphProps {
+  title?: string;
+  description?: string;
+  initialParams?: GlobalNetworkGraphParams;
+  initialLabel?: string;
+  showTrail?: boolean;
+}
+
+export function GlobalNetworkGraph({
+  title = "Global Network Drilldown",
+  description = "The global network API returns self-contained drilldown nodes. Click an expandable node to fetch the next level without manual ID mapping.",
+  initialParams,
+  initialLabel = "State",
+  showTrail = true,
+}: GlobalNetworkGraphProps) {
+  const { currentUser, hasPermission, isLoading: permissionsLoading } = usePermissions();
   const [selectedNode, setSelectedNode] =
     React.useState<GlobalNetworkNode | null>(null);
   const [history, setHistory] = React.useState<
     Array<{ level?: string; nodeId?: string; label: string }>
   >([]);
   const [activeParams, setActiveParams] =
-    React.useState<GlobalNetworkGraphParams>({});
+    React.useState<GlobalNetworkGraphParams>(initialParams ?? {});
 
-  const queryWithRole = React.useCallback(
+  const queryWithContext = React.useCallback(
     (params: GlobalNetworkGraphParams): GlobalNetworkGraphParams | null => {
       if (!currentUser) return null;
       const payload: GlobalNetworkGraphParams = { ...params };
-      if (currentUser.role === "DISTRICT_COMMANDER") {
-        payload.districtId = currentUser.districtId ?? undefined;
-      } else if (currentUser.role === "STATION_COMMANDER") {
-        payload.stationId = currentUser.stationId ?? undefined;
+
+      if (currentUser.isOfficer) {
+        if (currentUser.stationId) {
+          payload.stationId = currentUser.stationId;
+        }
+        if (hasPermission("view_map") && currentUser.districtId) {
+          payload.districtId = currentUser.districtId;
+        }
       }
+
       return payload;
     },
-    [currentUser],
+    [currentUser, hasPermission],
   );
 
   const queryParams = React.useMemo(
-    () => queryWithRole(activeParams),
-    [activeParams, queryWithRole],
+    () => queryWithContext(activeParams),
+    [activeParams, queryWithContext],
   );
   const { data, isLoading, error } = useGetGlobalNetworkGraphQuery(
     queryParams ?? undefined,
@@ -183,7 +196,7 @@ export function GlobalNetworkGraph() {
 
   const loadGraph = React.useCallback(
     (params: GlobalNetworkGraphParams, label?: string) => {
-      const query = queryWithRole(params);
+      const query = queryWithContext(params);
       if (!query) return;
       setSelectedNode(null);
       setActiveParams(query);
@@ -193,14 +206,14 @@ export function GlobalNetworkGraph() {
         setHistory((prev) => [...prev, { ...params, label }]);
       }
     },
-    [queryWithRole],
+    [queryWithContext],
   );
 
   React.useEffect(() => {
-    if (!userLoading && currentUser) {
-      loadGraph({}, "State");
+    if (!permissionsLoading) {
+      loadGraph(initialParams ?? {}, initialLabel);
     }
-  }, [currentUser, userLoading, loadGraph]);
+  }, [permissionsLoading, initialParams, initialLabel, loadGraph]);
 
   const { nodes: graphNodes, edges: graphEdges } = React.useMemo(() => {
     if (!data) return { nodes: [], edges: [] };
@@ -215,13 +228,10 @@ export function GlobalNetworkGraph() {
       edges: (data as any).edges ?? [],
     };
   }, [data]);
-  console.log("raw data:", data);
-  console.log("parsed nodes/edges:", graphNodes.length, graphEdges.length);
   const nodes = React.useMemo(
     () => buildFlowNodes(graphNodes, selectedNode?.id ?? null),
     [graphNodes, selectedNode],
   );
-console.log('built nodes sample:', nodes.slice(0, 3));
   const edges = React.useMemo(() => buildFlowEdges(graphEdges), [graphEdges]);
 
   const handleNodeClick = React.useCallback(
@@ -247,22 +257,19 @@ console.log('built nodes sample:', nodes.slice(0, 3));
 
   const onReset = React.useCallback(() => {
     setHistory([]);
-    loadGraph({}, "State");
-  }, [loadGraph]);
+    loadGraph(initialParams ?? {}, initialLabel);
+  }, [initialLabel, initialParams, loadGraph]);
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <ReactFlowProvider>
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="space-y-1">
           <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
             <Info className="h-4 w-4 text-primary" />
-            <span>Global Network Drilldown</span>
+            <span>{title}</span>
           </div>
-          <p className="text-xs text-muted-foreground max-w-2xl">
-            The global network API returns self-contained drilldown nodes. Click
-            an expandable node to fetch the next level without manual ID
-            mapping.
-          </p>
+          <p className="text-xs text-muted-foreground max-w-2xl">{description}</p>
         </div>
 
         <div className="flex flex-wrap gap-2">
@@ -270,7 +277,7 @@ console.log('built nodes sample:', nodes.slice(0, 3));
             size="sm"
             variant="outline"
             onClick={onReset}
-            disabled={isLoading || userLoading}
+            disabled={isLoading || permissionsLoading}
           >
             <ArrowLeft className="h-3.5 w-3.5" /> Reset
           </Button>
@@ -278,7 +285,7 @@ console.log('built nodes sample:', nodes.slice(0, 3));
             size="sm"
             variant="outline"
             onClick={() => loadGraph(activeParams)}
-            disabled={!currentUser || isLoading || userLoading}
+            disabled={!currentUser || isLoading || permissionsLoading}
           >
             <RefreshCw className="h-3.5 w-3.5" /> Refresh
           </Button>
@@ -302,37 +309,39 @@ console.log('built nodes sample:', nodes.slice(0, 3));
         )}
       </div>
 
-      <div className="grid gap-2 sm:grid-cols-[auto_1fr] items-start">
-        <div className="rounded-xl border border-border/70 bg-card p-3 min-w-[220px]">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-            Drilldown Trail
-          </p>
-          <div className="mt-3 space-y-2 text-[11px] text-foreground">
-            {history.length === 0 ? (
-              <p className="text-muted-foreground">
-                Top-level graph loaded for your role.
-              </p>
-            ) : (
-              history.map((entry, index) => (
-                <div
-                  key={`${entry.level ?? "root"}-${entry.nodeId ?? index}`}
-                  className="rounded-lg bg-slate-950/60 p-2 border border-border"
-                >
-                  <div className="font-semibold text-foreground truncate">
-                    {entry.label}
+      <div className="flex flex-col sm:flex-row gap-2 items-start">
+        {showTrail && (
+          <div className="rounded-xl border border-border/70 bg-card p-3 min-w-[220px] sm:w-56 sm:shrink-0">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+              Drilldown Trail
+            </p>
+            <div className="mt-3 space-y-2 text-[11px] text-foreground">
+              {history.length === 0 ? (
+                <p className="text-muted-foreground">
+                  Top-level graph loaded for your role.
+                </p>
+              ) : (
+                history.map((entry, index) => (
+                  <div
+                    key={`${entry.level ?? "root"}-${entry.nodeId ?? index}`}
+                    className="rounded-lg bg-slate-950/60 p-2 border border-border"
+                  >
+                    <div className="font-semibold text-foreground truncate">
+                      {entry.label}
+                    </div>
+                    <div className="text-muted-foreground">
+                      {entry.level ?? "root"}{" "}
+                      {entry.nodeId ? `· ${entry.nodeId}` : ""}
+                    </div>
                   </div>
-                  <div className="text-muted-foreground">
-                    {entry.level ?? "root"}{" "}
-                    {entry.nodeId ? `· ${entry.nodeId}` : ""}
-                  </div>
-                </div>
-              ))
-            )}
+                ))
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
-        <div className="rounded-xl border border-border/70 bg-slate-950/90 min-h-[520px] overflow-hidden">
-          {userLoading || isLoading ? (
+        <div className="flex-1 min-w-0 rounded-xl border border-border/70 bg-slate-950/90 min-h-[520px] overflow-hidden w-full">
+          {permissionsLoading || isLoading ? (
             <div className="flex h-[520px] items-center justify-center px-4">
               <div className="flex flex-col items-center gap-3 text-muted-foreground">
                 <Loader2 className="h-8 w-8 animate-spin" />
@@ -352,22 +361,31 @@ console.log('built nodes sample:', nodes.slice(0, 3));
                 )}
               </span>
             </div>
+          ) : nodes.length === 0 ? (
+            <div className="flex h-[520px] flex-col items-center justify-center gap-2 px-6 text-center text-muted-foreground">
+              <Info className="h-7 w-7 text-muted-foreground/70" />
+              <span className="text-sm font-semibold text-foreground">No network nodes returned</span>
+              <span className="text-xs">The API response did not contain any graph nodes to render.</span>
+            </div>
           ) : (
-            <ReactFlow
-              nodes={nodes}
-              edges={edges}
-              onNodeClick={handleNodeClick}
-              fitView
-              fitViewOptions={{ padding: 0.15 }}
-              minZoom={0.15}
-              maxZoom={2.5}
-              defaultEdgeOptions={{ animated: false }}
-              proOptions={{ hideAttribution: true }}
-              className="h-[520px]"
-            >
-              <Background gap={24} size={1} color="#1f2937" />
-              <Controls showInteractive={false} />
-            </ReactFlow>
+            <div className="relative h-[520px] w-full min-w-0" style={{ width: '100%', height: '520px' }}>
+              <ReactFlow
+                nodes={nodes}
+                edges={edges}
+                onNodeClick={handleNodeClick}
+                fitView
+                fitViewOptions={{ padding: 0.2 }}
+                minZoom={0.15}
+                maxZoom={2.5}
+                defaultEdgeOptions={{ animated: false }}
+                proOptions={{ hideAttribution: true }}
+                className="h-full w-full"
+                style={{ width: '100%', height: '100%' }}
+              >
+                <Background gap={24} size={1} color="#1f2937" />
+                <Controls showInteractive={false} />
+              </ReactFlow>
+            </div>
           )}
         </div>
       </div>
@@ -418,5 +436,6 @@ console.log('built nodes sample:', nodes.slice(0, 3));
         </div>
       )}
     </div>
+    </ReactFlowProvider>
   );
 }
