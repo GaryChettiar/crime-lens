@@ -141,10 +141,10 @@ function buildColumns(
         <span className="text-muted-foreground tabular-nums">
           {c.incidentDate
             ? new Date(c.incidentDate).toLocaleDateString("en-IN", {
-              day: "2-digit",
-              month: "short",
-              year: "numeric",
-            })
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+              })
             : "—"}
         </span>
       ),
@@ -227,7 +227,12 @@ export function CrimesListPage() {
   const [confirmDeleteId, setConfirmDeleteId] = React.useState<string | null>(
     null,
   );
-  type AfisMatch = { criminal_id?: string; name?: string; score: number; metadata?: { original_path?: string, filename?: string } };
+  type AfisMatch = {
+    criminal_id?: string;
+    name?: string;
+    score: number;
+    metadata?: { original_path?: string; filename?: string };
+  };
   type EvidenceItem = {
     id: string;
     evidence_type: string;
@@ -246,8 +251,8 @@ export function CrimesListPage() {
 
   const AFIS_URL =
     "https://crimelens-60074096850.development.catalystserverless.in/server/Fingerprint-AFIS/execute";
-  const MODEL_URL = (model: string) =>
-    `https://models-50043087097.development.catalystappsail.in/identify/${model}`;
+  const MODEL_URL =
+    "https://models-50043087097.development.catalystappsail.in/identify";
   const MODEL_ADMIN_KEY = "7f1d6e82d9b149f5a1c0f3c87b92e4d61f8e3c5a9b7d2e1f";
 
   // ---------------------------------------------------------------------------
@@ -320,7 +325,15 @@ export function CrimesListPage() {
         debouncedSearch,
         locationScope,
       ),
-    [page, pageSize, sortBy, sortOrder, effectiveFilters, debouncedSearch, locationScope],
+    [
+      page,
+      pageSize,
+      sortBy,
+      sortOrder,
+      effectiveFilters,
+      debouncedSearch,
+      locationScope,
+    ],
   );
 
   const {
@@ -332,7 +345,8 @@ export function CrimesListPage() {
   } = useGetCrimesQuery(crimeQuery);
   const { data: currentUser } = useGetCurrentUserQuery();
   const isOfficer = Boolean(currentUser?.isOfficer);
-  const canViewDistrictFilter = !isOfficer || hasPermission("view_district_filter");
+  const canViewDistrictFilter =
+    !isOfficer || hasPermission("view_district_filter");
 
   const { data: firs } = useGetEfirsQuery();
   // ---------------------------------------------------------------------------
@@ -341,10 +355,11 @@ export function CrimesListPage() {
   // Collect all paths from confirmed evidences to check for related crimes
   const matchedPathsToAnalyze = React.useMemo(() => {
     const paths = new Set<string>();
-    form.evidences?.forEach(ev => {
+    form.evidences?.forEach((ev) => {
       if (ev.isConfirmed && ev.afisResult) {
-        ev.afisResult.forEach(match => {
-          if (match.metadata?.original_path) paths.add(match.metadata.original_path);
+        ev.afisResult.forEach((match) => {
+          if (match.metadata?.original_path)
+            paths.add(match.metadata.original_path);
           else if (match.name) paths.add(match.name);
           else if (match.criminal_id) paths.add(match.criminal_id);
         });
@@ -353,34 +368,50 @@ export function CrimesListPage() {
     return Array.from(paths);
   }, [form.evidences]);
 
-  const { data: analysisData } = useGetCrimesByEvidencePathsQuery(matchedPathsToAnalyze, {
-    skip: matchedPathsToAnalyze.length === 0,
-  });
+  const { data: analysisData } = useGetCrimesByEvidencePathsQuery(
+    matchedPathsToAnalyze,
+    {
+      skip: matchedPathsToAnalyze.length === 0,
+    },
+  );
 
   const filesWithRelatedCrimes = React.useMemo(() => {
     if (!analysisData?.success || !analysisData.data) return [];
 
-    return form.evidences?.filter(ev => {
-      if (!ev.isConfirmed || !ev.afisResult) return false;
-      const pathsForThisFile = ev.afisResult.map(m => m.metadata?.original_path || m.name || m.criminal_id);
+    return (
+      form.evidences
+        ?.filter((ev) => {
+          if (!ev.isConfirmed || !ev.afisResult) return false;
+          const pathsForThisFile = ev.afisResult.map(
+            (m) => m.metadata?.original_path || m.name || m.criminal_id,
+          );
 
-      const fileMatchesWithCrimes = analysisData.data.filter(
-        d => pathsForThisFile.includes(d.path)
-      );
-      return fileMatchesWithCrimes.length > 0;
-    }).map(ev => ({
-      evidenceId: ev.id,
-      fileName: ev.file?.name || `${ev.evidence_type} uploaded`,
-      matches: analysisData.data.filter(
-        d => ev.afisResult!.map(m => m.metadata?.original_path || m.name || m.criminal_id).includes(d.path)
-      )
-    })) || [];
+          const fileMatchesWithCrimes = analysisData.data.filter((d) =>
+            pathsForThisFile.includes(d.path),
+          );
+          return fileMatchesWithCrimes.length > 0;
+        })
+        .map((ev) => ({
+          evidenceId: ev.id,
+          fileName: ev.file?.name || `${ev.evidence_type} uploaded`,
+          matches: analysisData.data.filter((d) =>
+            ev
+              .afisResult!.map(
+                (m) => m.metadata?.original_path || m.name || m.criminal_id,
+              )
+              .includes(d.path),
+          ),
+        })) || []
+    );
   }, [analysisData, form.evidences]);
 
-  const handleOpenAnalysis = () => {
-    localStorage.setItem("currentEvidenceAnalysis", JSON.stringify(filesWithRelatedCrimes));
-    window.open("/entities/evidence-matches", "_blank");
-  };
+  // const handleOpenAnalysis = () => {
+  //   localStorage.setItem(
+  //     "currentEvidenceAnalysis",
+  //     JSON.stringify(filesWithRelatedCrimes),
+  //   );
+  //   window.open("/entities/evidence-matches", "_blank");
+  // };
 
   // ---------------------------------------------------------------------------
   // Prefetch next page after successful fetch (RTK Query cache warm-up)
@@ -449,9 +480,11 @@ export function CrimesListPage() {
     try {
       const payload = {
         ...(form as CreateCrimePayload),
-        createdBy:currentUser?.sysUserId,
+        createdBy: currentUser?.sysUserId,
         incidentDate: formatDateTimeForBackend(form.incidentDate || ""),
-        incidentRegisteredDate: formatDateTimeForBackend(form.incidentDate || ""),
+        incidentRegisteredDate: formatDateTimeForBackend(
+          form.incidentDate || "",
+        ),
         evidences: form.evidences
           ?.filter((e) => e.isConfirmed)
           .map((e) => ({
@@ -460,7 +493,7 @@ export function CrimesListPage() {
             description: "Added from incident form",
           })),
       };
-      console.log(payload)
+      console.log(payload);
       const result = await createCrime(payload).unwrap();
       const newId = result.data?.id;
       setShowCreate(false);
@@ -524,7 +557,7 @@ export function CrimesListPage() {
               <RefreshCw className="h-3.5 w-3.5" />
               Refresh
             </Button>
-            {hasPermission('update_crime') && (
+            {hasPermission("update_crime") && (
               <Button
                 size="sm"
                 onClick={() => setShowCreate(true)}
@@ -538,26 +571,6 @@ export function CrimesListPage() {
         </div>
 
         {/* Floating Evidence Match Card */}
-        {filesWithRelatedCrimes.length > 0 && showCreate && (
-          <div className="fixed bottom-6 right-6 z-[100] animate-in slide-in-from-bottom-5">
-            <div className="bg-card border-2 border-primary/40 shadow-xl rounded-xl p-4 flex flex-col gap-3 w-80">
-              <div className="flex items-start gap-3">
-                <div className="bg-primary/10 p-2 rounded-full mt-0.5 shrink-0">
-                  <FolderOpen className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-sm leading-tight text-foreground">Evidence Matches Found</h3>
-                  <p className="text-[11px] text-muted-foreground mt-1">
-                    {filesWithRelatedCrimes.length} uploaded file(s) have matches in the database.
-                  </p>
-                </div>
-              </div>
-              <Button size="sm" onClick={handleOpenAnalysis} className="w-full text-xs h-8">
-                View Related Crimes <ChevronRight className="h-3.5 w-3.5 ml-1" />
-              </Button>
-            </div>
-          </div>
-        )}
 
         {/* Toolbar */}
         <DataTableToolbar
@@ -701,12 +714,16 @@ export function CrimesListPage() {
                       <select
                         required
                         value={form.district || ""}
-                        onChange={(e) => setForm((f) => ({ ...f, district: e.target.value }))}
+                        onChange={(e) =>
+                          setForm((f) => ({ ...f, district: e.target.value }))
+                        }
                         className="w-full h-8.5 px-3 text-xs rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
                       >
                         <option value="">Select District</option>
                         {(districts ?? []).map((d: any) => (
-                          <option key={d.id} value={d.id}>{d.name}</option>
+                          <option key={d.id} value={d.id}>
+                            {d.name}
+                          </option>
                         ))}
                       </select>
                     </div>
@@ -717,12 +734,19 @@ export function CrimesListPage() {
                       <select
                         required
                         value={form.assignedStationId || ""}
-                        onChange={(e) => setForm((f) => ({ ...f, assignedStationId: e.target.value }))}
+                        onChange={(e) =>
+                          setForm((f) => ({
+                            ...f,
+                            assignedStationId: e.target.value,
+                          }))
+                        }
                         className="w-full h-8.5 px-3 text-xs rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
                       >
                         <option value="">Select Station</option>
                         {(stations ?? []).map((s: any) => (
-                          <option key={s.id} value={s.id}>{s.name}</option>
+                          <option key={s.id} value={s.id}>
+                            {s.name}
+                          </option>
                         ))}
                       </select>
                     </div>
@@ -735,12 +759,16 @@ export function CrimesListPage() {
                     </label>
                     <select
                       value={form.firId || ""}
-                      onChange={(e) => setForm((f) => ({ ...f, firId: e.target.value }))}
+                      onChange={(e) =>
+                        setForm((f) => ({ ...f, firId: e.target.value }))
+                      }
                       className="w-full h-8.5 px-3 text-xs rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
                     >
                       <option value="">Select FIR</option>
                       {(firs ?? []).map((f) => (
-                        <option key={f.firId} value={f.firId}>{f.firId}</option>
+                        <option key={f.firId} value={f.firId}>
+                          {f.firId}
+                        </option>
                       ))}
                     </select>
                   </div>
@@ -892,10 +920,10 @@ export function CrimesListPage() {
                                     evidences: f.evidences?.map((item) =>
                                       item.id === ev.id
                                         ? {
-                                          ...item,
-                                          file,
-                                          file_url: reader.result as string,
-                                        }
+                                            ...item,
+                                            file,
+                                            file_url: reader.result as string,
+                                          }
                                         : item,
                                     ),
                                   }));
@@ -929,11 +957,11 @@ export function CrimesListPage() {
                                 evidences: f.evidences?.map((item) =>
                                   item.id === ev.id
                                     ? {
-                                      ...item,
-                                      isConfirmed: false,
-                                      afisResult: undefined,
-                                      afisError: undefined,
-                                    }
+                                        ...item,
+                                        isConfirmed: false,
+                                        afisResult: undefined,
+                                        afisError: undefined,
+                                      }
                                     : item,
                                 ),
                               }));
@@ -955,10 +983,10 @@ export function CrimesListPage() {
                                 evidences: f.evidences?.map((item) =>
                                   item.id === ev.id
                                     ? {
-                                      ...item,
-                                      afisLoading: true,
-                                      afisError: undefined,
-                                    }
+                                        ...item,
+                                        afisLoading: true,
+                                        afisError: undefined,
+                                      }
                                     : item,
                                 ),
                               }));
@@ -983,11 +1011,11 @@ export function CrimesListPage() {
                                   evidences: f.evidences?.map((item) =>
                                     item.id === ev.id
                                       ? {
-                                        ...item,
-                                        afisLoading: false,
-                                        afisResult: matches,
-                                        isConfirmed: true,
-                                      }
+                                          ...item,
+                                          afisLoading: false,
+                                          afisResult: matches,
+                                          isConfirmed: true,
+                                        }
                                       : item,
                                   ),
                                 }));
@@ -997,38 +1025,37 @@ export function CrimesListPage() {
                                   evidences: f.evidences?.map((item) =>
                                     item.id === ev.id
                                       ? {
-                                        ...item,
-                                        afisLoading: false,
-                                        afisError: "AFIS API call failed",
-                                        isConfirmed: true,
-                                      }
+                                          ...item,
+                                          afisLoading: false,
+                                          afisError: "AFIS API call failed",
+                                          isConfirmed: true,
+                                        }
                                       : item,
                                   ),
                                 }));
                               }
+                              // after
                             } else if (
-                              (ev.evidence_type === "face" ||
-                                ev.evidence_type === "footprint") &&
+                              ev.evidence_type === "footprint" &&
                               ev.file
                             ) {
-                              // ── Face / Footprint: FormData → AppSail model ────────────────────
-                              const model = ev.evidence_type; // 'face' | 'footprint'
+                              // ── Footprint: FormData → AppSail model (base MODEL_URL) ──────────
                               setForm((f) => ({
                                 ...f,
                                 evidences: f.evidences?.map((item) =>
                                   item.id === ev.id
                                     ? {
-                                      ...item,
-                                      afisLoading: true,
-                                      afisError: undefined,
-                                    }
+                                        ...item,
+                                        afisLoading: true,
+                                        afisError: undefined,
+                                      }
                                     : item,
                                 ),
                               }));
                               try {
                                 const fd = new FormData();
                                 fd.append("image", ev.file!);
-                                const resp = await fetch(MODEL_URL(model), {
+                                const resp = await fetch(MODEL_URL, {
                                   method: "POST",
                                   headers: { "X-Admin-Key": MODEL_ADMIN_KEY },
                                   body: fd,
@@ -1041,11 +1068,11 @@ export function CrimesListPage() {
                                   evidences: f.evidences?.map((item) =>
                                     item.id === ev.id
                                       ? {
-                                        ...item,
-                                        afisLoading: false,
-                                        afisResult: matches,
-                                        isConfirmed: true,
-                                      }
+                                          ...item,
+                                          afisLoading: false,
+                                          afisResult: matches,
+                                          isConfirmed: true,
+                                        }
                                       : item,
                                   ),
                                 }));
@@ -1055,11 +1082,66 @@ export function CrimesListPage() {
                                   evidences: f.evidences?.map((item) =>
                                     item.id === ev.id
                                       ? {
+                                          ...item,
+                                          afisLoading: false,
+                                          afisError:
+                                            "footprint model API call failed",
+                                          isConfirmed: true,
+                                        }
+                                      : item,
+                                  ),
+                                }));
+                              }
+                            } else if (ev.evidence_type === "face" && ev.file) {
+                              // ── Face: FormData → AppSail model (MODEL_URL/face) ───────────────
+                              setForm((f) => ({
+                                ...f,
+                                evidences: f.evidences?.map((item) =>
+                                  item.id === ev.id
+                                    ? {
                                         ...item,
-                                        afisLoading: false,
-                                        afisError: `${model} model API call failed`,
-                                        isConfirmed: true,
+                                        afisLoading: true,
+                                        afisError: undefined,
                                       }
+                                    : item,
+                                ),
+                              }));
+                              try {
+                                const fd = new FormData();
+                                fd.append("image", ev.file!);
+                                const resp = await fetch(`${MODEL_URL}/face`, {
+                                  method: "POST",
+                                  headers: { "X-Admin-Key": MODEL_ADMIN_KEY },
+                                  body: fd,
+                                });
+                                const data = await resp.json();
+                                const matches: AfisMatch[] =
+                                  data?.matches ?? data?.results ?? [];
+                                setForm((f) => ({
+                                  ...f,
+                                  evidences: f.evidences?.map((item) =>
+                                    item.id === ev.id
+                                      ? {
+                                          ...item,
+                                          afisLoading: false,
+                                          afisResult: matches,
+                                          isConfirmed: true,
+                                        }
+                                      : item,
+                                  ),
+                                }));
+                              } catch {
+                                setForm((f) => ({
+                                  ...f,
+                                  evidences: f.evidences?.map((item) =>
+                                    item.id === ev.id
+                                      ? {
+                                          ...item,
+                                          afisLoading: false,
+                                          afisError:
+                                            "face model API call failed",
+                                          isConfirmed: true,
+                                        }
                                       : item,
                                   ),
                                 }));
@@ -1128,7 +1210,9 @@ export function CrimesListPage() {
                                     className="flex items-center justify-between text-muted-foreground"
                                   >
                                     <span className="font-medium text-foreground">
-                                      {match.metadata?.filename || match.name || match.criminal_id}
+                                      {match.metadata?.filename ||
+                                        match.name ||
+                                        match.criminal_id}
                                     </span>
                                     <span className="tabular-nums">
                                       Score:{" "}
@@ -1158,6 +1242,44 @@ export function CrimesListPage() {
                       </div>
                     )}
                 </div>
+                {/* Related Crimes (rendered inline, no separate modal/tab) */}
+                {filesWithRelatedCrimes.length > 0 && (
+                  <div className="space-y-2 pt-2 border-t border-border">
+                    <div className="flex items-center gap-2">
+                      <FolderOpen className="h-4 w-4 text-primary" />
+                      <label className="text-[10px] font-semibold uppercase text-muted-foreground">
+                        Related Crimes Found
+                      </label>
+                    </div>
+                    <div className="space-y-2">
+                      {filesWithRelatedCrimes.map((item) => (
+                        <div
+                          key={item.evidenceId}
+                          className="rounded-lg border border-primary/30 bg-primary/5 p-2.5"
+                        >
+                          <div className="text-[11px] font-semibold text-foreground mb-1.5">
+                            {item.fileName}
+                          </div>
+                          <div className="space-y-1">
+                            {item.matches.map((m: any, i: number) => (
+                              <Link
+                                key={i}
+                                to={`/entities/crimes/${m.id}`}
+                                target="_blank"
+                                className="flex items-center justify-between text-[10px] text-muted-foreground hover:text-primary group"
+                              >
+                                <span className="font-medium text-foreground group-hover:text-primary">
+                                  {m.crimeNumber || m.title || m.path}
+                                </span>
+                                <ChevronRight className="h-3 w-3 opacity-60 group-hover:opacity-100" />
+                              </Link>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 <DialogFooter className="gap-2 pt-2">
                   <Button
                     type="button"
