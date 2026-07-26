@@ -19,4 +19,4 @@ export type {
   ResourceRecommendation,
   RiskForecastPoint,
 } from '@/services/riskApi';
-export { RiskPage } from './components/RiskPage';
+// export { RiskPage } from './components/RiskPage';

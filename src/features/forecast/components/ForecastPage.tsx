@@ -1,6 +1,10 @@
 import * as React from 'react';
 import { AdminLayout } from '@/components/templates/AdminLayout/AdminLayout';
-import { BrainCircuit, RefreshCw, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+import { BrainCircuit, RefreshCw, CheckCircle2, AlertCircle, Loader2, ShieldAlert, MapPin } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Badge } from '@/components/atoms/Badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { useIntelligence, computeIntelligenceScore } from '@/features/intelligence';
 import { ForecastCard } from './ForecastCard';
 import { ForecastTrendChart } from './ForecastTrendChart';
 import { DistrictForecastTable } from './DistrictForecastTable';
@@ -13,24 +17,106 @@ import {
   useTrainModelMutation,
 } from '@/services/forecastApi';
 import { useAnalyticsFilters } from '@/hooks/useAnalyticsFilters';
+import { useGetCurrentUserQuery } from '@/services/authApi';
+import { useGetDistrictsQuery } from '@/services/districtsApi';
+import { useGetStationsQuery } from '@/services/policeStationsApi';
+import { useAppSelector } from '@/store/hooks';
 
 export function ForecastPage() {
-  const { districtId, stationId } = useAnalyticsFilters();
+  // Sector Safety Matrix state + OSINT
+  const [sectorSelectedDistrict, setSectorSelectedDistrict] = React.useState<string>('all');
+  const { classifiedArticles, isAvailable } = useIntelligence();
 
-  const defaultDates = React.useMemo(() => {
-    const now = new Date();
-    const start = new Date(now);
-    start.setDate(start.getDate() - 30);
-    const end = new Date(now);
-    end.setDate(end.getDate() + 30);
-    return {
-      start: start.toISOString().split('T')[0],
-      end: end.toISOString().split('T')[0],
-    };
-  }, []);
+  const sectorTableData = React.useMemo(() => {
+    return Object.entries(DISTRICT_BASE_METRICS).map(([district, metrics]) => {
+      const intelScore = computeIntelligenceScore(classifiedArticles, district);
 
-  const [startDate, setStartDate] = React.useState<string>(defaultDates.start);
-  const [endDate, setEndDate] = React.useState<string>(defaultDates.end);
+      const compositeScore = Math.round(
+        metrics.historical * 0.35 +
+        metrics.forecast * 0.25 +
+        intelScore * 0.20 +
+        metrics.crowd * 0.20
+      );
+
+      let riskLevel: 'low' | 'medium' | 'high' | 'critical' = 'low';
+      if (compositeScore >= 75) riskLevel = 'critical';
+      else if (compositeScore >= 50) riskLevel = 'high';
+      else if (compositeScore >= 30) riskLevel = 'medium';
+
+      return {
+        district,
+        historical: metrics.historical,
+        forecast: metrics.forecast,
+        crowd: metrics.crowd,
+        intel: intelScore,
+        composite: compositeScore,
+        riskLevel,
+      };
+    }).sort((a, b) => b.composite - a.composite);
+  }, [classifiedArticles]);
+
+  const sectorSelectedMetrics = React.useMemo(() => {
+    if (sectorSelectedDistrict === 'all') {
+      return { historical: 55, forecast: 53, crowd: 38 };
+    }
+    const base = DISTRICT_BASE_METRICS[sectorSelectedDistrict];
+    return base || { historical: 40, forecast: 40, crowd: 30 };
+  }, [sectorSelectedDistrict]);
+
+  const getRiskLevelBadge = (level: 'low' | 'medium' | 'high' | 'critical') => {
+    switch (level) {
+      case 'critical':
+        return <Badge variant="risk-critical" size="sm">Critical</Badge>;
+      case 'high':
+        return <Badge variant="risk-high" size="sm">High</Badge>;
+      case 'medium':
+        return <Badge variant="risk-medium" size="sm">Medium</Badge>;
+      case 'low':
+      default:
+        return <Badge variant="risk-low" size="sm">Low</Badge>;
+    }
+  };
+  const {
+    districtId: contextDistrictId,
+    stationId: contextStationId,
+    startDate: contextStartDate,
+    endDate: contextEndDate,
+    setStartDate: setContextStartDate,
+    setEndDate: setContextEndDate,
+  } = useAnalyticsFilters();
+  const { data: currentUser } = useGetCurrentUserQuery();
+  const globalFilters = useAppSelector((state) => state.globalFilters);
+  const { data: districtsData } = useGetDistrictsQuery();
+  const { data: stationsData } = useGetStationsQuery();
+
+  const districtId = React.useMemo(() => {
+    if (contextDistrictId) return contextDistrictId;
+    if (currentUser?.districtId) return currentUser.districtId;
+
+    const districtName = globalFilters.district;
+    if (!districtName || districtName === 'all' || !districtsData) return null;
+
+    const matchedDistrict = districtsData.find(
+      (district) => district.name?.toLowerCase() === districtName.toLowerCase(),
+    );
+
+    return matchedDistrict?.id ?? null;
+  }, [contextDistrictId, currentUser?.districtId, globalFilters.district, districtsData]);
+
+  const stationId = React.useMemo(() => {
+    if (contextStationId) return contextStationId;
+    if (currentUser?.stationId) return currentUser.stationId;
+
+    const stationName = globalFilters.selectedPoliceStations?.[0];
+    if (!stationName || !stationsData) return null;
+
+    const matchedStation = stationsData.find(
+      (station) => station.name?.toLowerCase() === stationName.toLowerCase(),
+    );
+
+    return matchedStation?.id ?? null;
+  }, [contextStationId, currentUser?.stationId, globalFilters.selectedPoliceStations, stationsData]);
+console.log(districtId)
   const [asOfDate, setAsOfDate] = React.useState<string>('');
   const [trainStatusMessage, setTrainStatusMessage] = React.useState<string | null>(null);
 
@@ -45,14 +131,30 @@ export function ForecastPage() {
 
   // Fetch forecast data with start_date and end_date
   const queryParams = React.useMemo(() => {
-    const params: { start_date?: string; end_date?: string; as_of?: string; district_id?: string; station_id?: string } = {};
-    if (startDate) params.start_date = startDate;
-    if (endDate) params.end_date = endDate;
+    const params: {
+      start_date?: string;
+      end_date?: string;
+      as_of?: string;
+      district_id?: string;
+      station_id?: string;
+      districtId?: string;
+      stationId?: string;
+    } = {};
+
+    if (contextStartDate) params.start_date = contextStartDate;
+    if (contextEndDate) params.end_date = contextEndDate;
     if (asOfDate) params.as_of = asOfDate;
-    if (districtId) params.district_id = districtId;
-    if (stationId) params.station_id = stationId;
+    if (districtId) {
+      params.district_id = districtId;
+      params.districtId = districtId;
+    }
+    if (stationId) {
+      params.station_id = stationId;
+      params.stationId = stationId;
+    }
+
     return params;
-  }, [startDate, endDate, asOfDate, districtId, stationId]);
+  }, [contextStartDate, contextEndDate, asOfDate, districtId, stationId]);
 
   const {
     data: predictedData,
@@ -219,8 +321,8 @@ export function ForecastPage() {
               <label className="text-xs font-medium text-muted-foreground">From:</label>
               <input
                 type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
+                value={contextStartDate ?? ''}
+                onChange={(e) => setContextStartDate(e.target.value || null)}
                 className="px-2.5 py-1.5 rounded-lg border border-border bg-card text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                 title="Start Date"
               />
@@ -229,8 +331,8 @@ export function ForecastPage() {
               <label className="text-xs font-medium text-muted-foreground">To:</label>
               <input
                 type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
+                value={contextEndDate ?? ''}
+                onChange={(e) => setContextEndDate(e.target.value || null)}
                 className="px-2.5 py-1.5 rounded-lg border border-border bg-card text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                 title="End Date"
               />
@@ -246,11 +348,11 @@ export function ForecastPage() {
                 title="As Of Date"
               />
             </div>
-            {(startDate !== defaultDates.start || endDate !== defaultDates.end || asOfDate !== '') && (
+            {(contextStartDate || contextEndDate || asOfDate) && (
               <button
                 onClick={() => {
-                  setStartDate(defaultDates.start);
-                  setEndDate(defaultDates.end);
+                  setContextStartDate(null);
+                  setContextEndDate(null);
                   setAsOfDate('');
                 }}
                 className="text-[11px] text-muted-foreground hover:text-foreground underline px-1"
@@ -388,9 +490,80 @@ export function ForecastPage() {
           </div>
         </div>
 
+        {/* Sector Safety Matrix (moved from RiskPage) */}
+        <Card className="lg:col-span-2 bg-card/45 border-border/80 backdrop-blur-sm shadow-md overflow-hidden mt-4">
+          <CardHeader className="p-4 border-b border-border bg-card/20 flex flex-row items-center justify-between shrink-0">
+            <div>
+              <CardTitle className="text-sm font-bold text-slate-100 flex items-center gap-2">
+                <ShieldAlert className="h-4 w-4 text-danger animate-pulse" />
+                Sector Safety Matrix
+              </CardTitle>
+              <CardDescription className="text-[11px] mt-0.5">Click on a sector row to view localized driver details.</CardDescription>
+            </div>
+            {!isAvailable && (
+              <Badge variant="outline" className="text-warning/60 border-warning/20 bg-warning/5 text-[9px] uppercase tracking-wider font-bold">
+                OSINT Offline
+              </Badge>
+            )}
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader className="bg-slate-950/40">
+                  <TableRow className="border-b border-border/50 hover:bg-transparent">
+                    <TableHead className="text-[10px] uppercase font-bold tracking-wider py-3 pl-4">District Sector</TableHead>
+                    <TableHead className="text-[10px] uppercase font-bold tracking-wider text-center py-3">Historical</TableHead>
+                    <TableHead className="text-[10px] uppercase font-bold tracking-wider text-center py-3">Forecast</TableHead>
+                    <TableHead className="text-[10px] uppercase font-bold tracking-wider text-center py-3 text-warning font-semibold">OSINT Intel</TableHead>
+                    <TableHead className="text-[10px] uppercase font-bold tracking-wider text-center py-3">Composite</TableHead>
+                    <TableHead className="text-[10px] uppercase font-bold tracking-wider text-right py-3 pr-4">Threat Level</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {sectorTableData.map((row) => {
+                    const isSelected = sectorSelectedDistrict === row.district;
+                    return (
+                      <TableRow
+                        key={row.district}
+                        onClick={() => setSectorSelectedDistrict(row.district)}
+                        className={`border-b border-border/40 transition-colors cursor-pointer hover:bg-muted/15 ${
+                          isSelected ? 'bg-primary/5 hover:bg-primary/10 border-l-2 border-l-primary' : ''
+                        }`}
+                      >
+                        <TableCell className="font-semibold text-xs py-3 pl-4 flex items-center gap-1.5">
+                          <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                          {row.district}
+                        </TableCell>
+                        <TableCell className="text-center font-data text-xs py-3 text-muted-foreground">{row.historical}</TableCell>
+                        <TableCell className="text-center font-data text-xs py-3 text-muted-foreground">{row.forecast}</TableCell>
+                        <TableCell className="text-center font-data text-xs py-3 font-semibold text-warning">{row.intel}</TableCell>
+                        <TableCell className="text-center font-data text-xs py-3 font-black text-foreground">{row.composite}</TableCell>
+                        <TableCell className="text-right py-3 pr-4">{getRiskLevelBadge(row.riskLevel)}</TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* District Table */}
-        <DistrictForecastTable data={districtTableData} />
+        {/* <DistrictForecastTable data={districtTableData} /> */}
       </div>
     </AdminLayout>
   );
 }
+
+// District mock metrics (historical & forecasts) moved from RiskPage
+const DISTRICT_BASE_METRICS: Record<string, { historical: number; forecast: number; crowd: number }> = {
+  'Bengaluru Urban': { historical: 78, forecast: 85, crowd: 65 },
+  'Mysuru': { historical: 54, forecast: 48, crowd: 40 },
+  'Belagavi': { historical: 48, forecast: 62, crowd: 35 },
+  'Dakshina Kannada': { historical: 62, forecast: 55, crowd: 50 },
+  'Hubballi-Dharwad': { historical: 58, forecast: 52, crowd: 30 },
+  'Kalaburagi': { historical: 50, forecast: 42, crowd: 45 },
+  'Ballari': { historical: 45, forecast: 48, crowd: 25 },
+  'Tumakuru': { historical: 38, forecast: 35, crowd: 20 },
+  'Shivamogga': { historical: 42, forecast: 50, crowd: 30 },
+};

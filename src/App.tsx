@@ -2,7 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { DashboardPage } from '@/features/dashboard';
 import { AnalyticsPage } from '@/features/analytics';
 import { HeatmapPage } from '@/features/heatmap';
-import { RiskPage } from '@/features/risk';
+// import { RiskPage } from '@/features/risk';
 import { NetworkPage } from '@/features/network';
 import { CrimeDataPage } from '@/features/crime-data';
 import { AlertsPage } from '@/features/alerts';
@@ -69,7 +69,7 @@ function App() {
           <Route path="/criminals/:criminalId" element={<CriminalProfilePage />} />
           <Route path="/analytics" element={<AnalyticsPage />} />
           <Route path="/heatmap" element={<HeatmapPage />} />
-          <Route path="/risk" element={<RiskPage />} />
+          {/* <Route path="/risk" element={<RiskPage />} /> */}
           <Route path="/network" element={<NetworkPage />} />
           <Route path="/alerts" element={<AlertsPage />} />
           <Route path="/efir" element={<EfirPage />} />

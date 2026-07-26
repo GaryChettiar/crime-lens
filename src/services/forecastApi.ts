@@ -10,11 +10,13 @@ type ForecastQueryParams = {
   as_of?: string;
   district_id?: string;
   station_id?: string;
+  districtId?: string;
+  stationId?: string;
 };
 
 const buildForecastUrl = (endpoint: string, params?: ForecastQueryParams | void) => {
-  const districtId = params?.district_id;
-  const stationId = params?.station_id;
+  const districtId = params?.district_id ?? params?.districtId;
+  const stationId = params?.station_id ?? params?.stationId;
 
   if (districtId && stationId) {
     return `/api/forecast/district/${encodeURIComponent(districtId)}/station/${encodeURIComponent(stationId)}${endpoint}`;
@@ -133,14 +135,21 @@ export const forecastApi = createApi({
       PredictedIncidentsResponse,
       ForecastQueryParams | void
     >({
-      query: (params) => ({
-        url: buildForecastUrl('/predicted-incidents', params),
-        params: {
-          ...(params?.start_date ? { start_date: params.start_date } : {}),
-          ...(params?.end_date ? { end_date: params.end_date } : {}),
-          ...(params?.as_of ? { as_of: params.as_of } : {}),
-        },
-      }),
+      query: (params) => {
+        const districtId = params?.district_id ?? params?.districtId;
+        const stationId = params?.station_id ?? params?.stationId;
+
+        return {
+          url: buildForecastUrl('/predicted-incidents', params),
+          params: {
+            ...(params?.start_date ? { start_date: params.start_date } : {}),
+            ...(params?.end_date ? { end_date: params.end_date } : {}),
+            ...(params?.as_of ? { as_of: params.as_of } : {}),
+            ...(districtId ? { district_id: districtId, districtId } : {}),
+            ...(stationId ? { station_id: stationId, stationId } : {}),
+          },
+        };
+      },
       providesTags: ['Forecast'],
     }),
 
@@ -148,14 +157,21 @@ export const forecastApi = createApi({
       HighRiskDistrictsResponse,
       ForecastQueryParams | void
     >({
-      query: (params) => ({
-        url: buildForecastUrl('/high-risk-districts', params),
-        params: {
-          ...(params?.start_date ? { start_date: params.start_date } : {}),
-          ...(params?.end_date ? { end_date: params.end_date } : {}),
-          ...(params?.as_of ? { as_of: params.as_of } : {}),
-        },
-      }),
+      query: (params) => {
+        const districtId = params?.district_id ?? params?.districtId;
+        const stationId = params?.station_id ?? params?.stationId;
+
+        return {
+          url: buildForecastUrl('/high-risk-districts', params),
+          params: {
+            ...(params?.start_date ? { start_date: params.start_date } : {}),
+            ...(params?.end_date ? { end_date: params.end_date } : {}),
+            ...(params?.as_of ? { as_of: params.as_of } : {}),
+            ...(districtId ? { district_id: districtId, districtId } : {}),
+            ...(stationId ? { station_id: stationId, stationId } : {}),
+          },
+        };
+      },
       providesTags: ['Forecast'],
     }),
 
@@ -163,14 +179,21 @@ export const forecastApi = createApi({
       CrimeTrendResponse,
       ForecastQueryParams | void
     >({
-      query: (params) => ({
-        url: buildForecastUrl('/crime-trend', params),
-        params: {
-          ...(params?.start_date ? { start_date: params.start_date } : {}),
-          ...(params?.end_date ? { end_date: params.end_date } : {}),
-          ...(params?.as_of ? { as_of: params.as_of } : {}),
-        },
-      }),
+      query: (params) => {
+        const districtId = params?.district_id ?? params?.districtId;
+        const stationId = params?.station_id ?? params?.stationId;
+
+        return {
+          url: buildForecastUrl('/crime-trend', params),
+          params: {
+            ...(params?.start_date ? { start_date: params.start_date } : {}),
+            ...(params?.end_date ? { end_date: params.end_date } : {}),
+            ...(params?.as_of ? { as_of: params.as_of } : {}),
+            ...(districtId ? { district_id: districtId, districtId } : {}),
+            ...(stationId ? { station_id: stationId, stationId } : {}),
+          },
+        };
+      },
       providesTags: ['Forecast'],
     }),
 

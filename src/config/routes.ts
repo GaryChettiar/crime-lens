@@ -30,12 +30,6 @@ export const ROUTES: RouteConfig[] = [
     requiredPermission: 'view_dashboard',
   },
   {
-    path: '/analytics',
-    title: 'Analytics',
-    showFilterBar: true,
-    requiredPermission: 'view_analytics',
-  },
-  {
     path: '/heatmap',
     title: 'Heatmap',
     showFilterBar: true,
@@ -242,11 +236,8 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Overview',
     path: '/dashboard',
-    activePaths: ['/dashboard', '/analytics'],
-    items: [
-      { label: 'Dashboard', path: '/dashboard', icon: 'dashboard', requiredPermission: 'view_dashboard' },
-      { label: 'Analytics', path: '/analytics', icon: 'analytics', requiredPermission: 'view_analytics' },
-    ],
+    activePaths: ['/dashboard', ],
+    requiredPermission: 'view_dashboard',
   },
   {
     label: 'Entities',
@@ -268,13 +259,9 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Forecast',
     path: '/forecast',
-    activePaths: ['/forecast', '/risk', '/alerts'],
+    activePaths: ['/forecast',],
     requiredPermission: 'view_forecast',
-    items: [
-      { label: 'Crime Forecast', path: '/forecast', icon: 'forecast', requiredPermission: 'view_forecast' },
-      { label: 'Risk Assessment', path: '/risk', icon: 'risk', requiredPermission: 'view_analytics' },
-      { label: 'Alerts', path: '/alerts', icon: 'alerts', requiredPermission: 'view_alerts' },
-    ],
+    
   },
   {
     label: 'FIR',

@@ -155,7 +155,7 @@ export function CrimeDetailWorkspace() {
                     {statusLabel}
                   </span>
                 </div>
-                <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+                {/* <div className="flex items-center gap-3 mt-1.5 flex-wrap">
                   <span className="text-xs text-muted-foreground font-mono">{crimeData.crimeNumber}</span>
                   <span className="text-muted-foreground/30 text-xs">·</span>
                   <span className="text-xs text-muted-foreground">{crimeData.crimeCategory}</span>
@@ -173,7 +173,7 @@ export function CrimeDetailWorkspace() {
                       </span>
                     </>
                   )}
-                </div>
+                </div> */}
               </div>
             </div>
           </div>

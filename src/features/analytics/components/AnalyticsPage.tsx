@@ -20,33 +20,21 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { useAppSelector } from "@/store/hooks";
-import { useAnalyticsFilters } from "@/hooks/useAnalyticsFilters";
-import usePermissions from '@/hooks/usePermissions';
 import {
   TrendingUp,
   TrendingDown,
   Minus,
   AlertTriangle,
   Brain,
-  BarChart3,
   Map,
   Search,
   Download,
   Flame,
   Zap,
   Eye,
-  ShieldAlert,
-  ArrowUpRight,
-  ArrowDownRight,
   Activity,
   Target,
 } from "lucide-react";
-import {
-  useGetCrimeCountWithPreviousYearQuery,
-  useGetCrimeGrowthQuery,
-  useGetDistrictCrimeStatsQuery,
-  useLazyGetCategoryVolumeRankingQuery,
-} from "@/services/dashboardApi";
 // ─── Karnataka Mock Data ───────────────────────────────────────────────────
 
 const KARNATAKA_DISTRICTS = [
@@ -339,93 +327,6 @@ const INCIDENTS = [
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
-function KpiCard({
-  label,
-  value,
-  subtext,
-  delta,
-  deltaDir,
-  icon: IconComp,
-  accent = false,
-}: {
-  label: string;
-  value: string | number;
-  subtext?: string;
-  delta?: string;
-  deltaDir?: "up" | "down" | "neutral";
-  icon: React.ElementType;
-  accent?: boolean;
-}) {
-  const DeltaIcon =
-    deltaDir === "up"
-      ? ArrowUpRight
-      : deltaDir === "down"
-        ? ArrowDownRight
-        : Minus;
-  const deltaColor =
-    deltaDir === "up"
-      ? "text-danger"
-      : deltaDir === "down"
-        ? "text-success"
-        : "text-muted-foreground";
-
-  return (
-    <Card
-      className={cn(
-        "border-border bg-card",
-        accent && "border-danger/40 bg-danger/5",
-      )}
-    >
-      <CardContent className="px-2 flex flex-col ">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-            {label}
-          </span>
-
-          <div
-            className={cn(
-              "size-8 rounded-md flex items-center justify-center",
-              accent ? "bg-danger/15" : "bg-primary/10",
-            )}
-          >
-            <IconComp
-              className={cn(
-                "size-3.5",
-                accent ? "text-danger" : "text-primary",
-              )}
-            />
-          </div>
-        </div>
-
-        {/* Value + Delta */}
-        <div className="flex items-end gap-2">
-          <span className="text-4xl font-bold font-data leading-none text-foreground">
-            {value}
-          </span>
-
-          {delta && (
-            <div
-              className={cn(
-                "flex items-center gap-0.5 text-[11px] font-bold pb-1",
-                deltaColor,
-              )}
-            >
-              <DeltaIcon className="size-3" />
-              <span>{delta}</span>
-            </div>
-          )}
-        </div>
-
-        {/* Subtext */}
-        {subtext && (
-          <span className="text-[10px] text-muted-foreground">{subtext}</span>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex items-center gap-2.5">
@@ -500,88 +401,8 @@ const CUSTOM_TOOLTIP_STYLE = {
 
 export function AnalyticsPage() {
   const globalFilters = useAppSelector((state) => state.globalFilters);
-  const { districtId, stationId } = useAnalyticsFilters();
   const [search, setSearch] = React.useState("");
-  const { hasPermission } = usePermissions();
-  // --- dashboardApi wiring -------------------------------------------------
 
-  // Map global filters -> dashboardApi filter shape (single-value fields only;
-  // multi-select crimeTypes/severities aren't supported by these endpoints).
-  const apiFilters = React.useMemo(
-    () => ({
-      districtId: districtId || undefined,
-      stationId: stationId || undefined,
-      categoryId: globalFilters.crimeTypes[0] || undefined,
-      fromDate: globalFilters.dateRange.start || undefined,
-      toDate: globalFilters.dateRange.end || undefined,
-    }),
-    [globalFilters, districtId, stationId],
-  );
-
-  // Crime growth requires fromDate/toDate — default to a trailing 30-day
-  // window when the user hasn't picked an explicit range.
-  const growthFilters = React.useMemo(() => {
-    const toDate =
-      globalFilters.dateRange.end || new Date().toISOString().slice(0, 10);
-    const defaultFrom = new Date();
-    defaultFrom.setDate(defaultFrom.getDate() - 30);
-    const fromDate =
-      globalFilters.dateRange.start || defaultFrom.toISOString().slice(0, 10);
-
-    return {
-      districtId: districtId || undefined,
-      stationId: stationId || undefined,
-      categoryId: globalFilters.crimeTypes[0] || undefined,
-      fromDate,
-      toDate,
-    };
-  }, [globalFilters, districtId, stationId]);
-
-  const { data: yoyCounts, isLoading: isLoadingTotal } =
-    useGetCrimeCountWithPreviousYearQuery(apiFilters);
-
-  const { data: crimeGrowth, isLoading: isLoadingGrowth } =
-    useGetCrimeGrowthQuery(growthFilters);
-
-  const [fetchCategoryVolumes, {
-    data: categoryVolumes = [],
-    isLoading: isLoadingCategoryVolumes,
-  }] = useLazyGetCategoryVolumeRankingQuery();
-
-  React.useEffect(() => {
-    // Trigger explicitly after the page commits so the category-volume request
-    // is always issued, including after a hot reload or cached prior query.
-    fetchCategoryVolumes(growthFilters, false);
-  }, [fetchCategoryVolumes, growthFilters]);
-  // Keep the page resilient while the API response is being normalized or if
-  // an older backend deployment returns a non-array payload.
-  const categoryVolumeItems = Array.isArray(categoryVolumes)
-    ? categoryVolumes
-    : [];
-
-  const { data: districtStats = [], isLoading: isLoadingDistrictStats } =
-    useGetDistrictCrimeStatsQuery();
-
-  // "High risk" = crimeCount above the statewide average across districts
-  // returned by the API (no riskScore field exists on DistrictCrimeStat,
-  // so this is a stand-in heuristic — swap in a real threshold if/when
-  // the backend exposes one).
-  const highRiskDistrictsCount = React.useMemo(() => {
-    if (districtStats.length === 0) return 0;
-    const avg =
-      districtStats.reduce((sum, d) => sum + d.crimeCount, 0) /
-      districtStats.length;
-    return districtStats.filter((d) => d.crimeCount > avg).length;
-  }, [districtStats]);
-
-  const totalDeltaPct = React.useMemo(() => {
-    if (!yoyCounts || !yoyCounts.previousYearCount) return 0;
-    return (
-      ((yoyCounts.currentPeriodCount - yoyCounts.previousYearCount) /
-        yoyCounts.previousYearCount) *
-      100
-    );
-  }, [yoyCounts]);
   const filteredIncidents = INCIDENTS.filter((inc) => {
     // 1. Global District Filter
     if (
@@ -625,148 +446,16 @@ export function AnalyticsPage() {
     return true;
   });
 
-  const maxCategoryCount = Math.max(
-    1,
-    ...categoryVolumeItems.map((category) => category.count),
-  );
-
   return (
     <DashboardLayout title="Crime Intelligence Analytics">
       <div className=" pb-16 px-1">
         {/* ── 1. Page Header ── */}
-
-        {/* ── 2. KPI Intelligence Row ── */}
-        <div>
-          {/* <SectionLabel>KPI Intelligence Row</SectionLabel> */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mt-3">
-            <KpiCard
-              label="Total Crimes Analyzed"
-              value={
-                isLoadingTotal
-                  ? "—"
-                  : (yoyCounts?.currentPeriodCount ?? 0).toLocaleString()
-              }
-              delta={
-                isLoadingTotal
-                  ? undefined
-                  : `${totalDeltaPct >= 0 ? "+" : ""}${totalDeltaPct.toFixed(1)}%`
-              }
-              deltaDir={
-                totalDeltaPct > 0
-                  ? "up"
-                  : totalDeltaPct < 0
-                    ? "down"
-                    : "neutral"
-              }
-              subtext="vs same period last year"
-              icon={BarChart3}
-            />
-            <KpiCard
-              label="Crime Growth"
-              value={
-                isLoadingGrowth || !crimeGrowth
-                  ? "—"
-                  : `${crimeGrowth.growthPercentage >= 0 ? "+" : ""}${crimeGrowth.growthPercentage.toFixed(1)}%`
-              }
-              delta="Period-over-period"
-              deltaDir={
-                !crimeGrowth
-                  ? "neutral"
-                  : crimeGrowth.growthPercentage > 0
-                    ? "up"
-                    : "down"
-              }
-              subtext="statewide"
-              icon={TrendingUp}
-              accent
-            />
-            {hasPermission('view_district_filters') && (
-              <KpiCard
-                label="High Risk Districts"
-                value={isLoadingDistrictStats ? "—" : highRiskDistrictsCount}
-                delta={
-                  isLoadingDistrictStats
-                    ? undefined
-                    : `of ${districtStats.length}`
-                }
-                deltaDir="neutral"
-                subtext="crime count above average"
-                icon={ShieldAlert}
-              />
-            )}
-          </div>
-        </div>
 
         {/* ── 4. Crime Category Analysis ── */}
         <div className="mt-5">
           <SectionLabel>Crime Category & Correlation Analysis</SectionLabel>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-3">
-            {/* Category Volume Ranking */}
-            <Card className="border-border bg-card">
-              <CardHeader className="border-b border-border">
-                <CardTitle className="text-sm font-bold text-foreground flex items-center gap-1.5">
-                  <BarChart3 className="size-4 text-warning" />
-                  Category Volume Ranking
-                </CardTitle>
-              </CardHeader>
-
-              <CardContent className="p-4 pt-3 space-y-3">
-                {isLoadingCategoryVolumes ? (
-                  <div className="py-8 text-center text-xs text-muted-foreground">
-                    Loading category volumes…
-                  </div>
-                ) : categoryVolumeItems.length === 0 ? (
-                  <div className="py-8 text-center text-xs text-muted-foreground">
-                    No category data for the selected period.
-                  </div>
-                ) : (
-                  categoryVolumeItems.map((cat, index) => (
-                    <div key={cat.categoryId} className="space-y-1">
-                      <div className="flex items-center justify-between text-xs">
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold text-foreground">
-                            {cat.categoryName}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center gap-3">
-                          <span className="font-data font-bold text-foreground">
-                            {cat.count.toLocaleString()}
-                          </span>
-
-                          <span
-                            className={cn(
-                              "font-bold text-[10px]",
-                              cat.growthPercentage > 0
-                                ? "text-danger"
-                                : "text-success",
-                            )}
-                          >
-                            {cat.growthPercentage > 0 ? "+" : ""}
-                            {cat.growthPercentage}%
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="h-1.5 bg-muted/30 rounded-full overflow-hidden">
-                        <div
-                          className="h-full rounded-full transition-all duration-700"
-                          style={{
-                            width: `${(cat.count / maxCategoryCount) * 100}%`,
-                            backgroundColor:
-                              CATEGORY_BAR_COLORS[
-                                index % CATEGORY_BAR_COLORS.length
-                              ],
-                          }}
-                        />
-                      </div>
-                    </div>
-                  ))
-                )}
-              </CardContent>
-            </Card>
-
             {/* Heatmap */}
             <Card className="border-border bg-card">
               <CardHeader className="border-b border-border">
