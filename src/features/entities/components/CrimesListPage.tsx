@@ -1055,7 +1055,7 @@ export function CrimesListPage() {
                               try {
                                 const fd = new FormData();
                                 fd.append("image", ev.file!);
-                                const resp = await fetch(MODEL_URL, {
+                                const resp = await fetch(`${MODEL_URL}/footprint`, {
                                   method: "POST",
                                   headers: { "X-Admin-Key": MODEL_ADMIN_KEY },
                                   body: fd,
