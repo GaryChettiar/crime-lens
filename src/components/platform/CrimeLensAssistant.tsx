@@ -1,303 +1,520 @@
 import * as React from 'react';
-import { useAppDispatch } from '@/store/hooks';
-import { useAssistantContext } from '@/hooks/useAssistantContext';
-import { setDistrict, setCrimeTypes, setSeverities } from '@/store/slices/globalFiltersSlice';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/atoms/Badge';
+import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { Sparkles, Send, Bot, User, HelpCircle, X } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
+import { useAssistantContext } from '@/hooks/useAssistantContext';
 import { cn } from '@/lib/utils';
+import { useSendAiChatMessageMutation } from '@/services/aiChatApi';
+import { getAiChatErrorMessage, normalizeAiChatResponse, type NormalizedAiChatResponse } from '@/utils/aiChatParser';
+import { AlertCircle, Bot, Loader2, RefreshCw, Send, Sparkles, User, X } from 'lucide-react';
 
-interface Message {
+interface ChatMessage {
   id: string;
-  sender: 'user' | 'assistant';
-  text: string;
-  timestamp: string;
+  role: 'user' | 'assistant';
+  status: 'sending' | 'success' | 'error';
+  content: string;
+  aiType?: 'casual' | 'business' | 'error';
+  businessData?: {
+    district?: string;
+    districtId?: string;
+    dateRange?: {
+      from?: string;
+      to?: string;
+    };
+    crimeCount?: number;
+    crimes?: Array<{
+      id: string;
+      crimeNumber: string;
+      title: string;
+      status: string;
+      occurredAt: string;
+    }>;
+  };
+  retryMessage?: string;
+  createdAt: Date;
 }
 
-const CONTEXT_GREETINGS = {
-  dashboard: "Welcome to the Tactical Command. I can assist you with district overview analytics, response queue backlogs, and recent incidents.",
-  analytics: "I have loaded the Modularity Communities and Degree Centrality vectors. Ask me to compare district risks, analyze cybercrime spikes, or summarize anomalies.",
-  heatmap: "Geospatial playback is active. I can adjust district boundaries on the canvas or retrieve public festival crowd threat correlations for you.",
-  network: "The Syndicate Association Graph is online. Ask me to identify degree centrality hubs, highlight active smuggling networks, or inspect association paths.",
-  general: "Hello, I am the CrimeLens Predictive Assistant. How can I help you navigate the intelligence dashboard?"
-};
-
-const SUGGESTIONS = {
+const SUGGESTIONS: Record<string, Array<{ label: string; query: string }>> = {
   dashboard: [
-    { label: "Show summary for Bangalore", query: "Show summary for Bangalore Urban", action: { type: 'setDistrict', value: 'Bangalore' } },
-    { label: "List high risk areas", query: "List high risk districts", action: { type: 'setDistrict', value: null } },
+    { label: 'Show crimes in Bangalore Urban', query: 'Show me crimes for Bangalore Urban from 2025-2026.' },
+    { label: 'Which district had the most crimes?', query: 'Which district had the most crimes in 2025?' },
   ],
   analytics: [
-    { label: "Show cybercrime trends", query: "Analyze cybercrime spikes", action: { type: 'setCrimeType', value: 'cyber' } },
-    { label: "Why did risk increase in Mysuru?", query: "Why did risk increase in Mysuru?", action: { type: 'setDistrict', value: 'Mysore' } },
+    { label: 'Show crime trends', query: 'Show me crime trends for Bengaluru Urban in 2025.' },
+    { label: 'Compare districts', query: 'Compare Bangalore Urban and Mysuru crime trends for 2025.' },
   ],
   heatmap: [
-    { label: "Show hotspots in Mysuru", query: "Show hotspots in Mysuru", action: { type: 'setDistrict', value: 'Mysore' } },
-    { label: "Compare Bangalore and Belagavi", query: "Compare Bangalore and Belagavi", action: { type: 'compare', value: ['Bangalore', 'Belgaum'] } },
+    { label: 'Show hotspots', query: 'Show hotspot crime patterns in Bengaluru Urban.' },
+    { label: 'High theft areas', query: 'Show me theft cases in Bangalore Urban.' },
   ],
   network: [
-    { label: "Show Belagavi smuggling ring", query: "Show Belagavi Smuggling Network details", action: { type: 'setDistrict', value: 'Belgaum' } },
-    { label: "Highlight most connected suspects", query: "Identify degree centrality hubs", action: { type: 'setSeverity', value: 'critical' } },
-  ]
+    { label: 'Find suspicious patterns', query: 'Find suspicious crime patterns in Bengaluru Urban.' },
+    { label: 'Route analysis', query: 'Analyze crime routes in Belagavi for 2025.' },
+  ],
+  general: [
+    { label: 'Show crimes in Bangalore Urban', query: 'Show me crimes for Bangalore Urban from 2025-2026.' },
+    { label: 'Show theft cases', query: 'Show me theft cases in Bangalore Urban.' },
+  ],
 };
 
-const MOCK_ANSWERS: Record<string, string> = {
-  "show summary for bangalore urban": "Bengaluru Urban displays an active risk score of 88/100, showing a 14.2% MoM escalation in crimes (primarily cyber-fraud and highway hijackings). Dispatched 12 patrol grids to high-footfall nodes. I've updated your global view to Bengaluru Urban.",
-  "list high risk districts": "Active alerts indicate 5 High-Risk Districts in Karnataka: Bengaluru Urban (88/100), Belagavi (74/100), Kalaburagi (70/100), Mysuru (66/100), and Ballari (62/100). The most significant growth is digital cash transfer fraud in Bengaluru.",
-  "analyze cybercrime spikes": "Cyber Crime has spiked 31.7% over 14 days, centered heavily in Bengaluru Urban and Hubballi. Degree centrality hubs identify shared CDR burner line +91 9845-00129 connecting three suspects. I've set your crime filter to Cyber Crime.",
-  "why did risk increase in mysuru?": "Mysuru's risk score rose to 66% due to spatial clustering of nighttime thefts (22:00-02:00) coinciding with prep-work for local public events. Pre-emptive patrol grids have been deployed. I've set your district filter to Mysuru.",
-  "show hotspots in mysuru": "Showing hotspots in Mysuru. Active sectors: Nazarbad, Kuvempunagar, and Vijayanagar. Historical theft risk is +28% due to high transit flow. I've centered your map view on Mysuru.",
-  "compare bangalore and belagavi": "Comparing Bengaluru Urban (Risk: 88, 342 cases) vs Belagavi (Risk: 74, 198 cases). Bengaluru has 3x higher cybercrime density, while Belagavi shows abnormal property and highway robberies along the NH-48 corridor.",
-  "show belagavi smuggling network details": "The Belagavi Smuggling Network contains 12 active nodes. Cross-border correlation models suggest contraband routes originating from Maharashtra. I've set your district context to Belagavi to inspect the active nodes.",
-  "identify degree centrality hubs": "The highest degree centrality hubs are Suspect Sunil Gowda (12 links), CDR phone +91 9845-00129 (15 links), and RTO vehicle KA-03-MG-4581 (9 links). Sunil Gowda acts as the key organizer. I've highlighted critical association paths."
-};
+function formatDisplayDate(dateText?: string): string {
+  if (!dateText) return '—';
+  const value = new Date(dateText);
+  if (Number.isNaN(value.getTime())) return dateText;
+  return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(value);
+}
+
+function formatDisplayDateTime(dateText?: string): string {
+  if (!dateText) return '—';
+  const value = new Date(dateText);
+  if (Number.isNaN(value.getTime())) return dateText;
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(value);
+}
+
+function formatDateRange(from?: string, to?: string): string {
+  if (!from && !to) return '—';
+  if (!from) return `Until ${formatDisplayDate(to)}`;
+  if (!to) return `From ${formatDisplayDate(from)}`;
+  return `${formatDisplayDate(from)} – ${formatDisplayDate(to)}`;
+}
+
+function getLoadingCopy(index: number): string {
+  const stages = ['Thinking...', 'Analyzing...', 'Preparing your answer...'];
+  return stages[index % stages.length];
+}
 
 export function CrimeLensAssistant() {
-  const dispatch = useAppDispatch();
   const context = useAssistantContext();
+  const [sendAiChatMessage] = useSendAiChatMessageMutation();
 
   const [isOpen, setIsOpen] = React.useState(false);
-  const [messages, setMessages] = React.useState<Message[]>([]);
+  const [messages, setMessages] = React.useState<ChatMessage[]>([]);
   const [inputText, setInputText] = React.useState('');
-  const [isTyping, setIsTyping] = React.useState(false);
+  const [isLoading, setIsLoading] = React.useState(false);
+  const [loadingPhase, setLoadingPhase] = React.useState(0);
+  const messagesEndRef = React.useRef<HTMLDivElement | null>(null);
 
-  const messagesEndRef = React.useRef<HTMLDivElement>(null);
-
-  // Initialize with greeting based on context
   React.useEffect(() => {
-    setMessages([
-      {
-        id: 'welcome',
-        sender: 'assistant',
-        text: CONTEXT_GREETINGS[context] || CONTEXT_GREETINGS.general,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    const timer = window.setInterval(() => {
+      if (isLoading) {
+        setLoadingPhase((value) => value + 1);
       }
-    ]);
-  }, [context]);
+    }, 1800);
 
-  // Scroll to bottom
+    return () => window.clearInterval(timer);
+  }, [isLoading]);
+
   React.useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isTyping]);
+  }, [messages, isLoading]);
 
-  const executeAction = (action: { type: string; value: any }) => {
-    if (action.type === 'setDistrict') {
-      dispatch(setDistrict(action.value));
-    } else if (action.type === 'setCrimeType') {
-      dispatch(setCrimeTypes(action.value ? [action.value] : []));
-    } else if (action.type === 'setSeverity') {
-      dispatch(setSeverities(action.value ? [action.value] : []));
-    } else if (action.type === 'compare') {
-      dispatch(setDistrict(action.value[0])); // Set first as focus
-    }
-  };
+  const replaceAssistantMessage = React.useCallback((assistantId: string, updater: (message: ChatMessage) => ChatMessage) => {
+    setMessages((prev) => prev.map((msg) => (msg.id === assistantId ? updater(msg) : msg)));
+  }, []);
 
-  const handleSendMessage = (text: string, action?: { type: string; value: any }) => {
-    if (!text.trim()) return;
+  const sendMessage = React.useCallback(
+    async (trimmedText: string, assistantId?: string, skipUserInsert = false) => {
+      if (!trimmedText.trim() || isLoading) return;
 
-    const userMsg: Message = {
-      id: `msg-${Date.now()}`,
-      sender: 'user',
-      text,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    };
+      const trimmed = trimmedText.trim();
 
-    setMessages((prev) => [...prev, userMsg]);
-    setInputText('');
-    setIsTyping(true);
+      if (!skipUserInsert) {
+        const userMessage: ChatMessage = {
+          id: `user-${Date.now()}`,
+          role: 'user',
+          status: 'success',
+          content: trimmed,
+          createdAt: new Date(),
+        };
 
-    if (action) {
-      executeAction(action);
-    }
+        const assistantMessageId = `assistant-${Date.now() + 1}`;
 
-    // Simulate AI response
-    setTimeout(() => {
-      const queryKey = text.toLowerCase().trim();
-      let answerText = "I have processed your query. I am reviewing the historical CAD databases and geospatial logs to compile the predictive risk forecasts for this request.";
+        setMessages((prev) => [
+          ...prev,
+          userMessage,
+          {
+            id: assistantMessageId,
+            role: 'assistant',
+            status: 'sending',
+            content: getLoadingCopy(0),
+            createdAt: new Date(),
+          },
+        ]);
 
-      // Check for exact mock match
-      for (const [key, ans] of Object.entries(MOCK_ANSWERS)) {
-        if (queryKey.includes(key) || key.includes(queryKey)) {
-          answerText = ans;
-          
-          // Perform automatic filter dispatches if the user typed it in
-          if (key.includes('bangalore')) dispatch(setDistrict('Bangalore'));
-          if (key.includes('mysuru')) dispatch(setDistrict('Mysore'));
-          if (key.includes('belagavi')) dispatch(setDistrict('Belgaum'));
-          if (key.includes('cybercrime')) dispatch(setCrimeTypes(['cyber']));
-          break;
+        setIsLoading(true);
+        setLoadingPhase(0);
+
+        try {
+          const apiResponse = await sendAiChatMessage({ message: trimmed }).unwrap();
+          const normalized = normalizeAiChatResponse(apiResponse) as NormalizedAiChatResponse;
+
+          replaceAssistantMessage(assistantMessageId, (message) => ({
+            ...message,
+            status: 'success',
+            aiType: normalized.type,
+            content:
+              normalized.type === 'casual'
+                ? normalized.reply ?? 'Hey! I’m CrimeLens AI. How can I help?'
+                : normalized.summary ?? 'Here are the latest CrimeLens results.',
+            businessData:
+              normalized.type === 'business'
+                ? {
+                    district: normalized.district,
+                    districtId: normalized.districtId,
+                    dateRange: normalized.dateRange,
+                    crimeCount: normalized.crimeCount,
+                    crimes: normalized.crimes,
+                  }
+                : undefined,
+            createdAt: new Date(),
+          }));
+        } catch (error) {
+          const messageText = getAiChatErrorMessage(error);
+          replaceAssistantMessage(assistantMessageId, (message) => ({
+            ...message,
+            status: 'error',
+            aiType: 'error',
+            content: messageText,
+            retryMessage: trimmed,
+            createdAt: new Date(),
+          }));
+        } finally {
+          setIsLoading(false);
         }
+
+        return;
       }
 
-      const assistantMsg: Message = {
-        id: `msg-${Date.now() + 1}`,
-        sender: 'assistant',
-        text: answerText,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      };
+      const retryAssistantId = assistantId ?? `assistant-${Date.now()}`;
+      replaceAssistantMessage(retryAssistantId, (message) => ({
+        ...message,
+        status: 'sending',
+        content: getLoadingCopy(0),
+        aiType: 'error',
+        retryMessage: trimmed,
+        createdAt: new Date(),
+      }));
 
-      setMessages((prev) => [...prev, assistantMsg]);
-      setIsTyping(false);
-    }, 1200);
+      setIsLoading(true);
+      setLoadingPhase(0);
+
+      try {
+        const apiResponse = await sendAiChatMessage({ message: trimmed }).unwrap();
+        const normalized = normalizeAiChatResponse(apiResponse) as NormalizedAiChatResponse;
+
+        replaceAssistantMessage(retryAssistantId, (message) => ({
+          ...message,
+          status: 'success',
+          aiType: normalized.type,
+          content:
+            normalized.type === 'casual'
+              ? normalized.reply ?? 'Hey! I’m CrimeLens AI. How can I help?'
+              : normalized.summary ?? 'Here are the latest CrimeLens results.',
+          businessData:
+            normalized.type === 'business'
+              ? {
+                  district: normalized.district,
+                  districtId: normalized.districtId,
+                  dateRange: normalized.dateRange,
+                  crimeCount: normalized.crimeCount,
+                  crimes: normalized.crimes,
+                }
+              : undefined,
+          retryMessage: undefined,
+          createdAt: new Date(),
+        }));
+      } catch (error) {
+        const messageText = getAiChatErrorMessage(error);
+        replaceAssistantMessage(retryAssistantId, (message) => ({
+          ...message,
+          status: 'error',
+          aiType: 'error',
+          content: messageText,
+          retryMessage: trimmed,
+          createdAt: new Date(),
+        }));
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [isLoading, replaceAssistantMessage],
+  );
+
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!inputText.trim() || isLoading) return;
+    const nextPrompt = inputText.trim();
+    setInputText('');
+    void sendMessage(nextPrompt, undefined, false);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!inputText.trim()) return;
-    handleSendMessage(inputText);
+  const handleRetry = (assistantId: string, retryText: string) => {
+    if (isLoading) return;
+    void sendMessage(retryText, assistantId, true);
   };
 
-  const activeSuggestions = SUGGESTIONS[context as keyof typeof SUGGESTIONS] || [];
+  const renderAssistantBody = (message: ChatMessage) => {
+    if (message.status === 'sending') {
+      return (
+        <div className="flex items-center gap-2.5 rounded-xl border border-border bg-card px-3 py-2 text-sm text-muted-foreground shadow-sm">
+          <div className="flex items-center gap-1">
+            {[0, 1, 2].map((dot) => (
+              <span
+                key={dot}
+                className="h-1.5 w-1.5 rounded-full bg-muted-foreground/80 animate-pulse"
+                style={{ animationDelay: `${dot * 140}ms` }}
+              />
+            ))}
+          </div>
+          <span>{getLoadingCopy(loadingPhase)}</span>
+        </div>
+      );
+    }
+
+    if (message.status === 'error') {
+      return (
+        <div className="space-y-3">
+          <div className="flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-foreground">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+            <span>{message.content}</span>
+          </div>
+          {message.retryMessage && (
+            <Button type="button" variant="outline" size="sm" className="gap-2" onClick={() => handleRetry(message.id, message.retryMessage!)} aria-label="Retry AI request">
+              <RefreshCw className="h-3.5 w-3.5" />
+              Retry
+            </Button>
+          )}
+        </div>
+      );
+    }
+
+    if (message.aiType === 'casual') {
+      return <p className="whitespace-pre-wrap text-sm leading-6 text-foreground">{message.content}</p>;
+    }
+
+    if (message.aiType === 'business' && message.businessData) {
+      const { district, dateRange, crimeCount, crimes = [] } = message.businessData;
+
+      return (
+        <div className="space-y-4 text-sm text-foreground">
+          <p className="whitespace-pre-wrap leading-6">{message.content}</p>
+
+          <div className="grid grid-cols-2 gap-2">
+            <div className="rounded-lg border border-border bg-muted/30 p-3">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Crimes</div>
+              <div className="mt-2 text-2xl font-semibold tabular-nums">{crimeCount ?? crimes.length}</div>
+            </div>
+            <div className="rounded-lg border border-border bg-muted/30 p-3">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">District</div>
+              <div className="mt-2 text-sm font-semibold leading-5">{district || 'Selected district'}</div>
+            </div>
+          </div>
+
+          {dateRange && (
+            <div className="rounded-lg border border-border bg-background px-3 py-2 text-xs text-muted-foreground">
+              {formatDateRange(dateRange.from, dateRange.to)}
+            </div>
+          )}
+
+          {crimeCount === 0 || crimes.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-border bg-muted/20 p-4 text-sm text-muted-foreground">
+              <div className="font-semibold text-foreground">No crimes found</div>
+              <div className="mt-1">No crime records were found for {district || 'the selected district'} during the selected period.</div>
+            </div>
+          ) : (
+            <div className="overflow-hidden rounded-lg border border-border bg-background">
+              <div className="border-b border-border bg-muted/20 px-3 py-2 text-xs font-semibold uppercase tracking-[0.15em] text-muted-foreground">
+                Crime Records
+              </div>
+
+              <div className="max-h-[320px] overflow-auto">
+                <table className="min-w-full text-left text-xs">
+                  <thead className="bg-muted/10 text-muted-foreground">
+                    <tr>
+                      <th className="px-3 py-2 font-medium">Crime #</th>
+                      <th className="px-3 py-2 font-medium">Type</th>
+                      <th className="px-3 py-2 font-medium">Status</th>
+                      <th className="px-3 py-2 font-medium">Occurred</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {crimes.map((crime) => (
+                      <tr key={crime.id} className="border-t border-border align-top">
+                        <td className="px-3 py-2 font-medium text-foreground">{crime.crimeNumber || '—'}</td>
+                        <td className="px-3 py-2 text-muted-foreground">{crime.title || '—'}</td>
+                        <td className="px-3 py-2">
+                          <span className="inline-flex rounded-full border border-border bg-muted/20 px-2 py-0.5 text-[10px] font-medium text-foreground">
+                            {crime.status || 'Unknown'}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 text-muted-foreground">{formatDisplayDateTime(crime.occurredAt)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    return <p className="whitespace-pre-wrap leading-6 text-foreground">{message.content}</p>;
+  };
+
+  const activeSuggestions = SUGGESTIONS[context] ?? SUGGESTIONS.general;
 
   return (
     <>
-      {/* Floating Action Button (FAB) */}
       <button
+        type="button"
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 z-40 p-3.5 bg-primary text-primary-foreground rounded-full shadow-2xl hover:scale-110 active:scale-95 transition-all cursor-pointer group flex items-center justify-center border border-primary-foreground/15"
-        aria-label="Open CrimeLens AI Assistant"
+        className="fixed bottom-6 right-6 z-40 flex items-center gap-2 rounded-full bg-primary px-3.5 py-2.5 text-sm font-medium text-primary-foreground shadow-2xl transition hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+        aria-label="Open CrimeLens AI assistant"
       >
-        <Sparkles className="h-5 w-5 animate-pulse" />
-        <span className="max-w-0 overflow-hidden group-hover:max-w-xs transition-all duration-300 ease-out whitespace-nowrap text-xs font-bold pl-0 group-hover:pl-2">
-          AI Assistant
-        </span>
+        <Sparkles className="h-4 w-4" />
+        <span className="hidden sm:inline">AI Assistant</span>
       </button>
 
-      {/* Slide-out Drawer */}
       <Sheet open={isOpen} onOpenChange={setIsOpen}>
-        <SheetContent
-          side="right"
-          className="w-[380px] sm:w-[440px] border-l border-border bg-slate-950 p-0 flex flex-col h-full z-50"
-          showCloseButton={false}
-        >
-          {/* Header */}
-          <SheetHeader className="border-b border-border/80 p-4 bg-card/40 flex flex-row items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <div className="p-1.5 bg-primary/10 rounded text-primary animate-pulse">
+        <SheetContent side="right" className="w-[92vw]  border-l border-border bg-background p-0" showCloseButton={false}>
+          <SheetHeader className="flex flex-row items-center justify-between gap-2 border-b border-border bg-card/60 px-4 py-3">
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 text-primary">
                 <Bot className="h-4 w-4" />
               </div>
               <div>
-                <SheetTitle className="font-bold text-sm flex items-center gap-1.5 text-foreground leading-none">
-                  CrimeLens Assistant
-                </SheetTitle>
-                <div className="flex items-center gap-1.5 mt-1">
-                  <Badge variant="outline" size="sm" className="bg-slate-900/60 text-[9px] uppercase tracking-wider py-0 font-sans font-bold">
-                    Context: {context}
+                <SheetTitle className="text-sm font-semibold text-foreground">CrimeLens AI</SheetTitle>
+                <div className="mt-1 flex items-center gap-2">
+                  <Badge variant="outline" size="sm" className="h-5 px-1.5 text-[9px] uppercase tracking-[0.18em]">
+                    {context}
                   </Badge>
-                  <span className="size-1 rounded-full bg-success animate-pulse" />
-                  <span className="text-[8px] text-muted-foreground uppercase font-bold">Predictive Model v4</span>
+                  <span className="inline-flex items-center gap-1 text-[9px] uppercase tracking-[0.18em] text-muted-foreground">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                    Live
+                  </span>
                 </div>
               </div>
             </div>
-            <button
-              onClick={() => setIsOpen(false)}
-              className="text-muted-foreground hover:text-foreground p-1 rounded-md cursor-pointer hover:bg-muted/10"
-            >
+
+            <button type="button" onClick={() => setIsOpen(false)} aria-label="Close CrimeLens AI assistant" className="rounded-md p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground">
               <X className="h-4 w-4" />
             </button>
           </SheetHeader>
 
-          {/* Messages list */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            {messages.map((msg) => (
-              <div
-                key={msg.id}
-                className={cn(
-                  "flex gap-2.5 max-w-[85%] animate-in fade-in duration-150",
-                  msg.sender === 'user' ? "ml-auto flex-row-reverse" : "mr-auto"
-                )}
-              >
-                <div
-                  className={cn(
-                    "size-7 rounded-full flex items-center justify-center shrink-0 border",
-                    msg.sender === 'user'
-                      ? "bg-slate-800 border-slate-700 text-slate-100"
-                      : "bg-primary/10 border-primary/20 text-primary"
-                  )}
-                >
-                  {msg.sender === 'user' ? <User className="h-3.5 w-3.5" /> : <Bot className="h-3.5 w-3.5" />}
+          <div className="flex h-[calc(100%-112px)] flex-col">
+            <div className="flex-1 space-y-4 overflow-y-auto p-4">
+              {messages.length === 0 && !isLoading ? (
+                <div className="flex h-full min-h-[240px] flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-muted/20 px-5 py-6 text-center">
+                  <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+                    <Sparkles className="h-5 w-5" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-foreground">CrimeLens AI</h3>
+                  <p className="mt-2 max-w-xs text-sm leading-6 text-muted-foreground">
+                    Ask questions about crime data, districts, stations, and trends.
+                  </p>
+                  <div className="mt-4 w-full space-y-2">
+                    {activeSuggestions.slice(0, 3).map((suggestion) => (
+                      <button
+                        key={suggestion.query}
+                        type="button"
+                        onClick={() => {
+                          setInputText(suggestion.query);
+                          void sendMessage(suggestion.query, undefined, false);
+                        }}
+                        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-left text-sm text-foreground transition hover:bg-muted"
+                      >
+                        {suggestion.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
+              ) : null}
 
-                <div className="space-y-1">
+              {messages.map((message) => (
+                <div key={message.id} className={cn('flex gap-3', message.role === 'user' ? 'justify-end' : 'justify-start')}>
+                  {message.role === 'assistant' && (
+                    <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                      <Bot className="h-3.5 w-3.5" />
+                    </div>
+                  )}
+
                   <div
                     className={cn(
-                      "p-3 rounded-lg text-xs leading-relaxed border shadow-xs",
-                      msg.sender === 'user'
-                        ? "bg-primary text-primary-foreground border-primary/20 rounded-tr-none"
-                        : "bg-card text-foreground border-border rounded-tl-none"
+                      'max-w-[80%] rounded-2xl border px-3.5 py-2.5 shadow-sm',
+                      message.role === 'user' ? 'border-primary/20 bg-primary text-primary-foreground rounded-br-md' : 'border-border bg-card text-foreground rounded-bl-md',
                     )}
                   >
-                    {msg.text}
+                    <div className="mb-1 flex items-center justify-between gap-2 text-[10px] uppercase tracking-[0.16em] text-muted-foreground/80">
+                      <span>{message.role === 'user' ? 'You' : 'CrimeLens AI'}</span>
+                      {message.status === 'success' && <span>{message.createdAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span>}
+                    </div>
+
+                    {renderAssistantBody(message)}
                   </div>
-                  <span className="text-[8px] text-muted-foreground font-semibold block px-1">
-                    {msg.timestamp}
-                  </span>
-                </div>
-              </div>
-            ))}
 
-            {isTyping && (
-              <div className="flex gap-2.5 max-w-[85%] mr-auto items-center animate-pulse">
-                <div className="size-7 rounded-full bg-primary/10 border border-primary/20 text-primary flex items-center justify-center shrink-0">
-                  <Bot className="h-3.5 w-3.5" />
+                  {message.role === 'user' && (
+                    <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-foreground">
+                      <User className="h-3.5 w-3.5" />
+                    </div>
+                  )}
                 </div>
-                <div className="bg-card border border-border text-muted-foreground p-2.5 rounded-lg rounded-tl-none text-[10px] font-semibold flex items-center gap-1.5">
-                  <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground animate-bounce" style={{ animationDelay: '0ms' }} />
-                  <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground animate-bounce" style={{ animationDelay: '150ms' }} />
-                  <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground animate-bounce" style={{ animationDelay: '300ms' }} />
-                  <span>Synthesizing incident logs...</span>
+              ))}
+
+              {isLoading && (
+                <div className="flex gap-3 justify-start">
+                  <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                    <Bot className="h-3.5 w-3.5" />
+                  </div>
+                  <div className="max-w-[80%] rounded-2xl border border-border bg-card px-3.5 py-2.5 shadow-sm rounded-bl-md">
+                    <div className="mb-1 text-[10px] uppercase tracking-[0.16em] text-muted-foreground">CrimeLens AI</div>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      <span>{getLoadingCopy(loadingPhase)}</span>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            )}
-
-            <div ref={messagesEndRef} />
-          </div>
-
-          {/* Quick reply suggestions bar */}
-          {activeSuggestions.length > 0 && (
-            <div className="p-3 border-t border-border/40 bg-muted/5 space-y-1.5">
-              <span className="text-[8px] font-bold text-muted-foreground uppercase tracking-widest block mb-1 flex items-center gap-1">
-                <HelpCircle className="h-3 w-3" />
-                Suggested Context Queries
-              </span>
-              <div className="flex flex-col gap-1.5">
-                {activeSuggestions.map((sug, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => handleSendMessage(sug.query, sug.action)}
-                    className="w-full text-left text-[10px] font-bold text-primary hover:text-foreground hover:bg-primary/10 border border-primary/25 bg-primary/5 rounded px-2.5 py-1.5 transition-all cursor-pointer flex items-center justify-between shrink-0"
-                  >
-                    <span>{sug.label}</span>
-                    <Sparkles className="h-3 w-3 opacity-60" />
-                  </button>
-                ))}
-              </div>
+              )}
             </div>
-          )}
 
-          {/* Footer Input Form */}
-          <div className="p-3 border-t border-border bg-card/30">
-            <form onSubmit={handleSubmit} className="flex items-center gap-2">
-              <Input
-                value={inputText}
-                onChange={(e) => setInputText(e.target.value)}
-                placeholder={`Ask about ${context} variables...`}
-                className="text-xs h-8.5 focus:ring-1 focus:ring-primary"
-                disabled={isTyping}
-                aria-label="Assistant input query"
-              />
-              <Button
-                type="submit"
-                disabled={!inputText.trim() || isTyping}
-                size="icon"
-                className="h-8.5 w-8.5 shrink-0 bg-primary hover:bg-primary/90 text-primary-foreground"
-                aria-label="Send query"
-              >
-                <Send className="h-3.5 w-3.5" />
-              </Button>
-            </form>
+            <div className="border-t border-border bg-card/60 px-3 py-3">
+              <form onSubmit={handleSubmit} className="space-y-2">
+                <Textarea
+                  value={inputText}
+                  onChange={(event) => setInputText(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' && !event.shiftKey) {
+                      event.preventDefault();
+                      if (!inputText.trim() || isLoading) return;
+                      const nextPrompt = inputText.trim();
+                      setInputText('');
+                      void sendMessage(nextPrompt, undefined, false);
+                    }
+                  }}
+                  placeholder="Ask CrimeLens AI..."
+                  aria-label="Ask CrimeLens AI"
+                  className="min-h-[44px] max-h-28 resize-none py-2.5 text-sm"
+                  disabled={isLoading}
+                />
+
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+                    {isLoading ? 'Working...' : 'Ready'}
+                  </span>
+                  <Button type="submit" size="sm" className="gap-2" disabled={!inputText.trim() || isLoading} aria-label="Send message to CrimeLens AI">
+                    <Send className="h-3.5 w-3.5" />
+                    Send
+                  </Button>
+                </div>
+              </form>
+            </div>
           </div>
         </SheetContent>
       </Sheet>
