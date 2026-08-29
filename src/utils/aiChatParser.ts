@@ -133,20 +133,30 @@ export function normalizeAiChatResponse(apiResponse: unknown): NormalizedAiChatR
     ?? getSafeString(resultBlock.summary)
     ?? getSafeString(responseBlock.summary)
     ?? 'Here are the latest CrimeLens results.';
-  const district = getSafeString(responseBlock.district) ?? getSafeString(toolResult.district) ?? getSafeString(classification.districtName) ?? 'Selected district';
+  const district = getSafeString(responseBlock.district) ?? getSafeString(toolResult.district) ?? getSafeString(classification.districtName) ?? 'All districts';
   const districtId = getSafeString(toolResult.districtId) ?? getSafeString(classification.districtId);
   const dateRange = normalizeDateRange(responseBlock.dateRange) ?? normalizeDateRange(toolResult.dateRange) ?? undefined;
+
+  const pagination = isRecord(toolResult.pagination)
+    ? toolResult.pagination
+    : (isRecord(resultBlock.pagination) ? resultBlock.pagination : null);
 
   const rawCrimes = Array.isArray(responseBlock.crimes)
     ? responseBlock.crimes
     : Array.isArray(toolResult.crimes)
       ? toolResult.crimes
-      : [];
+      : Array.isArray(resultBlock.data)
+        ? resultBlock.data
+        : Array.isArray(data.data)
+          ? data.data
+          : [];
 
-  const crimeCount = getSafeNumber(responseBlock.crimeCount) ?? getSafeNumber(toolResult.totalRecords) ?? rawCrimes.length;
+  const crimeCount = getSafeNumber(responseBlock.crimeCount)
+    ?? getSafeNumber(resultBlock.totalRecords)
+    ?? getSafeNumber(pagination?.totalRecords)
+    ?? getSafeNumber(toolResult.totalRecords)
+    ?? rawCrimes.length;
   const crimes = normalizeCrimes(rawCrimes);
-
-  const pagination = isRecord(toolResult.pagination) ? toolResult.pagination : null;
 
   return {
     type: 'business',

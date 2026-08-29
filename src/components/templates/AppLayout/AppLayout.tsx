@@ -40,25 +40,24 @@ export function AppLayout({ children, className }: AppLayoutProps) {
       {/* Main Content Area */}
       <main
         className={cn(
-          'flex-1 overflow-y-auto py-2',
+          'flex-1 min-h-0 py-2',
           className,
         )}
         role="main"
         id="main-content"
       >
-        <div className="mx-3 flex h-full flex-row gap-3">
-          <div className="min-w-0 flex-1">{children}</div>
-          {assistantOpen && (
-            <div className="w-[420px] shrink-0 overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-              <CrimeLensAssistant inline />
-            </div>
-          )}
+        <div className="mx-3 flex h-full min-h-0 flex-row gap-3">
+          <div className="min-w-0 flex-1 min-h-0 overflow-y-auto">{children}</div>
+          <div
+            className={cn(
+              'shrink-0 transition-all duration-200',
+              assistantOpen ? 'w-[420px] opacity-100' : 'w-0 overflow-hidden opacity-0',
+            )}
+          >
+            <CrimeLensAssistant />
+          </div>
         </div>
       </main>
-
-      {!assistantOpen && (
-        <CrimeLensAssistant />
-      )}
     </div>
   );
 }
