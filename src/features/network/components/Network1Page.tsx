@@ -5,6 +5,8 @@ import ReactFlow, {
   Background,
   Controls,
   ReactFlowProvider,
+  useEdgesState,
+  useNodesState,
   useReactFlow,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
@@ -68,7 +70,7 @@ export function Network1PageContent() {
 
   const [entityType, setEntityType] = React.useState<string>('criminal');
   const [entityId, setEntityId] = React.useState<string>('');
-  const [collapsedNodeIds, setCollapsedNodeIds] = React.useState<Set<string>>(new Set());
+  const [expandedNodeIds, setExpandedNodeIds] = React.useState<Set<string>>(new Set());
 
   const graphData = React.useMemo(() => {
     const payload = graphResponse?.data ?? graphResponse;
@@ -123,10 +125,19 @@ export function Network1PageContent() {
 
   const rootNodeIds = React.useMemo(() => {
     const rootType = selectedEntity?.type ?? entityType;
-    const ids = new Set<string>([String(entityId), `${rootType}_${entityId}`]);
-    if (entityId) ids.add(String(entityId));
+    const ids = new Set<string>();
+    if (entityId) {
+      ids.add(String(entityId));
+      ids.add(`${rootType}_${entityId}`);
+    }
     return ids;
   }, [entityId, entityType, selectedEntity]);
+
+  React.useEffect(() => {
+    const nextExpanded = new Set<string>();
+    rootNodeIds.forEach((id) => nextExpanded.add(id));
+    setExpandedNodeIds(nextExpanded);
+  }, [rootNodeIds]);
 
   const adjacency = React.useMemo(() => {
     const map = new Map<string, string[]>();
@@ -139,37 +150,44 @@ export function Network1PageContent() {
     return map;
   }, [normalizedEdges]);
 
-  const hiddenNodeIds = React.useMemo(() => {
-    const hidden = new Set<string>();
-    const queue = Array.from(collapsedNodeIds);
+  const visibleNodeIds = React.useMemo(() => {
+    const visible = new Set<string>(rootNodeIds);
+    const queue = Array.from(rootNodeIds);
 
     while (queue.length > 0) {
-      const current = queue.pop();
-      if (!current || hidden.has(current)) continue;
-      hidden.add(current);
-      const children = adjacency.get(current) ?? [];
-      children.forEach((child) => {
-        if (!hidden.has(child)) queue.push(child);
+      const currentId = queue.pop();
+      if (!currentId || !expandedNodeIds.has(currentId)) continue;
+
+      const neighbors = adjacency.get(currentId) ?? [];
+      neighbors.forEach((neighbor) => {
+        if (!visible.has(neighbor)) {
+          visible.add(neighbor);
+          queue.push(neighbor);
+        }
       });
     }
 
-    return hidden;
-  }, [adjacency, collapsedNodeIds]);
+    return visible;
+  }, [adjacency, expandedNodeIds, rootNodeIds]);
 
   const visibleNodes = React.useMemo(
-    () => normalizedNodes.filter((node) => !hiddenNodeIds.has(String(node.id)) || collapsedNodeIds.has(String(node.id))),
-    [collapsedNodeIds, hiddenNodeIds, normalizedNodes],
+    () => normalizedNodes.filter((node) => visibleNodeIds.has(String(node.id))),
+    [normalizedNodes, visibleNodeIds],
   );
 
   const visibleEdges = React.useMemo(
-    () => normalizedEdges.filter((edge) => !hiddenNodeIds.has(String(edge.source)) && !hiddenNodeIds.has(String(edge.target))),
-    [hiddenNodeIds, normalizedEdges],
+    () => normalizedEdges.filter((edge) => visibleNodeIds.has(String(edge.source)) && visibleNodeIds.has(String(edge.target))),
+    [normalizedEdges, visibleNodeIds],
   );
 
   const toggleNodeCollapse = (nodeId: string, event?: React.MouseEvent) => {
     event?.stopPropagation();
-    setCollapsedNodeIds((prev) => {
+    setExpandedNodeIds((prev) => {
       const next = new Set(prev);
+      if (rootNodeIds.has(nodeId) && next.has(nodeId)) {
+        return next;
+      }
+
       if (next.has(nodeId)) {
         next.delete(nodeId);
       } else {
@@ -192,11 +210,12 @@ export function Network1PageContent() {
 
       const isRoot = rootNodeIds.has(String(node.id));
       if (isRoot) border = '3px solid #ffffff';
-      const isCollapsed = collapsedNodeIds.has(String(node.id));
+      const isExpanded = expandedNodeIds.has(String(node.id));
 
       return {
         id: String(node.id),
         draggable: true,
+        selectable: true,
         position: getNodePosition(String(node.id), nodeType, index),
         data: {
           label: (
@@ -205,9 +224,9 @@ export function Network1PageContent() {
                 type="button"
                 className="absolute right-1 top-1 rounded border border-white/20 bg-black/20 px-1 text-[8px] leading-none text-foreground"
                 onClick={(event) => toggleNodeCollapse(String(node.id), event)}
-                title={isCollapsed ? 'Expand node' : 'Collapse node'}
+                title={isExpanded ? 'Collapse node' : 'Expand node'}
               >
-                {isCollapsed ? '+' : '−'}
+                {isExpanded ? '−' : '+'}
               </button>
               <span className="font-bold text-[10px] truncate max-w-[110px] text-foreground pr-4">
                 {node.label || node.id}
@@ -229,7 +248,7 @@ export function Network1PageContent() {
         },
       };
     });
-  }, [collapsedNodeIds, rootNodeIds, visibleNodes]);
+  }, [expandedNodeIds, rootNodeIds, visibleNodes]);
 
   const reactFlowEdges = React.useMemo(() => {
     if (!visibleEdges.length) return [];
@@ -245,6 +264,17 @@ export function Network1PageContent() {
       },
     }));
   }, [visibleEdges]);
+
+  const [flowNodes, setFlowNodes, onNodesChange] = useNodesState(reactFlowNodes);
+  const [flowEdges, setFlowEdges] = useEdgesState(reactFlowEdges);
+
+  React.useEffect(() => {
+    setFlowNodes(reactFlowNodes);
+  }, [reactFlowNodes, setFlowNodes]);
+
+  React.useEffect(() => {
+    setFlowEdges(reactFlowEdges);
+  }, [reactFlowEdges, setFlowEdges]);
 
   return (
     <DashboardLayout title="Entity Network Analysis">
@@ -296,8 +326,9 @@ export function Network1PageContent() {
           {visibleNodes.length > 0 ? (
             <div className="relative h-[600px] w-full min-w-0" style={{ width: '100%', height: '600px' }}>
               <ReactFlow
-                nodes={reactFlowNodes}
-                edges={reactFlowEdges}
+                nodes={flowNodes}
+                edges={flowEdges}
+                onNodesChange={onNodesChange}
                 fitView
                 fitViewOptions={{ padding: 0.25 }}
                 minZoom={0.15}
