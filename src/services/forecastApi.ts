@@ -159,6 +159,21 @@ export interface TrainModelResponse {
   fallback_reason?: string;
 }
 
+const normalizeStoredForecasts = (payload: unknown): StoredForecastItem[] => {
+  if (Array.isArray(payload)) {
+    return payload as StoredForecastItem[];
+  }
+
+  if (payload && typeof payload === "object") {
+    const response = payload as { data?: unknown };
+    if (Array.isArray(response.data)) {
+      return response.data as StoredForecastItem[];
+    }
+  }
+
+  return [];
+};
+
 export const forecastApi = createApi({
   reducerPath: "forecastApi",
   baseQuery: fetchBaseQuery({
@@ -248,7 +263,7 @@ export const forecastApi = createApi({
           return { error: result.error };
         }
 
-        return { data: result.data as StoredForecastItem[] };
+        return { data: normalizeStoredForecasts(result.data) };
       },
       providesTags: ["StoredForecast"],
     }),
