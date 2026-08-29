@@ -18,6 +18,7 @@ interface UIState {
   activeModal: string | null;
   commandPaletteOpen: boolean;
   filterBarOpen: boolean;
+  assistantOpen: boolean;
 }
 
 const getInitialTheme = (): Theme => {
@@ -33,6 +34,7 @@ const initialState: UIState = {
   activeModal: null,
   commandPaletteOpen: false,
   filterBarOpen: false,
+  assistantOpen: false,
 };
 
 const uiSlice = createSlice({
@@ -81,6 +83,12 @@ const uiSlice = createSlice({
     setFilterBarOpen(state, action: PayloadAction<boolean>) {
       state.filterBarOpen = action.payload;
     },
+    setAssistantOpen(state, action: PayloadAction<boolean>) {
+      state.assistantOpen = action.payload;
+    },
+    toggleAssistantOpen(state) {
+      state.assistantOpen = !state.assistantOpen;
+    },
   },
 });
 
@@ -94,6 +102,8 @@ export const {
   toggleCommandPalette,
   toggleFilterBar,
   setFilterBarOpen,
+  setAssistantOpen,
+  toggleAssistantOpen,
 } = uiSlice.actions;
 
 export const uiReducer = uiSlice.reducer;

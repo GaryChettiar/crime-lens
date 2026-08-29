@@ -15,6 +15,7 @@ interface AppLayoutProps {
 
 export function AppLayout({ children, className }: AppLayoutProps) {
   const filterBarOpen = useAppSelector((s) => s.ui.filterBarOpen);
+  const assistantOpen = useAppSelector((s) => s.ui.assistantOpen);
   const location = useLocation();
 
   const showFilterBar = shouldShowFilterBar(location.pathname);
@@ -45,13 +46,19 @@ export function AppLayout({ children, className }: AppLayoutProps) {
         role="main"
         id="main-content"
       >
-        <div className="mx-3">
-          {children}
+        <div className="mx-3 flex h-full flex-row gap-3">
+          <div className="min-w-0 flex-1">{children}</div>
+          {assistantOpen && (
+            <div className="w-[420px] shrink-0 overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+              <CrimeLensAssistant inline />
+            </div>
+          )}
         </div>
       </main>
 
-      {/* Global conversational AI FAB */}
-      <CrimeLensAssistant />
+      {!assistantOpen && (
+        <CrimeLensAssistant />
+      )}
     </div>
   );
 }

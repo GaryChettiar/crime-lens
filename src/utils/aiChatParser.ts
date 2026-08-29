@@ -13,6 +13,11 @@ export interface NormalizedCrimeRecord {
   occurredAt: string;
 }
 
+export interface NormalizedAiChatNavigation {
+  route?: string;
+  filters?: Record<string, unknown>;
+}
+
 export interface NormalizedAiChatResponse {
   type: AiChatNormalizedType;
   summary?: string;
@@ -23,6 +28,7 @@ export interface NormalizedAiChatResponse {
   crimeCount?: number;
   crimes: NormalizedCrimeRecord[];
   pagination?: Record<string, unknown> | null;
+  navigation?: NormalizedAiChatNavigation;
   raw?: Record<string, unknown>;
 }
 
@@ -101,15 +107,19 @@ export function normalizeAiChatResponse(apiResponse: unknown): NormalizedAiChatR
   }
 
   const data = isRecord(payload.data) ? payload.data : payload;
+  const resultBlock = isRecord(data.result) ? data.result : {};
   const responseBlock = isRecord(data.response) ? data.response : {};
   const toolResult = isRecord(data.toolResult) ? data.toolResult : {};
   const classification = isRecord(data.classification) ? data.classification : {};
+  const navigationPayload = isRecord(resultBlock.navigation)
+    ? resultBlock.navigation
+    : (isRecord(toolResult.navigation) ? toolResult.navigation : (isRecord(responseBlock.navigation) ? responseBlock.navigation : undefined));
   const type = getSafeString(data.type) ?? getSafeString(responseBlock.type) ?? 'business';
 
   if (type === 'casual') {
     return {
       type: 'casual',
-      reply: getSafeString(responseBlock.reply) ?? 'Hey! I am CrimeLens AI. How can I help?',
+      reply: getSafeString(responseBlock.reply) ?? getSafeString(data.message) ?? 'Hey! I am CrimeLens AI. How can I help?',
       crimes: [],
       raw: payload,
     };
@@ -119,7 +129,10 @@ export function normalizeAiChatResponse(apiResponse: unknown): NormalizedAiChatR
     throw new Error('CrimeLens AI returned an unexpected response.');
   }
 
-  const businessSummary = getSafeString(responseBlock.summary) ?? 'Here are the latest CrimeLens results.';
+  const businessSummary = getSafeString(data.summary)
+    ?? getSafeString(resultBlock.summary)
+    ?? getSafeString(responseBlock.summary)
+    ?? 'Here are the latest CrimeLens results.';
   const district = getSafeString(responseBlock.district) ?? getSafeString(toolResult.district) ?? getSafeString(classification.districtName) ?? 'Selected district';
   const districtId = getSafeString(toolResult.districtId) ?? getSafeString(classification.districtId);
   const dateRange = normalizeDateRange(responseBlock.dateRange) ?? normalizeDateRange(toolResult.dateRange) ?? undefined;
@@ -144,6 +157,12 @@ export function normalizeAiChatResponse(apiResponse: unknown): NormalizedAiChatR
     crimeCount,
     crimes,
     pagination,
+    navigation: navigationPayload && typeof navigationPayload.route === 'string'
+      ? {
+          route: navigationPayload.route,
+          filters: isRecord(navigationPayload.filters) ? navigationPayload.filters : {},
+        }
+      : undefined,
     raw: payload,
   };
 }

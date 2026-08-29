@@ -1,12 +1,16 @@
 import * as React from 'react';
 import { Badge } from '@/components/atoms/Badge';
 import { Button } from '@/components/ui/button';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
 import { useAssistantContext } from '@/hooks/useAssistantContext';
 import { cn } from '@/lib/utils';
 import { useSendAiChatMessageMutation } from '@/services/aiChatApi';
 import { getAiChatErrorMessage, normalizeAiChatResponse, type NormalizedAiChatResponse } from '@/utils/aiChatParser';
+import { applyAiNavigation, mapAiNavigationFiltersToUi } from '@/utils/aiNavigation';
+import { setCrimeCategory, setCrimeTypes, setDateRange, setDistrict } from '@/store/slices/globalFiltersSlice';
+import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import { setAssistantOpen } from '@/store/uiSlice';
+import { useNavigate } from 'react-router-dom';
 import { AlertCircle, Bot, Loader2, RefreshCw, Send, Sparkles, User, X } from 'lucide-react';
 
 interface ChatMessage {
@@ -90,11 +94,13 @@ function getLoadingCopy(index: number): string {
   return stages[index % stages.length];
 }
 
-export function CrimeLensAssistant() {
+export function CrimeLensAssistant({ inline = false }: { inline?: boolean }) {
   const context = useAssistantContext();
+  const navigate = useNavigate();
+  const dispatch = useAppDispatch();
+  const assistantOpen = useAppSelector((state) => state.ui.assistantOpen);
   const [sendAiChatMessage] = useSendAiChatMessageMutation();
 
-  const [isOpen, setIsOpen] = React.useState(false);
   const [messages, setMessages] = React.useState<ChatMessage[]>([]);
   const [inputText, setInputText] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(false);
@@ -114,6 +120,29 @@ export function CrimeLensAssistant() {
   React.useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isLoading]);
+
+  const handleAiNavigation = React.useCallback((response: NormalizedAiChatResponse) => {
+    const navigation = response.navigation;
+    if (!navigation?.route) return;
+
+    const mappedFilters = mapAiNavigationFiltersToUi(navigation.filters ?? {});
+    if (mappedFilters.district) {
+      dispatch(setDistrict(mappedFilters.district));
+    }
+    if (mappedFilters.dateRange) {
+      dispatch(setDateRange(mappedFilters.dateRange));
+    }
+    if (mappedFilters.crimeTypes && mappedFilters.crimeTypes.length > 0) {
+      dispatch(setCrimeTypes(mappedFilters.crimeTypes));
+    }
+    if (mappedFilters.crimeCategory) {
+      dispatch(setCrimeCategory(mappedFilters.crimeCategory));
+    }
+
+    applyAiNavigation(navigation, navigate, () => {
+      // applyFilters callback is intentionally used for the UI state above
+    });
+  }, [dispatch, navigate]);
 
   const replaceAssistantMessage = React.useCallback((assistantId: string, updater: (message: ChatMessage) => ChatMessage) => {
     setMessages((prev) => prev.map((msg) => (msg.id === assistantId ? updater(msg) : msg)));
@@ -154,6 +183,10 @@ export function CrimeLensAssistant() {
         try {
           const apiResponse = await sendAiChatMessage({ message: trimmed }).unwrap();
           const normalized = normalizeAiChatResponse(apiResponse) as NormalizedAiChatResponse;
+
+          if (normalized.type === 'business' && normalized.navigation) {
+            handleAiNavigation(normalized);
+          }
 
           replaceAssistantMessage(assistantMessageId, (message) => ({
             ...message,
@@ -208,6 +241,10 @@ export function CrimeLensAssistant() {
       try {
         const apiResponse = await sendAiChatMessage({ message: trimmed }).unwrap();
         const normalized = normalizeAiChatResponse(apiResponse) as NormalizedAiChatResponse;
+
+        if (normalized.type === 'business' && normalized.navigation) {
+          handleAiNavigation(normalized);
+        }
 
         replaceAssistantMessage(retryAssistantId, (message) => ({
           ...message,
@@ -371,154 +408,144 @@ export function CrimeLensAssistant() {
 
   const activeSuggestions = SUGGESTIONS[context] ?? SUGGESTIONS.general;
 
-  return (
-    <>
+  if (!assistantOpen && !inline) {
+    return (
       <button
         type="button"
-        onClick={() => setIsOpen(true)}
+        onClick={() => dispatch(setAssistantOpen(true))}
         className="fixed bottom-6 right-6 z-40 flex items-center gap-2 rounded-full bg-primary px-3.5 py-2.5 text-sm font-medium text-primary-foreground shadow-2xl transition hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         aria-label="Open CrimeLens AI assistant"
       >
         <Sparkles className="h-4 w-4" />
         <span className="hidden sm:inline">AI Assistant</span>
       </button>
+    );
+  }
 
-      <Sheet open={isOpen} onOpenChange={setIsOpen}>
-        <SheetContent side="right" className="w-[92vw]  border-l border-border bg-background p-0" showCloseButton={false}>
-          <SheetHeader className="flex flex-row items-center justify-between gap-2 border-b border-border bg-card/60 px-4 py-3">
-            <div className="flex items-center gap-2.5">
-              <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 text-primary">
-                <Bot className="h-4 w-4" />
+  if (!assistantOpen && inline) {
+    return null;
+  }
+
+  return (
+    <div className="flex h-full min-h-[420px] flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+      <div className="flex items-center justify-between gap-2 border-b border-border bg-card/60 px-4 py-3">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 text-primary">
+            <Bot className="h-4 w-4" />
+          </div>
+          <div>
+            <div className="text-sm font-semibold text-foreground">CrimeLens AI</div>
+            <div className="mt-1 flex items-center gap-2">
+              <Badge variant="outline" size="sm" className="h-5 px-1.5 text-[9px] uppercase tracking-[0.18em]">
+                {context}
+              </Badge>
+              <span className="inline-flex items-center gap-1 text-[9px] uppercase tracking-[0.18em] text-muted-foreground">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                Live
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <button type="button" onClick={() => dispatch(setAssistantOpen(false))} aria-label="Close CrimeLens AI assistant" className="rounded-md p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground">
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div className="flex-1 space-y-4 overflow-y-auto p-4">
+          {messages.length === 0 && !isLoading ? (
+            <div className="flex h-full min-h-[240px] flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-muted/20 px-5 py-6 text-center">
+              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+                <Sparkles className="h-5 w-5" />
               </div>
-              <div>
-                <SheetTitle className="text-sm font-semibold text-foreground">CrimeLens AI</SheetTitle>
-                <div className="mt-1 flex items-center gap-2">
-                  <Badge variant="outline" size="sm" className="h-5 px-1.5 text-[9px] uppercase tracking-[0.18em]">
-                    {context}
-                  </Badge>
-                  <span className="inline-flex items-center gap-1 text-[9px] uppercase tracking-[0.18em] text-muted-foreground">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                    Live
-                  </span>
-                </div>
+              <h3 className="text-lg font-semibold text-foreground">CrimeLens AI</h3>
+              <p className="mt-2 max-w-xs text-sm leading-6 text-muted-foreground">
+                Ask questions about crime data, districts, stations, and trends.
+              </p>
+              <div className="mt-4 w-full space-y-2">
+                {activeSuggestions.slice(0, 3).map((suggestion) => (
+                  <button
+                    key={suggestion.query}
+                    type="button"
+                    onClick={() => {
+                      setInputText(suggestion.query);
+                      void sendMessage(suggestion.query, undefined, false);
+                    }}
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-left text-sm text-foreground transition hover:bg-muted"
+                  >
+                    {suggestion.label}
+                  </button>
+                ))}
               </div>
             </div>
+          ) : null}
 
-            <button type="button" onClick={() => setIsOpen(false)} aria-label="Close CrimeLens AI assistant" className="rounded-md p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground">
-              <X className="h-4 w-4" />
-            </button>
-          </SheetHeader>
-
-          <div className="flex h-[calc(100%-112px)] flex-col">
-            <div className="flex-1 space-y-4 overflow-y-auto p-4">
-              {messages.length === 0 && !isLoading ? (
-                <div className="flex h-full min-h-[240px] flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-muted/20 px-5 py-6 text-center">
-                  <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
-                    <Sparkles className="h-5 w-5" />
-                  </div>
-                  <h3 className="text-lg font-semibold text-foreground">CrimeLens AI</h3>
-                  <p className="mt-2 max-w-xs text-sm leading-6 text-muted-foreground">
-                    Ask questions about crime data, districts, stations, and trends.
-                  </p>
-                  <div className="mt-4 w-full space-y-2">
-                    {activeSuggestions.slice(0, 3).map((suggestion) => (
-                      <button
-                        key={suggestion.query}
-                        type="button"
-                        onClick={() => {
-                          setInputText(suggestion.query);
-                          void sendMessage(suggestion.query, undefined, false);
-                        }}
-                        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-left text-sm text-foreground transition hover:bg-muted"
-                      >
-                        {suggestion.label}
-                      </button>
-                    ))}
-                  </div>
+          {messages.map((message) => (
+            <div key={message.id} className={cn('flex gap-3', message.role === 'user' ? 'justify-end' : 'justify-start')}>
+              {message.role === 'assistant' && (
+                <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                  <Bot className="h-3.5 w-3.5" />
                 </div>
-              ) : null}
+              )}
 
-              {messages.map((message) => (
-                <div key={message.id} className={cn('flex gap-3', message.role === 'user' ? 'justify-end' : 'justify-start')}>
-                  {message.role === 'assistant' && (
-                    <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-                      <Bot className="h-3.5 w-3.5" />
-                    </div>
-                  )}
-
-                  <div
-                    className={cn(
-                      'max-w-[80%] rounded-2xl border px-3.5 py-2.5 shadow-sm',
-                      message.role === 'user' ? 'border-primary/20 bg-primary text-primary-foreground rounded-br-md' : 'border-border bg-card text-foreground rounded-bl-md',
-                    )}
-                  >
-                    <div className="mb-1 flex items-center justify-between gap-2 text-[10px] uppercase tracking-[0.16em] text-muted-foreground/80">
-                      <span>{message.role === 'user' ? 'You' : 'CrimeLens AI'}</span>
-                      {message.status === 'success' && <span>{message.createdAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span>}
-                    </div>
-
-                    {renderAssistantBody(message)}
-                  </div>
-
-                  {message.role === 'user' && (
-                    <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-foreground">
-                      <User className="h-3.5 w-3.5" />
-                    </div>
-                  )}
+              <div
+                className={cn(
+                  'max-w-[80%] rounded-2xl border px-3.5 py-2.5 shadow-sm',
+                  message.role === 'user' ? 'border-primary/20 bg-primary text-primary-foreground rounded-br-md' : 'border-border bg-card text-foreground rounded-bl-md',
+                )}
+              >
+                <div className="mb-1 flex items-center justify-between gap-2 text-[10px] uppercase tracking-[0.16em] text-muted-foreground/80">
+                  <span>{message.role === 'user' ? 'You' : 'CrimeLens AI'}</span>
+                  {message.status === 'success' && <span>{message.createdAt.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</span>}
                 </div>
-              ))}
 
-              {isLoading && (
-                <div className="flex gap-3 justify-start">
-                  <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-                    <Bot className="h-3.5 w-3.5" />
-                  </div>
-                  <div className="max-w-[80%] rounded-2xl border border-border bg-card px-3.5 py-2.5 shadow-sm rounded-bl-md">
-                    <div className="mb-1 text-[10px] uppercase tracking-[0.16em] text-muted-foreground">CrimeLens AI</div>
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      <span>{getLoadingCopy(loadingPhase)}</span>
-                    </div>
-                  </div>
+                {renderAssistantBody(message)}
+              </div>
+
+              {message.role === 'user' && (
+                <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-foreground">
+                  <User className="h-3.5 w-3.5" />
                 </div>
               )}
             </div>
+          ))}
 
-            <div className="border-t border-border bg-card/60 px-3 py-3">
-              <form onSubmit={handleSubmit} className="space-y-2">
-                <Textarea
-                  value={inputText}
-                  onChange={(event) => setInputText(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter' && !event.shiftKey) {
-                      event.preventDefault();
-                      if (!inputText.trim() || isLoading) return;
-                      const nextPrompt = inputText.trim();
-                      setInputText('');
-                      void sendMessage(nextPrompt, undefined, false);
-                    }
-                  }}
-                  placeholder="Ask CrimeLens AI..."
-                  aria-label="Ask CrimeLens AI"
-                  className="min-h-[44px] max-h-28 resize-none py-2.5 text-sm"
-                  disabled={isLoading}
-                />
+        </div>
 
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
-                    {isLoading ? 'Working...' : 'Ready'}
-                  </span>
-                  <Button type="submit" size="sm" className="gap-2" disabled={!inputText.trim() || isLoading} aria-label="Send message to CrimeLens AI">
-                    <Send className="h-3.5 w-3.5" />
-                    Send
-                  </Button>
-                </div>
-              </form>
+        <div className="border-t border-border bg-card/60 px-3 py-3">
+          <form onSubmit={handleSubmit} className="space-y-2">
+            <Textarea
+              value={inputText}
+              onChange={(event) => setInputText(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && !event.shiftKey) {
+                  event.preventDefault();
+                  if (!inputText.trim() || isLoading) return;
+                  const nextPrompt = inputText.trim();
+                  setInputText('');
+                  void sendMessage(nextPrompt, undefined, false);
+                }
+              }}
+              placeholder="Ask CrimeLens AI..."
+              aria-label="Ask CrimeLens AI"
+              className="min-h-[44px] max-h-28 resize-none py-2.5 text-sm"
+              disabled={isLoading}
+            />
+
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+                {isLoading ? 'Working...' : 'Ready'}
+              </span>
+              <Button type="submit" size="sm" className="gap-2" disabled={!inputText.trim() || isLoading} aria-label="Send message to CrimeLens AI">
+                <Send className="h-3.5 w-3.5" />
+                Send
+              </Button>
             </div>
-          </div>
-        </SheetContent>
-      </Sheet>
-    </>
+          </form>
+        </div>
+      </div>
+    </div>
   );
 }
 
