@@ -1,8 +1,12 @@
-import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
+import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 
 const FORECAST_API_URL =
   import.meta.env.VITE_FORECAST_API_URL ||
-  'https://forecast-50043087097.development.catalystappsail.in';
+  "https://forecast-50043087097.development.catalystappsail.in";
+
+// Express backend API for stored forecasts
+const EXPRESS_API_URL =
+  import.meta.env.VITE_EXPRESS_API_URL || "http://localhost:8080";
 
 type ForecastQueryParams = {
   start_date?: string;
@@ -12,9 +16,22 @@ type ForecastQueryParams = {
   station_id?: string;
   districtId?: string;
   stationId?: string;
+  police_station_id?: string;
+  crime_category_id?: string;
 };
 
-const buildForecastUrl = (endpoint: string, params?: ForecastQueryParams | void) => {
+type GenerateAndStoreParams = {
+  start_date: string;
+  end_date: string;
+  district_id?: string;
+  police_station_id?: string;
+  crime_category_id?: string;
+};
+
+const buildForecastUrl = (
+  endpoint: string,
+  params?: ForecastQueryParams | void,
+) => {
   const districtId = params?.district_id ?? params?.districtId;
   const stationId = params?.station_id ?? params?.stationId;
 
@@ -28,6 +45,26 @@ const buildForecastUrl = (endpoint: string, params?: ForecastQueryParams | void)
 
   return `/api/forecast${endpoint}`;
 };
+
+export interface StoredForecastItem {
+  ROWID?: string;
+  forecast_date: string;
+  predicted_count: number;
+  district_id: string;
+  police_station_id: string;
+  crime_category_id: string;
+  model_version?: string;
+  generated_at?: string;
+}
+
+export interface GenerateAndStoreResponse {
+  success: boolean;
+  message: string;
+  result?: {
+    generated: number;
+    stored: number;
+  };
+}
 
 export interface PredictedIncidentsResponse {
   as_of: string;
@@ -49,18 +86,18 @@ export interface PredictedIncidentsResponse {
   change_vs_last_30_days: {
     absolute_change: number;
     percent_change: number | null;
-    direction: 'increase' | 'decrease' | 'stable';
+    direction: "increase" | "decrease" | "stable";
   };
 }
 
 export interface HighRiskDistrictItem {
   district_id: string;
   district_name: string;
-  risk_level: 'HIGH' | 'MEDIUM' | 'LOW';
+  risk_level: "HIGH" | "MEDIUM" | "LOW";
   last_30_days_incidents: number;
   predicted_next_30_days_incidents: number;
   percent_change_vs_last_30_days: number | null;
-  direction: 'increase' | 'decrease' | 'stable';
+  direction: "increase" | "decrease" | "stable";
 }
 
 export interface HighRiskDistrictsResponse {
@@ -118,17 +155,75 @@ export interface TrainModelResponse {
 }
 
 export const forecastApi = createApi({
-  reducerPath: 'forecastApi',
+  reducerPath: "forecastApi",
   baseQuery: fetchBaseQuery({
     baseUrl: FORECAST_API_URL,
   }),
-  tagTypes: ['Forecast'],
+  tagTypes: ["Forecast", "StoredForecast"],
   endpoints: (builder) => ({
     getModelStatus: builder.query<ModelStatusResponse, void>({
       query: () => ({
-        url: '/api/forecast/model-status',
+        url: "/api/forecast/model-status",
       }),
-      providesTags: ['Forecast'],
+      providesTags: ["Forecast"],
+    }),
+
+    /**
+     * Generate predictions for a date range and store in database
+     * Calls Express backend: POST /forecast/generate-and-store
+     */
+    generateAndStoreForecast: builder.mutation<
+      GenerateAndStoreResponse,
+      GenerateAndStoreParams
+    >({
+      query: (params) => ({
+        url: "/forecast/generate-and-store",
+        method: "POST",
+        body: {
+          start_date: params.start_date,
+          end_date: params.end_date,
+          ...(params.district_id ? { district_id: params.district_id } : {}),
+          ...(params.police_station_id
+            ? { police_station_id: params.police_station_id }
+            : {}),
+          ...(params.crime_category_id
+            ? { crime_category_id: params.crime_category_id }
+            : {}),
+        },
+      }),
+      baseQuery: fetchBaseQuery({
+        baseUrl: EXPRESS_API_URL,
+      }),
+      invalidatesTags: ["StoredForecast"],
+    }),
+
+    /**
+     * Fetch stored forecasts from database
+     * Calls Express backend: GET /forecast
+     */
+    getStoredForecasts: builder.query<
+      StoredForecastItem[],
+      ForecastQueryParams | void
+    >({
+      query: (params) => ({
+        url: "/forecast",
+        method: "GET",
+        params: {
+          ...(params?.start_date ? { start_date: params.start_date } : {}),
+          ...(params?.end_date ? { end_date: params.end_date } : {}),
+          ...(params?.district_id ? { district_id: params.district_id } : {}),
+          ...(params?.police_station_id
+            ? { police_station_id: params.police_station_id }
+            : {}),
+          ...(params?.crime_category_id
+            ? { crime_category_id: params.crime_category_id }
+            : {}),
+        },
+      }),
+      baseQuery: fetchBaseQuery({
+        baseUrl: EXPRESS_API_URL,
+      }),
+      providesTags: ["StoredForecast"],
     }),
 
     getPredictedIncidents: builder.query<
@@ -140,7 +235,7 @@ export const forecastApi = createApi({
         const stationId = params?.station_id ?? params?.stationId;
 
         return {
-          url: buildForecastUrl('/predicted-incidents', params),
+          url: buildForecastUrl("/predicted-incidents", params),
           params: {
             ...(params?.start_date ? { start_date: params.start_date } : {}),
             ...(params?.end_date ? { end_date: params.end_date } : {}),
@@ -150,7 +245,7 @@ export const forecastApi = createApi({
           },
         };
       },
-      providesTags: ['Forecast'],
+      providesTags: ["Forecast"],
     }),
 
     getHighRiskDistricts: builder.query<
@@ -162,7 +257,7 @@ export const forecastApi = createApi({
         const stationId = params?.station_id ?? params?.stationId;
 
         return {
-          url: buildForecastUrl('/high-risk-districts', params),
+          url: buildForecastUrl("/high-risk-districts", params),
           params: {
             ...(params?.start_date ? { start_date: params.start_date } : {}),
             ...(params?.end_date ? { end_date: params.end_date } : {}),
@@ -172,7 +267,7 @@ export const forecastApi = createApi({
           },
         };
       },
-      providesTags: ['Forecast'],
+      providesTags: ["Forecast"],
     }),
 
     getCrimeTrend: builder.query<
@@ -184,7 +279,7 @@ export const forecastApi = createApi({
         const stationId = params?.station_id ?? params?.stationId;
 
         return {
-          url: buildForecastUrl('/crime-trend', params),
+          url: buildForecastUrl("/crime-trend", params),
           params: {
             ...(params?.start_date ? { start_date: params.start_date } : {}),
             ...(params?.end_date ? { end_date: params.end_date } : {}),
@@ -194,24 +289,25 @@ export const forecastApi = createApi({
           },
         };
       },
-      providesTags: ['Forecast'],
+      providesTags: ["Forecast"],
     }),
 
     trainModel: builder.mutation<TrainModelResponse, void>({
       query: () => ({
-        url: '/api/forecast/train',
-        method: 'POST',
+        url: "/api/forecast/train",
+        method: "POST",
       }),
-      invalidatesTags: ['Forecast'],
+      invalidatesTags: ["Forecast"],
     }),
   }),
 });
 
 export const {
   useGetModelStatusQuery,
+  useGenerateAndStoreForecastMutation,
+  useGetStoredForecastsQuery,
   useGetPredictedIncidentsQuery,
   useGetHighRiskDistrictsQuery,
   useGetCrimeTrendQuery,
   useTrainModelMutation,
 } = forecastApi;
-
