@@ -5,6 +5,8 @@ import ReactFlow, {
   Background,
   Controls,
   ReactFlowProvider,
+  useEdgesState,
+  useNodesState,
   useReactFlow,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
@@ -12,13 +14,16 @@ import 'reactflow/dist/style.css';
 import { DashboardLayout } from '@/components/templates/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useGetEntityOptionsQuery, useBuildNetworkGraphMutation } from '@/services/networkApi';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Network, FileUp } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { EvidenceAnalysisTab } from './EvidenceAnalysisTab';
 
 // Helper to calculate concentric position stably for simple display
 function getNodePosition(nodeId: string, nodeType: string, index: number) {
-  const numId = parseInt(nodeId.split('-')[1]) || index || 1;
+  const rawMatch = String(nodeId).match(/\d+/g);
+  const numId = rawMatch ? Number(rawMatch[rawMatch.length - 1]) : (index + 1 || 1);
   let x = 0;
   let y = 0;
 
@@ -44,7 +49,7 @@ function getNodePosition(nodeId: string, nodeType: string, index: number) {
     y = Math.sin(angle) * 1150;
   }
 
-  return { x: x + 1500, y: y + 1500 };
+  return { x: x + 1000, y: y + 1000 };
 }
 
 function GraphController({ nodesCount }: { nodesCount: number }) {
@@ -64,9 +69,11 @@ function GraphController({ nodesCount }: { nodesCount: number }) {
 export function Network1PageContent() {
   const { data: optionsData, isLoading: optionsLoading } = useGetEntityOptionsQuery();
   const [buildGraph, { data: graphResponse, isLoading: isGraphLoading }] = useBuildNetworkGraphMutation();
+  const [activeTab, setActiveTab] = React.useState<'entity-network' | 'evidence-analysis'>('entity-network');
 
   const [entityType, setEntityType] = React.useState<string>('criminal');
   const [entityId, setEntityId] = React.useState<string>('');
+  const [expandedNodeIds, setExpandedNodeIds] = React.useState<Set<string>>(new Set());
 
   const graphData = React.useMemo(() => {
     const payload = graphResponse?.data ?? graphResponse;
@@ -103,7 +110,6 @@ export function Network1PageContent() {
         ...(optionsData.data.suspects ?? []).map((item) => ({ ...item, type: 'suspect' as const })),
       ];
     }
-    if (entityType === 'vehicle') return (optionsData.data.vehicles ?? []).map((item) => ({ ...item, type: 'vehicle' as const }));
     if (entityType === 'evidence') return (optionsData.data.evidences ?? []).map((item) => ({ ...item, type: 'evidence' as const }));
     return [];
   }, [optionsData, entityType]);
@@ -121,14 +127,81 @@ export function Network1PageContent() {
 
   const rootNodeIds = React.useMemo(() => {
     const rootType = selectedEntity?.type ?? entityType;
-    const ids = new Set<string>([entityId, `${rootType}_${entityId}`]);
-    if (entityId) ids.add(String(entityId));
+    const ids = new Set<string>();
+    if (entityId) {
+      ids.add(String(entityId));
+      ids.add(`${rootType}_${entityId}`);
+    }
     return ids;
   }, [entityId, entityType, selectedEntity]);
 
+  React.useEffect(() => {
+    const nextExpanded = new Set<string>();
+    rootNodeIds.forEach((id) => nextExpanded.add(id));
+    setExpandedNodeIds(nextExpanded);
+  }, [rootNodeIds]);
+
+  const adjacency = React.useMemo(() => {
+    const map = new Map<string, string[]>();
+    normalizedEdges.forEach((edge) => {
+      const source = String(edge.source);
+      const target = String(edge.target);
+      map.set(source, [...(map.get(source) ?? []), target]);
+      map.set(target, [...(map.get(target) ?? []), source]);
+    });
+    return map;
+  }, [normalizedEdges]);
+
+  const visibleNodeIds = React.useMemo(() => {
+    const visible = new Set<string>(rootNodeIds);
+    const queue = Array.from(rootNodeIds);
+
+    while (queue.length > 0) {
+      const currentId = queue.pop();
+      if (!currentId || !expandedNodeIds.has(currentId)) continue;
+
+      const neighbors = adjacency.get(currentId) ?? [];
+      neighbors.forEach((neighbor) => {
+        if (!visible.has(neighbor)) {
+          visible.add(neighbor);
+          queue.push(neighbor);
+        }
+      });
+    }
+
+    return visible;
+  }, [adjacency, expandedNodeIds, rootNodeIds]);
+
+  const visibleNodes = React.useMemo(
+    () => normalizedNodes.filter((node) => visibleNodeIds.has(String(node.id))),
+    [normalizedNodes, visibleNodeIds],
+  );
+
+  const visibleEdges = React.useMemo(
+    () => normalizedEdges.filter((edge) => visibleNodeIds.has(String(edge.source)) && visibleNodeIds.has(String(edge.target))),
+    [normalizedEdges, visibleNodeIds],
+  );
+
+  const toggleNodeCollapse = (nodeId: string, event?: React.MouseEvent) => {
+    event?.stopPropagation();
+    setExpandedNodeIds((prev) => {
+      const next = new Set(prev);
+      if (rootNodeIds.has(nodeId) && next.has(nodeId)) {
+        return next;
+      }
+
+      if (next.has(nodeId)) {
+        next.delete(nodeId);
+      } else {
+        next.add(nodeId);
+      }
+      return next;
+    });
+  };
+
   const reactFlowNodes = React.useMemo(() => {
-    if (!normalizedNodes.length) return [];
-    return normalizedNodes.map((node, index) => {
+    if (!visibleNodes.length) return [];
+    return visibleNodes.map((node, index) => {
       const nodeType = typeof node.type === 'string' ? node.type : 'unknown';
       let border = '1.5px solid #475569';
       if (nodeType === 'criminal') border = '1.5px solid #F43F5E';
@@ -139,14 +212,25 @@ export function Network1PageContent() {
 
       const isRoot = rootNodeIds.has(String(node.id));
       if (isRoot) border = '3px solid #ffffff';
+      const isExpanded = expandedNodeIds.has(String(node.id));
 
       return {
         id: String(node.id),
+        draggable: true,
+        selectable: true,
         position: getNodePosition(String(node.id), nodeType, index),
         data: {
           label: (
             <div className="flex flex-col items-center gap-1 select-none">
-              <span className="font-bold text-[10px] truncate max-w-[110px] text-foreground">
+              <button
+                type="button"
+                className="absolute right-1 top-1 rounded border border-white/20 bg-black/20 px-1 text-[8px] leading-none text-foreground"
+                onClick={(event) => toggleNodeCollapse(String(node.id), event)}
+                title={isExpanded ? 'Collapse node' : 'Expand node'}
+              >
+                {isExpanded ? '−' : '+'}
+              </button>
+              <span className="font-bold text-[10px] truncate max-w-[110px] text-foreground pr-4">
                 {node.label || node.id}
               </span>
               <span className="text-[8px] opacity-75 font-semibold uppercase tracking-wider">
@@ -166,11 +250,11 @@ export function Network1PageContent() {
         },
       };
     });
-  }, [normalizedNodes, rootNodeIds]);
+  }, [expandedNodeIds, rootNodeIds, visibleNodes]);
 
   const reactFlowEdges = React.useMemo(() => {
-    if (!normalizedEdges.length) return [];
-    return normalizedEdges.map((edge) => ({
+    if (!visibleEdges.length) return [];
+    return visibleEdges.map((edge) => ({
       id: String(edge.id),
       source: String(edge.source),
       target: String(edge.target),
@@ -181,79 +265,121 @@ export function Network1PageContent() {
         opacity: 0.75,
       },
     }));
-  }, [normalizedEdges]);
+  }, [visibleEdges]);
+
+  const [flowNodes, setFlowNodes, onNodesChange] = useNodesState(reactFlowNodes);
+  const [flowEdges, setFlowEdges] = useEdgesState(reactFlowEdges);
+
+  React.useEffect(() => {
+    setFlowNodes(reactFlowNodes);
+  }, [reactFlowNodes, setFlowNodes]);
+
+  React.useEffect(() => {
+    setFlowEdges(reactFlowEdges);
+  }, [reactFlowEdges, setFlowEdges]);
 
   return (
-    <DashboardLayout title="Entity Network Analysis">
+    <DashboardLayout title="Network Analysis">
       <div className="space-y-4 max-w-7xl mx-auto pb-12 px-4 flex flex-col min-h-[90vh]">
-        <Card className="bg-card border border-border shadow-sm shrink-0">
-          <CardHeader>
-            <CardTitle>Select Root Entity</CardTitle>
-          </CardHeader>
-          <CardContent className="flex gap-4 items-center">
-            <Select value={entityType} onValueChange={(val) => { setEntityType(val); setEntityId(''); }}>
-              <SelectTrigger className="w-[200px]">
-                <SelectValue placeholder="Select Entity Type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="criminal">Criminal</SelectItem>
-                <SelectItem value="vehicle">Vehicle</SelectItem>
-                <SelectItem value="evidence">Evidence</SelectItem>
-              </SelectContent>
-            </Select>
+        <Tabs value={activeTab} onValueChange={(val) => setActiveTab(val as 'entity-network' | 'evidence-analysis')} className="flex flex-col gap-4">
+          <Card className="bg-card border border-border shadow-sm shrink-0">
+            <CardHeader>
+              <CardTitle>Network Analysis</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <TabsList className="grid w-full max-w-md grid-cols-2">
+                <TabsTrigger value="entity-network" className="flex items-center gap-2">
+                  <Network className="h-4 w-4" />
+                  Entity Network
+                </TabsTrigger>
+                <TabsTrigger value="evidence-analysis" className="flex items-center gap-2">
+                  <FileUp className="h-4 w-4" />
+                  Evidence Analysis
+                </TabsTrigger>
+              </TabsList>
+            </CardContent>
+          </Card>
 
-            <Select value={entityId} onValueChange={setEntityId} disabled={optionsLoading || !currentOptions.length}>
-              <SelectTrigger className="w-[320px]">
-                <SelectValue placeholder={
-                  optionsLoading
-                    ? 'Loading...'
-                    : entityType === 'criminal'
-                      ? 'Select Criminal or Suspect'
-                      : 'Select Specific Entity'
-                } />
-              </SelectTrigger>
-              <SelectContent>
-                {currentOptions.map((opt) => (
-                  <SelectItem key={`${opt.type ?? entityType}-${opt.id}`} value={opt.id}>
-                    {opt.type === 'suspect' ? 'Suspect: ' : ''}
-                    {opt.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          {/* Entity Network Analysis Tab */}
+          <TabsContent value="entity-network" className="space-y-4">
+            <Card className="bg-card border border-border shadow-sm shrink-0">
+              <CardHeader>
+                <CardTitle>Select Root Entity</CardTitle>
+              </CardHeader>
+              <CardContent className="flex gap-4 items-center">
+                <Select value={entityType} onValueChange={(val) => { setEntityType(val); setEntityId(''); }}>
+                  <SelectTrigger className="w-[200px]">
+                    <SelectValue placeholder="Select Entity Type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="criminal">Criminal</SelectItem>
+                    <SelectItem value="evidence">Evidence</SelectItem>
+                  </SelectContent>
+                </Select>
 
-            <Button onClick={handleGenerate} disabled={!entityId || isGraphLoading}>
-              {isGraphLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Generate Graph
-            </Button>
-          </CardContent>
-        </Card>
+                <Select value={entityId} onValueChange={setEntityId} disabled={optionsLoading || !currentOptions.length}>
+                  <SelectTrigger className="w-[320px]">
+                    <SelectValue placeholder={
+                      optionsLoading
+                        ? 'Loading...'
+                        : entityType === 'criminal'
+                          ? 'Select Criminal or Suspect'
+                          : 'Select Specific Entity'
+                    } />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {currentOptions.map((opt) => (
+                      <SelectItem key={`${opt.type ?? entityType}-${opt.id}`} value={opt.id}>
+                        {opt.type === 'suspect' ? 'Suspect: ' : ''}
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
 
-        <Card className="bg-card border border-border shadow-sm flex-1 overflow-hidden relative min-h-[600px]">
-          {normalizedNodes.length > 0 ? (
-            <div className="relative h-[600px] w-full min-w-0" style={{ width: '100%', height: '600px' }}>
-              <ReactFlow
-                nodes={reactFlowNodes}
-                edges={reactFlowEdges}
-                fitView
-                fitViewOptions={{ padding: 0.2 }}
-                minZoom={0.15}
-                maxZoom={2.5}
-                attributionPosition="bottom-right"
-                className="h-full w-full"
-                style={{ width: '100%', height: '100%' }}
-              >
-                <Background color="#334155" gap={16} />
-                <Controls className="bg-card border-border text-foreground fill-foreground" />
-                <GraphController nodesCount={reactFlowNodes.length} />
-              </ReactFlow>
-            </div>
-          ) : (
-            <div className="flex h-[600px] items-center justify-center text-sm text-muted-foreground">
-              {isGraphLoading ? 'Generating network graph...' : 'Select an entity and generate the graph.'}
-            </div>
-          )}
-        </Card>
+                <Button onClick={handleGenerate} disabled={!entityId || isGraphLoading}>
+                  {isGraphLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Generate Graph
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-card border border-border shadow-sm flex-1 overflow-hidden relative min-h-[600px]">
+              {visibleNodes.length > 0 ? (
+                <div className="relative h-[600px] w-full min-w-0" style={{ width: '100%', height: '600px' }}>
+                  <ReactFlow
+                    nodes={flowNodes}
+                    edges={flowEdges}
+                    onNodesChange={onNodesChange}
+                    fitView
+                    fitViewOptions={{ padding: 0.25 }}
+                    minZoom={0.15}
+                    maxZoom={2.5}
+                    nodesDraggable={true}
+                    nodesConnectable={false}
+                    elementsSelectable={true}
+                    attributionPosition="bottom-right"
+                    className="h-full w-full"
+                    style={{ width: '100%', height: '100%' }}
+                  >
+                    <Background color="#334155" gap={16} />
+                    <Controls className="bg-card border-border text-foreground fill-foreground" />
+                    <GraphController nodesCount={reactFlowNodes.length} />
+                  </ReactFlow>
+                </div>
+              ) : (
+                <div className="flex h-[600px] items-center justify-center text-sm text-muted-foreground">
+                  {isGraphLoading ? 'Generating network graph...' : 'Select an entity and generate the graph.'}
+                </div>
+              )}
+            </Card>
+          </TabsContent>
+
+          {/* Evidence Analysis Tab */}
+          <TabsContent value="evidence-analysis" className="flex-1">
+            <EvidenceAnalysisTab />
+          </TabsContent>
+        </Tabs>
       </div>
     </DashboardLayout>
   );
