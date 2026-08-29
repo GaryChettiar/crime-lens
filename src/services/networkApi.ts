@@ -533,7 +533,8 @@ export interface CrimeNetworkNode {
     | "alias"
     | "biometric"
     | "district"
-    | "policeStation";
+    | "policeStation"
+    | "suspect";
   label: string;
   subtitle?: string;
   properties?: Record<string, unknown>;
