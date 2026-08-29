@@ -3,6 +3,7 @@ import { useParams, Link, useSearchParams } from 'react-router-dom';
 import { AdminLayout } from '@/components/templates/AdminLayout/AdminLayout';
 import { useGetCrimeByIdQuery, useUpdateCrimeStatusMutation } from '@/services/crimeApi';
 import {
+  downloadEntityReportPdf,
   type EntityReportType,
   useDownloadEntityReportMutation,
 } from '@/services/entityReportsApi';
@@ -72,18 +73,10 @@ export function CrimeDetailWorkspace() {
   };
 
   const openReport = async (entity: EntityReportType, entityId: string) => {
-    const reportWindow = window.open('', '_blank');
     try {
       const pdf = await downloadEntityReport({ entity, id: entityId }).unwrap();
-      const pdfUrl = URL.createObjectURL(pdf);
-      if (reportWindow) {
-        reportWindow.location.href = pdfUrl;
-      } else {
-        window.location.assign(pdfUrl);
-      }
-      window.setTimeout(() => URL.revokeObjectURL(pdfUrl), 60_000);
+      downloadEntityReportPdf(pdf, entity);
     } catch (error) {
-      reportWindow?.close();
       console.error('Failed to download crime report:', error);
     }
   };

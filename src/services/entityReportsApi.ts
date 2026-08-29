@@ -7,6 +7,18 @@ export interface EntityReportRequest {
   id: string;
 }
 
+export function downloadEntityReportPdf(pdf: Blob, entity: EntityReportType) {
+  const pdfUrl = URL.createObjectURL(pdf);
+  const link = document.createElement('a');
+  link.href = pdfUrl;
+  link.download = `${entity}-report.pdf`;
+  link.style.display = 'none';
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(pdfUrl), 60_000);
+}
+
 export const entityReportsApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     downloadEntityReport: builder.mutation<Blob, EntityReportRequest>({

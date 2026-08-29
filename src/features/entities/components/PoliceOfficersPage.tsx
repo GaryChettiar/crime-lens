@@ -9,6 +9,7 @@ import { useGetRanksQuery } from '@/services/policeRanksApi';
 import { useGetStationsQuery } from '@/services/policeStationsApi';
 import { useGetDistrictsQuery } from '@/services/districtsApi';
 import {
+  downloadEntityReportPdf,
   type EntityReportType,
   useDownloadEntityReportMutation,
 } from '@/services/entityReportsApi';
@@ -46,18 +47,10 @@ export function PoliceOfficersPage() {
   const [downloadEntityReport] = useDownloadEntityReportMutation();
 
   const openReport = async (entity: EntityReportType, id: string) => {
-    const reportWindow = window.open('', '_blank');
     try {
       const pdf = await downloadEntityReport({ entity, id }).unwrap();
-      const pdfUrl = URL.createObjectURL(pdf);
-      if (reportWindow) {
-        reportWindow.location.href = pdfUrl;
-      } else {
-        window.location.assign(pdfUrl);
-      }
-      window.setTimeout(() => URL.revokeObjectURL(pdfUrl), 60_000);
+      downloadEntityReportPdf(pdf, entity);
     } catch (error) {
-      reportWindow?.close();
       console.error('Failed to download officer report:', error);
     }
   };

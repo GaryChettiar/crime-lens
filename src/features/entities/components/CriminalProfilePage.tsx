@@ -36,6 +36,7 @@ import {
 } from '@/services/criminalsApi';
 import { useGetDistrictsQuery } from '@/services/districtsApi';
 import {
+  downloadEntityReportPdf,
   type EntityReportType,
   useDownloadEntityReportMutation,
 } from '@/services/entityReportsApi';
@@ -506,18 +507,10 @@ export function CriminalProfilePage() {
   };
 
   const openReport = async (entity: EntityReportType, entityId: string) => {
-    const reportWindow = window.open('', '_blank');
     try {
       const pdf = await downloadEntityReport({ entity, id: entityId }).unwrap();
-      const pdfUrl = URL.createObjectURL(pdf);
-      if (reportWindow) {
-        reportWindow.location.href = pdfUrl;
-      } else {
-        window.location.assign(pdfUrl);
-      }
-      window.setTimeout(() => URL.revokeObjectURL(pdfUrl), 60_000);
+      downloadEntityReportPdf(pdf, entity);
     } catch (error) {
-      reportWindow?.close();
       console.error('Failed to download criminal report:', error);
     }
   };
