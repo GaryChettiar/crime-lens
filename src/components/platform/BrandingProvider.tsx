@@ -56,12 +56,13 @@ function hexToHslObject(hex: string): { h: number; s: number; l: number } {
 export function BrandingProvider() {
   const dispatch = useAppDispatch();
   const branding = useAppSelector((s) => s.branding);
-  const { data: user } = useGetCurrentUserQuery();
-  
+  const skipAuth = import.meta.env.VITE_SKIP_AUTH === 'true';
+  const { data: user } = useGetCurrentUserQuery(undefined, { skip: skipAuth });
+
   // Hydrate configurations from backend on mount
   const { data: serverBranding } = useGetConfigurationByNameQuery(
     { name: 'branding', email: user?.email },
-    { refetchOnMountOrArgChange: true }
+    { refetchOnMountOrArgChange: true, skip: skipAuth }
   );
 
   useEffect(() => {

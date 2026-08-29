@@ -1,7 +1,7 @@
-import { useMemo } from 'react';
-import { skipToken } from '@reduxjs/toolkit/query';
-import { useGetCurrentUserQuery } from '@/services/authApi';
-import { useGetRoleByIdQuery } from '@/services/rolesApi';
+import { useMemo } from "react";
+import { skipToken } from "@reduxjs/toolkit/query";
+import { useGetCurrentUserQuery } from "@/services/authApi";
+import { useGetRoleByIdQuery } from "@/services/rolesApi";
 
 /* =============================================================================
    CrimeLens — usePermissions Hook
@@ -11,21 +11,40 @@ import { useGetRoleByIdQuery } from '@/services/rolesApi';
    ============================================================================= */
 
 export default function usePermissions() {
-  const { data: currentUser, isLoading: isCurrentUserLoading } = useGetCurrentUserQuery();
+  const skipAuth = import.meta.env.VITE_SKIP_AUTH === "true";
+  const { data: currentUser, isLoading: isCurrentUserLoading } =
+    useGetCurrentUserQuery(undefined, { skip: skipAuth });
   const roleId = currentUser?.roles?.[0]?.id;
-  const { data: role, isLoading: isRoleLoading } = useGetRoleByIdQuery(roleId ?? skipToken);
+  const { data: role, isLoading: isRoleLoading } = useGetRoleByIdQuery(
+    roleId ?? skipToken,
+    { skip: skipAuth },
+  );
   // Keep a ref of the last resolved permissions so callers don't briefly
   // see an empty permission set while the roles query is still loading.
-  const lastPermissionsRef = (globalThis as any).__crimeLens_lastPermissionsRef || ({ current: [] } as { current: string[] });
+  const lastPermissionsRef =
+    (globalThis as any).__crimeLens_lastPermissionsRef ||
+    ({ current: [] } as { current: string[] });
   if (!(globalThis as any).__crimeLens_lastPermissionsRef) {
     (globalThis as any).__crimeLens_lastPermissionsRef = lastPermissionsRef;
   }
 
-  const flattenPermissionNames = (perms?: Array<{ name?: string; permission_name?: string; children?: any[] }>) => {
+  const flattenPermissionNames = (
+    perms?: Array<{
+      name?: string;
+      permission_name?: string;
+      children?: any[];
+    }>,
+  ) => {
     if (!Array.isArray(perms)) return [] as string[];
     const result: string[] = [];
 
-    const walk = (items: Array<{ name?: string; permission_name?: string; children?: any[] }>) => {
+    const walk = (
+      items: Array<{
+        name?: string;
+        permission_name?: string;
+        children?: any[];
+      }>,
+    ) => {
       for (const item of items) {
         const name = item.name ?? item.permission_name;
         if (name) {
@@ -46,12 +65,18 @@ export default function usePermissions() {
 
     // If role details are present, use them as the authoritative source.
     if (role) {
-      const systemNames = flattenPermissionNames((role as any).systemPermissions);
-      const businessNames = flattenPermissionNames((role as any).businessPermissions);
+      const systemNames = flattenPermissionNames(
+        (role as any).systemPermissions,
+      );
+      const businessNames = flattenPermissionNames(
+        (role as any).businessPermissions,
+      );
       const legacyNames = Array.isArray((role as any).permissions)
         ? flattenPermissionNames((role as any).permissions)
         : [];
-      const resolved = Array.from(new Set([...systemNames, ...businessNames, ...legacyNames]));
+      const resolved = Array.from(
+        new Set([...systemNames, ...businessNames, ...legacyNames]),
+      );
       if (resolved.length > 0) {
         lastPermissionsRef.current = resolved;
         return resolved;
@@ -77,24 +102,27 @@ export default function usePermissions() {
   }, [currentUser, role, roleId, isRoleLoading]);
 
   const hasPermission = useMemo(
-    () => (permission: string): boolean => {
-      if (!currentUser) return false;
-      return permissions.includes(permission);
-    },
+    () =>
+      (permission: string): boolean => {
+        if (!currentUser) return false;
+        return permissions.includes(permission);
+      },
     [currentUser, permissions],
   );
 
   const hasAnyPermission = useMemo(
-    () => (perms: string[]): boolean => {
-      return perms.some((p) => hasPermission(p));
-    },
+    () =>
+      (perms: string[]): boolean => {
+        return perms.some((p) => hasPermission(p));
+      },
     [hasPermission],
   );
 
   const hasAllPermissions = useMemo(
-    () => (perms: string[]): boolean => {
-      return perms.every((p) => hasPermission(p));
-    },
+    () =>
+      (perms: string[]): boolean => {
+        return perms.every((p) => hasPermission(p));
+      },
     [hasPermission],
   );
 
