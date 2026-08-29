@@ -42,6 +42,12 @@ export const ROUTES: RouteConfig[] = [
     requiredPermission: 'view_network_analysis',
   },
   {
+    path: '/network1',
+    title: 'Network 1',
+    showFilterBar: true,
+    requiredPermission: 'view_network_analysis',
+  },
+  {
     path: '/risk',
     title: 'Risk Assessment',
     showFilterBar: true,
@@ -253,8 +259,12 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Network',
     path: '/network',
-    activePaths: ['/network'],
+    activePaths: ['/network', '/network1'],
     requiredPermission: 'view_network_analysis',
+    items: [
+      { label: 'Global Network', path: '/network', icon: 'dashboard', requiredPermission: 'view_network_analysis' },
+      { label: 'Entity Network (Network 1)', path: '/network1', icon: 'dashboard', requiredPermission: 'view_network_analysis' },
+    ],
   },
   {
     label: 'Forecast',
