@@ -1,13 +1,13 @@
-import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
-import tailwindcss from '@tailwindcss/vite';
-import path from 'path';
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
+import path from "path";
 
 // Custom lightweight plugin to load .geojson files as JSON modules
 const geojsonPlugin = () => ({
-  name: 'geojson-loader',
+  name: "geojson-loader",
   transform(code: string, id: string) {
-    if (id.endsWith('.geojson')) {
+    if (id.endsWith(".geojson")) {
       return {
         code: `export default ${code};`,
         map: null,
@@ -21,37 +21,42 @@ const geojsonPlugin = () => ({
 export default defineConfig({
   plugins: [tailwindcss(), react(), geojsonPlugin()],
   server: {
-    host: '0.0.0.0',
+    host: "0.0.0.0",
     port: 4173,
     strictPort: true,
     proxy: {
-      '/news-api': {
-        target: 'http://127.0.0.1:5000',
+      "/news-api": {
+        target: "http://127.0.0.1:5000",
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/news-api/, ''),
+        rewrite: (path) => path.replace(/^\/news-api/, ""),
       },
-      '/auth': {
-        target: 'https://crimelens-be-50043087097.development.catalystappsail.in',
-        changeOrigin: true,
-        secure: true,
-      },
-      '/configurations': {
-        target: 'https://crimelens-be-50043087097.development.catalystappsail.in',
+      "/auth": {
+        target:
+          "https://crimelens-be-50043087097.development.catalystappsail.in",
         changeOrigin: true,
         secure: true,
       },
-      '/network-analysis': {
-        target: 'https://crimelens-be-50043087097.development.catalystappsail.in',
+      "/configurations": {
+        target:
+          "https://crimelens-be-50043087097.development.catalystappsail.in",
         changeOrigin: true,
         secure: true,
       },
-      '/roles': {
-        target: 'https://crimelens-be-50043087097.development.catalystappsail.in',
+      "/network-analysis": {
+        target:
+          "https://crimelens-be-50043087097.development.catalystappsail.in",
         changeOrigin: true,
         secure: true,
       },
-      '/users': {
-        target: 'https://crimelens-be-50043087097.development.catalystappsail.in',
+      "/roles": {
+        target:
+          "https://crimelens-be-50043087097.development.catalystappsail.in",
+        changeOrigin: true,
+        secure: true,
+      },
+      "/users": {
+        target:
+          "https://crimelens-be-50043087097.development.catalystappsail.in",
         changeOrigin: true,
         secure: true,
       },
@@ -59,10 +64,10 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'),
+      "@": path.resolve(__dirname, "./src"),
     },
   },
   optimizeDeps: {
-    include: ['react-is'],
+    include: ["react-is"],
   },
 });

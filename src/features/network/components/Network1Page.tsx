@@ -70,8 +70,30 @@ export function Network1PageContent() {
 
   const graphData = React.useMemo(() => {
     const payload = graphResponse?.data ?? graphResponse;
-    return payload && typeof payload === 'object' && 'nodes' in payload ? payload : null;
+    if (!payload || typeof payload !== 'object') return null;
+
+    if (Array.isArray((payload as { nodes?: unknown }).nodes)) {
+      return payload as { nodes: Array<{ id: string; type: string; label?: string }> ; edges: Array<{ id: string; source: string; target: string }> };
+    }
+
+    if (payload && typeof payload === 'object' && 'data' in payload) {
+      const nested = (payload as { data?: unknown }).data;
+      if (nested && typeof nested === 'object' && 'nodes' in nested) {
+        return nested as { nodes: Array<{ id: string; type: string; label?: string }> ; edges: Array<{ id: string; source: string; target: string }> };
+      }
+    }
+
+    return null;
   }, [graphResponse]);
+
+  const normalizedNodes = React.useMemo(
+    () => (Array.isArray(graphData?.nodes) ? graphData.nodes : []),
+    [graphData],
+  );
+  const normalizedEdges = React.useMemo(
+    () => (Array.isArray(graphData?.edges) ? graphData.edges : []),
+    [graphData],
+  );
 
   const currentOptions = React.useMemo(() => {
     if (!optionsData?.data) return [];
@@ -97,23 +119,30 @@ export function Network1PageContent() {
     }
   };
 
-  const reactFlowNodes = React.useMemo(() => {
-    if (!graphData?.nodes) return [];
-    return graphData.nodes.map((node, index) => {
-      let border = '1.5px solid #475569';
-      if (node.type === 'criminal') border = '1.5px solid #F43F5E';
-      if (node.type === 'suspect') border = '1.5px solid #FB7185';
-      if (node.type === 'incident') border = '1.5px solid #F59E0B';
-      if (node.type === 'vehicle') border = '1.5px solid #10B981';
-      if (node.type === 'evidence') border = '1.5px solid #3B82F6';
+  const rootNodeIds = React.useMemo(() => {
+    const rootType = selectedEntity?.type ?? entityType;
+    const ids = new Set<string>([entityId, `${rootType}_${entityId}`]);
+    if (entityId) ids.add(String(entityId));
+    return ids;
+  }, [entityId, entityType, selectedEntity]);
 
-      const rootType = selectedEntity?.type ?? entityType;
-      const isRoot = node.id === `${rootType}_${entityId}`;
+  const reactFlowNodes = React.useMemo(() => {
+    if (!normalizedNodes.length) return [];
+    return normalizedNodes.map((node, index) => {
+      const nodeType = typeof node.type === 'string' ? node.type : 'unknown';
+      let border = '1.5px solid #475569';
+      if (nodeType === 'criminal') border = '1.5px solid #F43F5E';
+      if (nodeType === 'suspect') border = '1.5px solid #FB7185';
+      if (nodeType === 'incident' || nodeType === 'crime') border = '1.5px solid #F59E0B';
+      if (nodeType === 'vehicle') border = '1.5px solid #10B981';
+      if (nodeType === 'evidence') border = '1.5px solid #3B82F6';
+
+      const isRoot = rootNodeIds.has(String(node.id));
       if (isRoot) border = '3px solid #ffffff';
 
       return {
-        id: node.id,
-        position: getNodePosition(node.id, node.type, index),
+        id: String(node.id),
+        position: getNodePosition(String(node.id), nodeType, index),
         data: {
           label: (
             <div className="flex flex-col items-center gap-1 select-none">
@@ -121,7 +150,7 @@ export function Network1PageContent() {
                 {node.label || node.id}
               </span>
               <span className="text-[8px] opacity-75 font-semibold uppercase tracking-wider">
-                {node.type}
+                {nodeType}
               </span>
             </div>
           ),
@@ -137,14 +166,14 @@ export function Network1PageContent() {
         },
       };
     });
-  }, [graphResponse, entityType, entityId]);
+  }, [normalizedNodes, rootNodeIds]);
 
   const reactFlowEdges = React.useMemo(() => {
-    if (!graphData?.edges) return [];
-    return graphData.edges.map((edge) => ({
-      id: edge.id,
-      source: edge.source,
-      target: edge.target,
+    if (!normalizedEdges.length) return [];
+    return normalizedEdges.map((edge) => ({
+      id: String(edge.id),
+      source: String(edge.source),
+      target: String(edge.target),
       animated: true,
       style: {
         stroke: '#818CF8',
@@ -152,7 +181,7 @@ export function Network1PageContent() {
         opacity: 0.75,
       },
     }));
-  }, [graphData]);
+  }, [normalizedEdges]);
 
   return (
     <DashboardLayout title="Entity Network Analysis">
@@ -201,16 +230,22 @@ export function Network1PageContent() {
         </Card>
 
         <Card className="bg-card border border-border shadow-sm flex-1 overflow-hidden relative min-h-[600px]">
-          <ReactFlow
-            nodes={reactFlowNodes}
-            edges={reactFlowEdges}
-            fitView
-            attributionPosition="bottom-right"
-          >
-            <Background color="#334155" gap={16} />
-            <Controls className="bg-card border-border text-foreground fill-foreground" />
-            <GraphController nodesCount={reactFlowNodes.length} />
-          </ReactFlow>
+          {normalizedNodes.length > 0 ? (
+            <ReactFlow
+              nodes={reactFlowNodes}
+              edges={reactFlowEdges}
+              fitView
+              attributionPosition="bottom-right"
+            >
+              <Background color="#334155" gap={16} />
+              <Controls className="bg-card border-border text-foreground fill-foreground" />
+              <GraphController nodesCount={reactFlowNodes.length} />
+            </ReactFlow>
+          ) : (
+            <div className="flex h-full min-h-[600px] items-center justify-center text-sm text-muted-foreground">
+              {isGraphLoading ? 'Generating network graph...' : 'Select an entity and generate the graph.'}
+            </div>
+          )}
         </Card>
       </div>
     </DashboardLayout>

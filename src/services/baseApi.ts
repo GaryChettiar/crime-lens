@@ -4,14 +4,14 @@ import {
   type BaseQueryFn,
   type FetchArgs,
   type FetchBaseQueryError,
-} from '@reduxjs/toolkit/query/react';
+} from "@reduxjs/toolkit/query/react";
 import {
   clearStoredAuthSession,
   getStoredAccessToken,
   getStoredRefreshToken,
   getStoredSessionId,
   setStoredAuthSession,
-} from './authStorage';
+} from "./authStorage";
 
 function unwrapAuthPayload<T>(response: unknown): T {
   const payload = response as Record<string, unknown>;
@@ -19,13 +19,17 @@ function unwrapAuthPayload<T>(response: unknown): T {
 }
 
 function getRequestUrl(args: string | FetchArgs): string {
-  if (typeof args === 'string') return args;
+  if (typeof args === "string") return args;
   return args.url;
 }
 
-function shouldAttemptTokenRefresh(url: string, status: number | string): boolean {
+function shouldAttemptTokenRefresh(
+  url: string,
+  status: number | string,
+): boolean {
   if (status !== 401 && status !== 403) return false;
-  if (url.includes('/auth/login') || url.includes('/auth/refresh')) return false;
+  if (url.includes("/auth/login") || url.includes("/auth/refresh"))
+    return false;
   return Boolean(getStoredRefreshToken() && getStoredSessionId());
 }
 
@@ -45,8 +49,8 @@ async function refreshAuthSession(
 
     const refreshResult = await rawBaseQuery(
       {
-        url: '/auth/refresh',
-        method: 'POST',
+        url: "/auth/refresh",
+        method: "POST",
         body: { sessionId, refreshToken },
       },
       api,
@@ -78,14 +82,14 @@ async function refreshAuthSession(
 }
 
 const rawBaseQuery = fetchBaseQuery({
-  baseUrl: import.meta.env.VITE_API_BASE_URL ?? '/',
-  credentials: 'include',
+  baseUrl: import.meta.env.VITE_API_BASE_URL ?? "/",
+  credentials: "include",
   prepareHeaders: (headers) => {
     const token = getStoredAccessToken();
-    if (token && token !== 'undefined' && token !== 'null') {
-      headers.set('Authorization', `Bearer ${token}`);
+    if (token && token !== "undefined" && token !== "null") {
+      headers.set("Authorization", `Bearer ${token}`);
     }
-    headers.set('Content-Type', 'application/json');
+    headers.set("Content-Type", "application/json");
     return headers;
   },
 });
@@ -129,41 +133,40 @@ const baseQueryWithReauth: BaseQueryFn<
  * - Optimistic updates and cache invalidation
  */
 export const baseApi = createApi({
-  reducerPath: 'api',
+  reducerPath: "api",
   baseQuery: baseQueryWithReauth,
   tagTypes: [
-    'Auth',
-    'User',
-    'Role',
-    'Permission',
-    'Invite',
-    'Configuration',
-    'District',
-    'StationType',
-    'PoliceStation',
-    'PoliceRank',
-    'PoliceOfficer',
-    'Criminal',
-    'Crime',
-    'FIR',
-    'Dashboard',
-    'Hotspot',
-    'Risk',
-    'Network',
-    'Report',
-    'Alert',
-    'CriminalProfile',
-    'CriminalRiskFactors',
-    'CrimeSuspect',
-    'Suspect',
-    'CaseVictim',
-    'CaseWitness',
-    'CrimeEvidence',
-    'CrimeLegalSection',
-    'CrimeActivity',
-    'CrimeCategory',
-    'DashboardStats'
+    "Auth",
+    "User",
+    "Role",
+    "Permission",
+    "Invite",
+    "Configuration",
+    "District",
+    "StationType",
+    "PoliceStation",
+    "PoliceRank",
+    "PoliceOfficer",
+    "Criminal",
+    "Crime",
+    "FIR",
+    "Dashboard",
+    "Hotspot",
+    "Risk",
+    "Network",
+    "Report",
+    "Alert",
+    "CriminalProfile",
+    "CriminalRiskFactors",
+    "CrimeSuspect",
+    "Suspect",
+    "CaseVictim",
+    "CaseWitness",
+    "CrimeEvidence",
+    "CrimeLegalSection",
+    "CrimeActivity",
+    "CrimeCategory",
+    "DashboardStats",
   ],
   endpoints: () => ({}),
 });
-
