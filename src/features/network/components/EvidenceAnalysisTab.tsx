@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { Link } from 'react-router-dom';
-import { AlertCircle, Check, ChevronRight, FileUp, FolderOpen, Loader2, Plus, Trash2, Upload } from 'lucide-react';
+import { AlertCircle, Check, ChevronRight, FileUp, FolderOpen, Loader2, Trash2, Upload } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useGetCrimesByEvidencePathsQuery } from '@/services/crimeApi';
@@ -74,8 +74,8 @@ export function EvidenceAnalysisTab() {
   return (
     <div className="space-y-4">
       <Card className="bg-card border border-border shadow-sm">
-        <CardHeader className="flex flex-row items-center justify-between"><CardTitle className="text-sm flex items-center gap-2"><Upload className="h-4 w-4" />Upload Evidence for Analysis</CardTitle><Button type="button" variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => document.getElementById(inputId)?.click()}><Plus className="h-3.5 w-3.5" /> Add Evidence</Button></CardHeader>
-        <CardContent><div onDragOver={(event) => { event.preventDefault(); setIsDragging(true); }} onDragLeave={() => setIsDragging(false)} onDrop={(event) => { event.preventDefault(); setIsDragging(false); addFiles(Array.from(event.dataTransfer.files)); }} className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${isDragging ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'}`}><FileUp className="h-7 w-7 mx-auto mb-2 text-muted-foreground" /><p className="text-xs font-medium text-foreground">Drag and drop evidence files here</p><p className="text-[11px] text-muted-foreground mt-1">Add a file, choose its type, then identify and confirm it.</p><input id={inputId} type="file" accept="image/*" multiple className="hidden" onChange={(event) => { addFiles(Array.from(event.target.files ?? [])); event.target.value = ''; }} /></div></CardContent>
+        <CardHeader><CardTitle className="text-sm flex items-center gap-2"><Upload className="h-4 w-4" />Upload Evidence for Analysis</CardTitle></CardHeader>
+        <CardContent><div role="button" tabIndex={0} onClick={() => document.getElementById(inputId)?.click()} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') document.getElementById(inputId)?.click(); }} onDragOver={(event) => { event.preventDefault(); setIsDragging(true); }} onDragLeave={() => setIsDragging(false)} onDrop={(event) => { event.preventDefault(); setIsDragging(false); addFiles(Array.from(event.dataTransfer.files)); }} className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${isDragging ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'}`}><FileUp className="h-7 w-7 mx-auto mb-2 text-muted-foreground" /><p className="text-xs font-medium text-foreground">Drag and drop evidence files here</p><p className="text-[11px] text-muted-foreground mt-1">or click to browse files</p><input id={inputId} type="file" accept="image/*" multiple className="hidden" onChange={(event) => { addFiles(Array.from(event.target.files ?? [])); event.target.value = ''; }} /></div></CardContent>
       </Card>
 
       {evidence.length > 0 && <Card className="bg-card border border-border shadow-sm"><CardHeader><CardTitle className="text-sm flex items-center gap-2"><FolderOpen className="h-4 w-4" />Evidence Analysis Results</CardTitle></CardHeader><CardContent><div className="flex gap-4 h-[28rem] overflow-hidden">
