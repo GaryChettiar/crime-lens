@@ -11,9 +11,10 @@ import { useGetRoleByIdQuery } from '@/services/rolesApi';
    ============================================================================= */
 
 export default function usePermissions() {
-  const { data: currentUser, isLoading: isCurrentUserLoading } = useGetCurrentUserQuery();
+  const skipAuth = import.meta.env.VITE_SKIP_AUTH === 'true';
+  const { data: currentUser, isLoading: isCurrentUserLoading } = useGetCurrentUserQuery(undefined, { skip: skipAuth });
   const roleId = currentUser?.roles?.[0]?.id;
-  const { data: role, isLoading: isRoleLoading } = useGetRoleByIdQuery(roleId ?? skipToken);
+  const { data: role, isLoading: isRoleLoading } = useGetRoleByIdQuery(roleId ?? skipToken, { skip: skipAuth });
   // Keep a ref of the last resolved permissions so callers don't briefly
   // see an empty permission set while the roles query is still loading.
   const lastPermissionsRef = (globalThis as any).__crimeLens_lastPermissionsRef || ({ current: [] } as { current: string[] });

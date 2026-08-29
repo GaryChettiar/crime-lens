@@ -21,11 +21,39 @@ const geojsonPlugin = () => ({
 export default defineConfig({
   plugins: [tailwindcss(), react(), geojsonPlugin()],
   server: {
+    host: '0.0.0.0',
+    port: 4173,
+    strictPort: true,
     proxy: {
       '/news-api': {
         target: 'http://127.0.0.1:5000',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/news-api/, ''),
+      },
+      '/auth': {
+        target: 'https://crimelens-be-50043087097.development.catalystappsail.in',
+        changeOrigin: true,
+        secure: true,
+      },
+      '/configurations': {
+        target: 'https://crimelens-be-50043087097.development.catalystappsail.in',
+        changeOrigin: true,
+        secure: true,
+      },
+      '/network-analysis': {
+        target: 'https://crimelens-be-50043087097.development.catalystappsail.in',
+        changeOrigin: true,
+        secure: true,
+      },
+      '/roles': {
+        target: 'https://crimelens-be-50043087097.development.catalystappsail.in',
+        changeOrigin: true,
+        secure: true,
+      },
+      '/users': {
+        target: 'https://crimelens-be-50043087097.development.catalystappsail.in',
+        changeOrigin: true,
+        secure: true,
       },
     },
   },

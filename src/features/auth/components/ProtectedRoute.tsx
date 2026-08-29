@@ -6,6 +6,12 @@ import usePermissions from '@/hooks/usePermissions';
 
 export function ProtectedRoute() {
   const location = useLocation();
+  const skipAuth = import.meta.env.VITE_SKIP_AUTH === 'true';
+
+  if (skipAuth) {
+    return <Outlet />;
+  }
+
   const isAuthenticated = hasStoredAuthSession();
   const {
     data: currentUser,
