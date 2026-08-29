@@ -14,9 +14,11 @@ import 'reactflow/dist/style.css';
 import { DashboardLayout } from '@/components/templates/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useGetEntityOptionsQuery, useBuildNetworkGraphMutation } from '@/services/networkApi';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Network, FileUp } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { EvidenceAnalysisTab } from './EvidenceAnalysisTab';
 
 // Helper to calculate concentric position stably for simple display
 function getNodePosition(nodeId: string, nodeType: string, index: number) {
@@ -67,6 +69,7 @@ function GraphController({ nodesCount }: { nodesCount: number }) {
 export function Network1PageContent() {
   const { data: optionsData, isLoading: optionsLoading } = useGetEntityOptionsQuery();
   const [buildGraph, { data: graphResponse, isLoading: isGraphLoading }] = useBuildNetworkGraphMutation();
+  const [activeTab, setActiveTab] = React.useState<'entity-network' | 'evidence-analysis'>('entity-network');
 
   const [entityType, setEntityType] = React.useState<string>('criminal');
   const [entityId, setEntityId] = React.useState<string>('');
@@ -107,7 +110,6 @@ export function Network1PageContent() {
         ...(optionsData.data.suspects ?? []).map((item) => ({ ...item, type: 'suspect' as const })),
       ];
     }
-    if (entityType === 'vehicle') return (optionsData.data.vehicles ?? []).map((item) => ({ ...item, type: 'vehicle' as const }));
     if (entityType === 'evidence') return (optionsData.data.evidences ?? []).map((item) => ({ ...item, type: 'evidence' as const }));
     return [];
   }, [optionsData, entityType]);
@@ -277,80 +279,107 @@ export function Network1PageContent() {
   }, [reactFlowEdges, setFlowEdges]);
 
   return (
-    <DashboardLayout title="Entity Network Analysis">
+    <DashboardLayout title="Network Analysis">
       <div className="space-y-4 max-w-7xl mx-auto pb-12 px-4 flex flex-col min-h-[90vh]">
-        <Card className="bg-card border border-border shadow-sm shrink-0">
-          <CardHeader>
-            <CardTitle>Select Root Entity</CardTitle>
-          </CardHeader>
-          <CardContent className="flex gap-4 items-center">
-            <Select value={entityType} onValueChange={(val) => { setEntityType(val); setEntityId(''); }}>
-              <SelectTrigger className="w-[200px]">
-                <SelectValue placeholder="Select Entity Type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="criminal">Criminal</SelectItem>
-                <SelectItem value="vehicle">Vehicle</SelectItem>
-                <SelectItem value="evidence">Evidence</SelectItem>
-              </SelectContent>
-            </Select>
+        <Tabs value={activeTab} onValueChange={(val) => setActiveTab(val as 'entity-network' | 'evidence-analysis')} className="flex flex-col gap-4">
+          <Card className="bg-card border border-border shadow-sm shrink-0">
+            <CardHeader>
+              <CardTitle>Network Analysis</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <TabsList className="grid w-full max-w-md grid-cols-2">
+                <TabsTrigger value="entity-network" className="flex items-center gap-2">
+                  <Network className="h-4 w-4" />
+                  Entity Network
+                </TabsTrigger>
+                <TabsTrigger value="evidence-analysis" className="flex items-center gap-2">
+                  <FileUp className="h-4 w-4" />
+                  Evidence Analysis
+                </TabsTrigger>
+              </TabsList>
+            </CardContent>
+          </Card>
 
-            <Select value={entityId} onValueChange={setEntityId} disabled={optionsLoading || !currentOptions.length}>
-              <SelectTrigger className="w-[320px]">
-                <SelectValue placeholder={
-                  optionsLoading
-                    ? 'Loading...'
-                    : entityType === 'criminal'
-                      ? 'Select Criminal or Suspect'
-                      : 'Select Specific Entity'
-                } />
-              </SelectTrigger>
-              <SelectContent>
-                {currentOptions.map((opt) => (
-                  <SelectItem key={`${opt.type ?? entityType}-${opt.id}`} value={opt.id}>
-                    {opt.type === 'suspect' ? 'Suspect: ' : ''}
-                    {opt.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          {/* Entity Network Analysis Tab */}
+          <TabsContent value="entity-network" className="space-y-4">
+            <Card className="bg-card border border-border shadow-sm shrink-0">
+              <CardHeader>
+                <CardTitle>Select Root Entity</CardTitle>
+              </CardHeader>
+              <CardContent className="flex gap-4 items-center">
+                <Select value={entityType} onValueChange={(val) => { setEntityType(val); setEntityId(''); }}>
+                  <SelectTrigger className="w-[200px]">
+                    <SelectValue placeholder="Select Entity Type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="criminal">Criminal</SelectItem>
+                    <SelectItem value="evidence">Evidence</SelectItem>
+                  </SelectContent>
+                </Select>
 
-            <Button onClick={handleGenerate} disabled={!entityId || isGraphLoading}>
-              {isGraphLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Generate Graph
-            </Button>
-          </CardContent>
-        </Card>
+                <Select value={entityId} onValueChange={setEntityId} disabled={optionsLoading || !currentOptions.length}>
+                  <SelectTrigger className="w-[320px]">
+                    <SelectValue placeholder={
+                      optionsLoading
+                        ? 'Loading...'
+                        : entityType === 'criminal'
+                          ? 'Select Criminal or Suspect'
+                          : 'Select Specific Entity'
+                    } />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {currentOptions.map((opt) => (
+                      <SelectItem key={`${opt.type ?? entityType}-${opt.id}`} value={opt.id}>
+                        {opt.type === 'suspect' ? 'Suspect: ' : ''}
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
 
-        <Card className="bg-card border border-border shadow-sm flex-1 overflow-hidden relative min-h-[600px]">
-          {visibleNodes.length > 0 ? (
-            <div className="relative h-[600px] w-full min-w-0" style={{ width: '100%', height: '600px' }}>
-              <ReactFlow
-                nodes={flowNodes}
-                edges={flowEdges}
-                onNodesChange={onNodesChange}
-                fitView
-                fitViewOptions={{ padding: 0.25 }}
-                minZoom={0.15}
-                maxZoom={2.5}
-                nodesDraggable={true}
-                nodesConnectable={false}
-                elementsSelectable={true}
-                attributionPosition="bottom-right"
-                className="h-full w-full"
-                style={{ width: '100%', height: '100%' }}
-              >
-                <Background color="#334155" gap={16} />
-                <Controls className="bg-card border-border text-foreground fill-foreground" />
-                <GraphController nodesCount={reactFlowNodes.length} />
-              </ReactFlow>
-            </div>
-          ) : (
-            <div className="flex h-[600px] items-center justify-center text-sm text-muted-foreground">
-              {isGraphLoading ? 'Generating network graph...' : 'Select an entity and generate the graph.'}
-            </div>
-          )}
-        </Card>
+                <Button onClick={handleGenerate} disabled={!entityId || isGraphLoading}>
+                  {isGraphLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Generate Graph
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-card border border-border shadow-sm flex-1 overflow-hidden relative min-h-[600px]">
+              {visibleNodes.length > 0 ? (
+                <div className="relative h-[600px] w-full min-w-0" style={{ width: '100%', height: '600px' }}>
+                  <ReactFlow
+                    nodes={flowNodes}
+                    edges={flowEdges}
+                    onNodesChange={onNodesChange}
+                    fitView
+                    fitViewOptions={{ padding: 0.25 }}
+                    minZoom={0.15}
+                    maxZoom={2.5}
+                    nodesDraggable={true}
+                    nodesConnectable={false}
+                    elementsSelectable={true}
+                    attributionPosition="bottom-right"
+                    className="h-full w-full"
+                    style={{ width: '100%', height: '100%' }}
+                  >
+                    <Background color="#334155" gap={16} />
+                    <Controls className="bg-card border-border text-foreground fill-foreground" />
+                    <GraphController nodesCount={reactFlowNodes.length} />
+                  </ReactFlow>
+                </div>
+              ) : (
+                <div className="flex h-[600px] items-center justify-center text-sm text-muted-foreground">
+                  {isGraphLoading ? 'Generating network graph...' : 'Select an entity and generate the graph.'}
+                </div>
+              )}
+            </Card>
+          </TabsContent>
+
+          {/* Evidence Analysis Tab */}
+          <TabsContent value="evidence-analysis" className="flex-1">
+            <EvidenceAnalysisTab />
+          </TabsContent>
+        </Tabs>
       </div>
     </DashboardLayout>
   );
