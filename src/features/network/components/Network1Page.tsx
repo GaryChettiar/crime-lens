@@ -231,18 +231,25 @@ export function Network1PageContent() {
 
         <Card className="bg-card border border-border shadow-sm flex-1 overflow-hidden relative min-h-[600px]">
           {normalizedNodes.length > 0 ? (
-            <ReactFlow
-              nodes={reactFlowNodes}
-              edges={reactFlowEdges}
-              fitView
-              attributionPosition="bottom-right"
-            >
-              <Background color="#334155" gap={16} />
-              <Controls className="bg-card border-border text-foreground fill-foreground" />
-              <GraphController nodesCount={reactFlowNodes.length} />
-            </ReactFlow>
+            <div className="relative h-[600px] w-full min-w-0" style={{ width: '100%', height: '600px' }}>
+              <ReactFlow
+                nodes={reactFlowNodes}
+                edges={reactFlowEdges}
+                fitView
+                fitViewOptions={{ padding: 0.2 }}
+                minZoom={0.15}
+                maxZoom={2.5}
+                attributionPosition="bottom-right"
+                className="h-full w-full"
+                style={{ width: '100%', height: '100%' }}
+              >
+                <Background color="#334155" gap={16} />
+                <Controls className="bg-card border-border text-foreground fill-foreground" />
+                <GraphController nodesCount={reactFlowNodes.length} />
+              </ReactFlow>
+            </div>
           ) : (
-            <div className="flex h-full min-h-[600px] items-center justify-center text-sm text-muted-foreground">
+            <div className="flex h-[600px] items-center justify-center text-sm text-muted-foreground">
               {isGraphLoading ? 'Generating network graph...' : 'Select an entity and generate the graph.'}
             </div>
           )}
