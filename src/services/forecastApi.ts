@@ -8,6 +8,10 @@ const FORECAST_API_URL =
 const EXPRESS_API_URL =
   import.meta.env.VITE_EXPRESS_API_URL || "http://localhost:8080";
 
+const expressBaseQuery = fetchBaseQuery({
+  baseUrl: EXPRESS_API_URL,
+});
+
 type ForecastQueryParams = {
   start_date?: string;
   end_date?: string;
@@ -176,24 +180,33 @@ export const forecastApi = createApi({
       GenerateAndStoreResponse,
       GenerateAndStoreParams
     >({
-      query: (params) => ({
-        url: "/forecast/generate-and-store",
-        method: "POST",
-        body: {
-          start_date: params.start_date,
-          end_date: params.end_date,
-          ...(params.district_id ? { district_id: params.district_id } : {}),
-          ...(params.police_station_id
-            ? { police_station_id: params.police_station_id }
-            : {}),
-          ...(params.crime_category_id
-            ? { crime_category_id: params.crime_category_id }
-            : {}),
-        },
-      }),
-      baseQuery: fetchBaseQuery({
-        baseUrl: EXPRESS_API_URL,
-      }),
+      async queryFn(params, api, extraOptions) {
+        const result = await expressBaseQuery(
+          {
+            url: "/forecast/generate-and-store",
+            method: "POST",
+            body: {
+              start_date: params.start_date,
+              end_date: params.end_date,
+              ...(params.district_id ? { district_id: params.district_id } : {}),
+              ...(params.police_station_id
+                ? { police_station_id: params.police_station_id }
+                : {}),
+              ...(params.crime_category_id
+                ? { crime_category_id: params.crime_category_id }
+                : {}),
+            },
+          },
+          api,
+          extraOptions,
+        );
+
+        if (result.error) {
+          return { error: result.error };
+        }
+
+        return { data: result.data as GenerateAndStoreResponse };
+      },
       invalidatesTags: ["StoredForecast"],
     }),
 
@@ -205,24 +218,33 @@ export const forecastApi = createApi({
       StoredForecastItem[],
       ForecastQueryParams | void
     >({
-      query: (params) => ({
-        url: "/forecast",
-        method: "GET",
-        params: {
-          ...(params?.start_date ? { start_date: params.start_date } : {}),
-          ...(params?.end_date ? { end_date: params.end_date } : {}),
-          ...(params?.district_id ? { district_id: params.district_id } : {}),
-          ...(params?.police_station_id
-            ? { police_station_id: params.police_station_id }
-            : {}),
-          ...(params?.crime_category_id
-            ? { crime_category_id: params.crime_category_id }
-            : {}),
-        },
-      }),
-      baseQuery: fetchBaseQuery({
-        baseUrl: EXPRESS_API_URL,
-      }),
+      async queryFn(params, api, extraOptions) {
+        const result = await expressBaseQuery(
+          {
+            url: "/forecast",
+            method: "GET",
+            params: {
+              ...(params?.start_date ? { start_date: params.start_date } : {}),
+              ...(params?.end_date ? { end_date: params.end_date } : {}),
+              ...(params?.district_id ? { district_id: params.district_id } : {}),
+              ...(params?.police_station_id
+                ? { police_station_id: params.police_station_id }
+                : {}),
+              ...(params?.crime_category_id
+                ? { crime_category_id: params.crime_category_id }
+                : {}),
+            },
+          },
+          api,
+          extraOptions,
+        );
+
+        if (result.error) {
+          return { error: result.error };
+        }
+
+        return { data: result.data as StoredForecastItem[] };
+      },
       providesTags: ["StoredForecast"],
     }),
 
