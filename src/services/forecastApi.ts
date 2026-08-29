@@ -6,7 +6,8 @@ const FORECAST_API_URL =
 
 // Express backend API for stored forecasts
 const EXPRESS_API_URL =
-  import.meta.env.VITE_EXPRESS_API_URL || "http://localhost:8080";
+  import.meta.env.VITE_EXPRESS_API_URL ||
+  "https://crimelens-be-50043087097.development.catalystappsail.in";
 
 const expressBaseQuery = fetchBaseQuery({
   baseUrl: EXPRESS_API_URL,
