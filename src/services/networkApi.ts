@@ -42,6 +42,19 @@ export interface CommunityDetail {
   riskScore: number;
 }
 
+export interface EntityOption {
+  id: string;
+  label: string;
+}
+
+export interface EntityOptionsResponse {
+  data: {
+    criminals: EntityOption[];
+    vehicles: EntityOption[];
+    evidences: EntityOption[];
+  };
+}
+
 /**
  * Network API — Criminal network analysis and graph data endpoints.
  * Interoperates with mock graphs and prepares schemas for future Neo4j queries.
@@ -141,6 +154,13 @@ export const networkApi = baseApi.injectEndpoints({
           ...(params?.districtId ? { districtId: params.districtId } : {}),
           ...(params?.stationId ? { stationId: params.stationId } : {}),
         },
+      }),
+      providesTags: ['Network'],
+    }),
+
+    getEntityOptions: builder.query<EntityOptionsResponse, void>({
+      query: () => ({
+        url: '/network-analysis/entity-options',
       }),
       providesTags: ['Network'],
     }),
@@ -315,6 +335,7 @@ export const {
   useGetCommonAssociatesQuery,
   useDetectCriminalCommunitiesQuery,
   useBuildNetworkGraphMutation,
+  useGetEntityOptionsQuery,
 } = networkApi;
 
 // ---------------------------------------------------------------------------

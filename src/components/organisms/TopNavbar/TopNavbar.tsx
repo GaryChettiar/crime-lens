@@ -50,7 +50,7 @@ export function TopNavbar({ title = 'Dashboard' }: TopNavbarProps) {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const showFilterBar = ['/', '/analytics', '/heatmap', '/network'].includes(location.pathname);
+  const showFilterBar = ['/', '/analytics', '/heatmap', '/network', '/network1'].includes(location.pathname);
 
   const handleToggleFilterBar = useCallback(() => {
     dispatch(toggleFilterBar());

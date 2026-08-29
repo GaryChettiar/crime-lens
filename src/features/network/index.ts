@@ -15,3 +15,4 @@ export type {
   NetworkCluster,
 } from '@/services/networkApi';
 export { NetworkPage } from './components/NetworkPage';
+export { Network1Page } from './components/Network1Page';
