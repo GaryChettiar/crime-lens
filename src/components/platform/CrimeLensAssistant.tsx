@@ -126,17 +126,18 @@ export function CrimeLensAssistant({ inline = false }: { inline?: boolean }) {
     if (!navigation?.route) return;
 
     const mappedFilters = mapAiNavigationFiltersToUi(navigation.filters ?? {});
-    if (mappedFilters.district) {
-      dispatch(setDistrict(mappedFilters.district));
+
+    if (Object.prototype.hasOwnProperty.call(mappedFilters, 'district')) {
+      dispatch(setDistrict(mappedFilters.district ?? null));
     }
-    if (mappedFilters.dateRange) {
-      dispatch(setDateRange(mappedFilters.dateRange));
+    if (Object.prototype.hasOwnProperty.call(mappedFilters, 'dateRange')) {
+      dispatch(setDateRange(mappedFilters.dateRange ?? { start: null, end: null }));
     }
-    if (mappedFilters.crimeTypes && mappedFilters.crimeTypes.length > 0) {
-      dispatch(setCrimeTypes(mappedFilters.crimeTypes));
+    if (Object.prototype.hasOwnProperty.call(mappedFilters, 'crimeTypes')) {
+      dispatch(setCrimeTypes(mappedFilters.crimeTypes ?? []));
     }
-    if (mappedFilters.crimeCategory) {
-      dispatch(setCrimeCategory(mappedFilters.crimeCategory));
+    if (Object.prototype.hasOwnProperty.call(mappedFilters, 'crimeCategory')) {
+      dispatch(setCrimeCategory(mappedFilters.crimeCategory ?? null));
     }
 
     applyAiNavigation(navigation, navigate, () => {
@@ -338,21 +339,26 @@ export function CrimeLensAssistant({ inline = false }: { inline?: boolean }) {
 
     if (message.aiType === 'business' && message.businessData) {
       const { district, dateRange, crimeCount, crimes = [] } = message.businessData;
+      const resolvedCrimeCount = typeof crimeCount === 'number' ? crimeCount : crimes.length;
+      const hasRecords = Array.isArray(crimes) && crimes.length > 0;
+      const resolvedDistrict = district && district !== 'Selected district' ? district : 'All districts';
 
       return (
         <div className="space-y-4 text-sm text-foreground">
           <p className="whitespace-pre-wrap leading-6">{message.content}</p>
 
-          <div className="grid grid-cols-2 gap-2">
-            <div className="rounded-lg border border-border bg-muted/30 p-3">
-              <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Crimes</div>
-              <div className="mt-2 text-2xl font-semibold tabular-nums">{crimeCount ?? crimes.length}</div>
+          {(resolvedCrimeCount !== undefined || resolvedDistrict) && (
+            <div className="grid grid-cols-2 gap-2">
+              <div className="rounded-lg border border-border bg-muted/30 p-3">
+                <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Crimes</div>
+                <div className="mt-2 text-2xl font-semibold tabular-nums">{resolvedCrimeCount}</div>
+              </div>
+              <div className="rounded-lg border border-border bg-muted/30 p-3">
+                <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">District</div>
+                <div className="mt-2 text-sm font-semibold leading-5">{resolvedDistrict}</div>
+              </div>
             </div>
-            <div className="rounded-lg border border-border bg-muted/30 p-3">
-              <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">District</div>
-              <div className="mt-2 text-sm font-semibold leading-5">{district || 'Selected district'}</div>
-            </div>
-          </div>
+          )}
 
           {dateRange && (
             <div className="rounded-lg border border-border bg-background px-3 py-2 text-xs text-muted-foreground">
@@ -360,10 +366,10 @@ export function CrimeLensAssistant({ inline = false }: { inline?: boolean }) {
             </div>
           )}
 
-          {crimeCount === 0 || crimes.length === 0 ? (
+          {!hasRecords ? (
             <div className="rounded-lg border border-dashed border-border bg-muted/20 p-4 text-sm text-muted-foreground">
-              <div className="font-semibold text-foreground">No crimes found</div>
-              <div className="mt-1">No crime records were found for {district || 'the selected district'} during the selected period.</div>
+              <div className="font-semibold text-foreground">{message.content?.includes('No') ? 'No records found' : 'No results found'}</div>
+              <div className="mt-1">{message.content}</div>
             </div>
           ) : (
             <div className="overflow-hidden rounded-lg border border-border bg-background">
@@ -408,7 +414,7 @@ export function CrimeLensAssistant({ inline = false }: { inline?: boolean }) {
 
   const activeSuggestions = SUGGESTIONS[context] ?? SUGGESTIONS.general;
 
-  if (!assistantOpen && !inline) {
+  if (!assistantOpen) {
     return (
       <button
         type="button"
@@ -420,10 +426,6 @@ export function CrimeLensAssistant({ inline = false }: { inline?: boolean }) {
         <span className="hidden sm:inline">AI Assistant</span>
       </button>
     );
-  }
-
-  if (!assistantOpen && inline) {
-    return null;
   }
 
   return (
