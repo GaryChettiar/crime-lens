@@ -22,7 +22,7 @@ export default defineConfig({
   plugins: [tailwindcss(), react(), geojsonPlugin()],
   server: {
     host: "0.0.0.0",
-    port: 4173,
+    port: 5173,
     strictPort: true,
     proxy: {
       "/news-api": {

@@ -3,7 +3,6 @@ import { useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { PrimaryTopNav } from '@/components/organisms/PrimaryTopNav/PrimaryTopNav';
 import { GlobalFilterBar } from '@/components/platform/GlobalFilterBar';
-import { CrimeLensAssistant } from '@/components/platform/CrimeLensAssistant';
 import { useAppSelector } from '@/store/hooks';
 import { shouldShowFilterBar } from '@/config/routes';
 
@@ -15,7 +14,6 @@ interface AppLayoutProps {
 
 export function AppLayout({ children, className }: AppLayoutProps) {
   const filterBarOpen = useAppSelector((s) => s.ui.filterBarOpen);
-  const assistantOpen = useAppSelector((s) => s.ui.assistantOpen);
   const location = useLocation();
 
   const showFilterBar = shouldShowFilterBar(location.pathname);
@@ -48,14 +46,6 @@ export function AppLayout({ children, className }: AppLayoutProps) {
       >
         <div className="mx-3 flex h-full min-h-0 flex-row gap-3">
           <div className="min-w-0 flex-1 min-h-0 overflow-y-auto">{children}</div>
-          <div
-            className={cn(
-              'shrink-0 transition-all duration-200',
-              assistantOpen ? 'w-[420px] opacity-100' : 'w-0 overflow-hidden opacity-0',
-            )}
-          >
-            <CrimeLensAssistant />
-          </div>
         </div>
       </main>
     </div>

@@ -2,13 +2,18 @@ import * as React from 'react';
 import { useParams, Link, useSearchParams } from 'react-router-dom';
 import { AdminLayout } from '@/components/templates/AdminLayout/AdminLayout';
 import { useGetCrimeByIdQuery, useUpdateCrimeStatusMutation } from '@/services/crimeApi';
+import {
+  downloadEntityReportPdf,
+  type EntityReportType,
+  useDownloadEntityReportMutation,
+} from '@/services/entityReportsApi';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   ArrowLeft, RefreshCw, AlertCircle, FolderOpen,
   LayoutDashboard, Paperclip, Users, Scale, Clock, ClipboardList,
-  Eye, Shield, UserX, UserSearch, GitBranch
+  Eye, Shield, UserX, UserSearch, GitBranch, FileDown
 } from 'lucide-react';
 import { CRIME_STATUS_COLORS, CRIME_STATUS_STEPS } from '../types';
 import { CrimeStatusWorkflow } from './CrimeStatusWorkflow';
@@ -60,10 +65,20 @@ export function CrimeDetailWorkspace() {
   } = useGetCrimeByIdQuery(id!, { skip: !id });
 
   const [updateStatus, { isLoading: isUpdatingStatus }] = useUpdateCrimeStatusMutation();
+  const [downloadEntityReport] = useDownloadEntityReportMutation();
 
   const handleStatusChange = async (status: CrimeStatus) => {
     if (!id) return;
     await updateStatus({ id, status }).unwrap();
+  };
+
+  const openReport = async (entity: EntityReportType, entityId: string) => {
+    try {
+      const pdf = await downloadEntityReport({ entity, id: entityId }).unwrap();
+      downloadEntityReportPdf(pdf, entity);
+    } catch (error) {
+      console.error('Failed to download crime report:', error);
+    }
   };
 
   // --- Loading State ---
@@ -126,15 +141,26 @@ export function CrimeDetailWorkspace() {
             <span className="text-muted-foreground/40 text-xs">/</span>
             <span className="text-xs text-muted-foreground font-mono">{crimeData.crimeNumber}</span>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-7 text-xs gap-1.5"
-            onClick={() => refetch()}
-          >
-            <RefreshCw className="h-3.5 w-3.5" />
-            Refresh
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs gap-1.5"
+              onClick={() => id && void openReport('crime', id)}
+            >
+              <FileDown className="h-3.5 w-3.5" />
+              Get Report
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs gap-1.5"
+              onClick={() => refetch()}
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              Refresh
+            </Button>
+          </div>
         </div>
 
         {/* Crime Header */}
