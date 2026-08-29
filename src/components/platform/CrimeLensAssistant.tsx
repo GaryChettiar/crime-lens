@@ -414,20 +414,6 @@ export function CrimeLensAssistant({ inline = false }: { inline?: boolean }) {
 
   const activeSuggestions = SUGGESTIONS[context] ?? SUGGESTIONS.general;
 
-  if (!assistantOpen) {
-    return (
-      <button
-        type="button"
-        onClick={() => dispatch(setAssistantOpen(true))}
-        className="fixed bottom-6 right-6 z-40 flex items-center gap-2 rounded-full bg-primary px-3.5 py-2.5 text-sm font-medium text-primary-foreground shadow-2xl transition hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-        aria-label="Open CrimeLens AI assistant"
-      >
-        <Sparkles className="h-4 w-4" />
-        <span className="hidden sm:inline">AI Assistant</span>
-      </button>
-    );
-  }
-
   return (
     <div className="flex h-full min-h-[420px] flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm">
       <div className="flex items-center justify-between gap-2 border-b border-border bg-card/60 px-4 py-3">
