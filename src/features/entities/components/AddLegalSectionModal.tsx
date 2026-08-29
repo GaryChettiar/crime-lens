@@ -12,6 +12,7 @@ interface AddLegalSectionModalProps {
   onSuccess: (msg: string) => void;
 }
 
+
 // Common IPC and special law sections for quick search
 const COMMON_SECTIONS: Array<Omit<CreateLegalSectionPayload, 'isBailable' | 'isCognizable'> & {
   isBailable: boolean; isCognizable: boolean;

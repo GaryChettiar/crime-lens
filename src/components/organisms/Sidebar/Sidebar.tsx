@@ -51,6 +51,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Heatmap', path: '/heatmap', icon: Map },
   { label: 'Risk Assessment', path: '/risk', icon: Shield },
   { label: 'Network Analysis', path: '/network', icon: Network },
+  { label: 'Network 1', path: '/network1', icon: Network },
   { label: 'Crime Data Management', path: '/data-management', icon: Database },
   { label: 'E-FIR', path: '/efir', icon: FileText },
   { label: 'Alerts', path: '/alerts', icon: Bell },
