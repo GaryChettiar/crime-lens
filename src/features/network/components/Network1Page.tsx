@@ -68,6 +68,11 @@ export function Network1PageContent() {
   const [entityType, setEntityType] = React.useState<string>('criminal');
   const [entityId, setEntityId] = React.useState<string>('');
 
+  const graphData = React.useMemo(() => {
+    const payload = graphResponse?.data ?? graphResponse;
+    return payload && typeof payload === 'object' && 'nodes' in payload ? payload : null;
+  }, [graphResponse]);
+
   const currentOptions = React.useMemo(() => {
     if (!optionsData?.data) return [];
     if (entityType === 'criminal') {
@@ -93,15 +98,17 @@ export function Network1PageContent() {
   };
 
   const reactFlowNodes = React.useMemo(() => {
-    if (!graphResponse?.data?.nodes) return [];
-    return graphResponse.data.nodes.map((node, index) => {
+    if (!graphData?.nodes) return [];
+    return graphData.nodes.map((node, index) => {
       let border = '1.5px solid #475569';
       if (node.type === 'criminal') border = '1.5px solid #F43F5E';
+      if (node.type === 'suspect') border = '1.5px solid #FB7185';
       if (node.type === 'incident') border = '1.5px solid #F59E0B';
       if (node.type === 'vehicle') border = '1.5px solid #10B981';
       if (node.type === 'evidence') border = '1.5px solid #3B82F6';
-      
-      const isRoot = node.id === `${entityType}_${entityId}`;
+
+      const rootType = selectedEntity?.type ?? entityType;
+      const isRoot = node.id === `${rootType}_${entityId}`;
       if (isRoot) border = '3px solid #ffffff';
 
       return {
@@ -133,8 +140,8 @@ export function Network1PageContent() {
   }, [graphResponse, entityType, entityId]);
 
   const reactFlowEdges = React.useMemo(() => {
-    if (!graphResponse?.data?.edges) return [];
-    return graphResponse.data.edges.map((edge) => ({
+    if (!graphData?.edges) return [];
+    return graphData.edges.map((edge) => ({
       id: edge.id,
       source: edge.source,
       target: edge.target,
@@ -145,7 +152,7 @@ export function Network1PageContent() {
         opacity: 0.75,
       },
     }));
-  }, [graphResponse]);
+  }, [graphData]);
 
   return (
     <DashboardLayout title="Entity Network Analysis">
