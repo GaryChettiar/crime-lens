@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { User, Award, Landmark, Mail, Phone, Search } from 'lucide-react';
+import { User, Award, Landmark, Mail, Phone, Search, FileDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DashboardLayout } from '@/components/templates/DashboardLayout';
 import { useAnalyticsFilters } from '@/hooks/useAnalyticsFilters';
@@ -8,6 +8,10 @@ import { useGetAllPoliceOfficersQuery } from '@/services/policeOfficersApi';
 import { useGetRanksQuery } from '@/services/policeRanksApi';
 import { useGetStationsQuery } from '@/services/policeStationsApi';
 import { useGetDistrictsQuery } from '@/services/districtsApi';
+import {
+  type EntityReportType,
+  useDownloadEntityReportMutation,
+} from '@/services/entityReportsApi';
 import { TableSkeleton, EmptyState, ErrorState } from '@/components/molecules/DataStates';
 import ReactFlow, { ReactFlowProvider, Controls, Background } from 'reactflow';
 import type { Node, Edge } from 'reactflow';
@@ -39,6 +43,24 @@ export function PoliceOfficersPage() {
   const [searchQuery, setSearchQuery] = React.useState('');
 
   const { data: officers, isLoading, isError, refetch } = useGetAllPoliceOfficersQuery();
+  const [downloadEntityReport] = useDownloadEntityReportMutation();
+
+  const openReport = async (entity: EntityReportType, id: string) => {
+    const reportWindow = window.open('', '_blank');
+    try {
+      const pdf = await downloadEntityReport({ entity, id }).unwrap();
+      const pdfUrl = URL.createObjectURL(pdf);
+      if (reportWindow) {
+        reportWindow.location.href = pdfUrl;
+      } else {
+        window.location.assign(pdfUrl);
+      }
+      window.setTimeout(() => URL.revokeObjectURL(pdfUrl), 60_000);
+    } catch (error) {
+      reportWindow?.close();
+      console.error('Failed to download officer report:', error);
+    }
+  };
 
 
 
@@ -504,6 +526,7 @@ export function PoliceOfficersPage() {
                         <th>Badge / Rank</th>
                         <th>Station Assignment</th>
                         <th>Contact</th>
+                        <th>Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -543,6 +566,17 @@ export function PoliceOfficersPage() {
                                 </div>
                               )}
                             </div>
+                          </td>
+                          <td>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 text-xs gap-1.5"
+                              onClick={() => void openReport('officer', o.id)}
+                            >
+                              <FileDown className="h-3.5 w-3.5" />
+                              Get Report
+                            </Button>
                           </td>
                         </tr>
                       ))}

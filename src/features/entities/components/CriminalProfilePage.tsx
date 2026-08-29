@@ -19,6 +19,7 @@ import {
   Users,
   Smartphone,
   Car,
+  FileDown,
 } from 'lucide-react';
 import { DashboardLayout } from '@/components/templates/DashboardLayout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -34,6 +35,10 @@ import {
   useGenerateCriminalProfileMutation,
 } from '@/services/criminalsApi';
 import { useGetDistrictsQuery } from '@/services/districtsApi';
+import {
+  type EntityReportType,
+  useDownloadEntityReportMutation,
+} from '@/services/entityReportsApi';
 import { RiskScoreCard } from './RiskScoreCard';
 import { IntelligenceSummaryCard } from './IntelligenceSummaryCard';
 import { MetricsGrid } from './MetricsGrid';
@@ -479,6 +484,7 @@ export function CriminalProfilePage() {
     skip: !criminalId,
   });
   const { data: districts } = useGetDistrictsQuery();
+  const [downloadEntityReport] = useDownloadEntityReportMutation();
 
   // Step 1: Run profile generation on mount
   React.useEffect(() => {
@@ -496,6 +502,23 @@ export function CriminalProfilePage() {
       } catch (err) {
         console.error('Failed to regenerate criminal profile:', err);
       }
+    }
+  };
+
+  const openReport = async (entity: EntityReportType, entityId: string) => {
+    const reportWindow = window.open('', '_blank');
+    try {
+      const pdf = await downloadEntityReport({ entity, id: entityId }).unwrap();
+      const pdfUrl = URL.createObjectURL(pdf);
+      if (reportWindow) {
+        reportWindow.location.href = pdfUrl;
+      } else {
+        window.location.assign(pdfUrl);
+      }
+      window.setTimeout(() => URL.revokeObjectURL(pdfUrl), 60_000);
+    } catch (error) {
+      reportWindow?.close();
+      console.error('Failed to download criminal report:', error);
     }
   };
 
@@ -571,8 +594,21 @@ export function CriminalProfilePage() {
             <ArrowLeft className="h-3.5 w-3.5" />
             Back to Criminals Directory
           </Link>
-          <div className="text-[10px] text-muted-foreground font-data">
-            System Node: SEC-04 | Status: Operational
+          <div className="flex items-center gap-3">
+            <div className="text-[10px] text-muted-foreground font-data">
+              System Node: SEC-04 | Status: Operational
+            </div>
+            {criminalId && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs gap-1.5"
+                onClick={() => void openReport('criminal', criminalId)}
+              >
+                <FileDown className="h-3.5 w-3.5" />
+                Get Report
+              </Button>
+            )}
           </div>
         </div>
 
