@@ -4,7 +4,7 @@
    Metadata-driven route definitions.
    ============================================================================= */
 
-export type LayoutType = 'operations' | 'admin' | 'public' | 'none';
+export type LayoutType = "operations" | "admin" | "public" | "none";
 
 export interface RouteConfig {
   /** Unique route path */
@@ -24,170 +24,164 @@ export interface RouteConfig {
 export const ROUTES: RouteConfig[] = [
   // === Operations ===
   {
-    path: '/dashboard',
-    title: 'Dashboard',
+    path: "/dashboard",
+    title: "Dashboard",
     showFilterBar: true,
-    requiredPermission: 'view_dashboard',
+    requiredPermission: "view_dashboard",
   },
   {
-    path: '/heatmap',
-    title: 'Heatmap',
+    path: "/heatmap",
+    title: "Heatmap",
     showFilterBar: true,
-    requiredPermission: 'view_heatmap',
+    requiredPermission: "view_heatmap",
   },
   {
-    path: '/network',
-    title: 'Network Analysis',
+    path: "/network1",
+    title: "Network 1",
     showFilterBar: true,
-    requiredPermission: 'view_network_analysis',
+    requiredPermission: "view_network_analysis",
   },
   {
-    path: '/network1',
-    title: 'Network 1',
-    showFilterBar: true,
-    requiredPermission: 'view_network_analysis',
-  },
-  {
-    path: '/risk',
-    title: 'Risk Assessment',
+    path: "/risk",
+    title: "Risk Assessment",
     showFilterBar: true,
   },
   {
-    path: '/alerts',
-    title: 'Alerts',
+    path: "/alerts",
+    title: "Alerts",
     showFilterBar: true,
   },
   {
-    path: '/efir',
-    title: 'E-FIR',
+    path: "/efir",
+    title: "E-FIR",
     showFilterBar: false,
-    requiredPermission: 'view_fir',
+    requiredPermission: "view_fir",
   },
 
   // === Crimes ===
   {
-    path: '/entities/crimes',
-    title: 'Crimes',
+    path: "/entities/crimes",
+    title: "Crimes",
     showFilterBar: true,
-    requiredPermission: 'view_crimes',
+    requiredPermission: "view_crimes",
   },
   {
-    path: '/entities/crimes/:id',
-    title: 'Crime Details',
+    path: "/entities/crimes/:id",
+    title: "Crime Details",
     showFilterBar: false,
-    requiredPermission: 'view_crimes',
+    requiredPermission: "view_crimes",
   },
 
   // === Forecast ===
   {
-    path: '/forecast',
-    title: 'Forecast',
+    path: "/forecast",
+    title: "Forecast",
     showFilterBar: false,
-    requiredPermission: 'view_forecast',
+    requiredPermission: "view_forecast",
   },
 
   // === Data Operations (Internal routes) ===
   {
-    path: '/data/crime-records',
-    title: 'Crime Records',
+    path: "/data/crime-records",
+    title: "Crime Records",
     showFilterBar: false,
-    requiredPermission: 'view_crimes',
+    requiredPermission: "view_crimes",
   },
   {
-    path: '/data/upload',
-    title: 'Upload Dataset',
+    path: "/data/upload",
+    title: "Upload Dataset",
     showFilterBar: false,
-    requiredPermission: 'crime_records.create',
+    requiredPermission: "crime_records.create",
   },
 
   // === Administration ===
   {
-    path: '/administration/profile',
-    title: 'Profile',
+    path: "/administration/profile",
+    title: "Profile",
     showFilterBar: false,
   },
   {
-    path: '/administration/users',
-    title: 'User Management',
+    path: "/administration/users",
+    title: "User Management",
     showFilterBar: false,
-    requiredPermission: 'view_users',
+    requiredPermission: "view_users",
   },
   {
-    path: '/administration/roles',
-    title: 'Roles & Permissions',
+    path: "/administration/roles",
+    title: "Roles & Permissions",
     showFilterBar: false,
-    requiredPermission: 'view_roles',
+    requiredPermission: "view_roles",
   },
   {
-    path: '/administration/districts',
-    title: 'District Management',
+    path: "/administration/districts",
+    title: "District Management",
     showFilterBar: false,
-    requiredPermission: 'view_districts',
+    requiredPermission: "view_districts",
   },
   {
-    path: '/administration/station-types',
-    title: 'Station Type Management',
+    path: "/administration/station-types",
+    title: "Station Type Management",
     showFilterBar: false,
-    requiredPermission: 'view_station_types',
+    requiredPermission: "view_station_types",
   },
   {
-    path: '/administration/police-stations',
-    title: 'Police Station Management',
+    path: "/administration/police-stations",
+    title: "Police Station Management",
     showFilterBar: false,
-    requiredPermission: 'view_police_stations',
+    requiredPermission: "view_police_stations",
   },
   {
-    path: '/administration/police-ranks',
-    title: 'Police Rank Management',
+    path: "/administration/police-ranks",
+    title: "Police Rank Management",
     showFilterBar: false,
-    requiredPermission: 'view_police_ranks',
+    requiredPermission: "view_police_ranks",
   },
   {
-    path: '/administration/police-officers',
-    title: 'Police Officer Management',
+    path: "/administration/police-officers",
+    title: "Police Officer Management",
     showFilterBar: false,
-    requiredPermission: 'view_police_officers',
+    requiredPermission: "view_police_officers",
   },
   {
-    path: '/administration/criminals',
-    title: 'Criminal Registry',
+    path: "/administration/criminals",
+    title: "Criminal Registry",
     showFilterBar: false,
-    requiredPermission: 'criminals.view',
+    requiredPermission: "criminals.view",
   },
   {
-    path: '/administration/crimes',
-    title: 'Crime Incidents',
+    path: "/administration/crimes",
+    title: "Crime Incidents",
     showFilterBar: false,
-    requiredPermission: 'view_crimes',
+    requiredPermission: "view_crimes",
   },
   {
-    path: '/administration/firs',
-    title: 'FIR Registry',
+    path: "/administration/firs",
+    title: "FIR Registry",
     showFilterBar: false,
-    requiredPermission: 'view_fir',
+    requiredPermission: "view_fir",
   },
   {
-    path: '/administration/settings',
-    title: 'Settings',
+    path: "/administration/settings",
+    title: "Settings",
     showFilterBar: false,
   },
   {
-    path: '/entities/officers',
-    title: 'Police Officers',
+    path: "/entities/officers",
+    title: "Police Officers",
     showFilterBar: false,
-    requiredPermission: 'view_officers',
+    requiredPermission: "view_officers",
   },
   {
-    path: '/entities/criminals',
-    title: 'Criminals',
+    path: "/entities/criminals",
+    title: "Criminals",
     showFilterBar: false,
-    requiredPermission: 'view_criminals',
+    requiredPermission: "view_criminals",
   },
   {
-    path: '/entities/criminals/:criminalId',
-    title: 'Criminal Profile',
+    path: "/entities/criminals/:criminalId",
+    title: "Criminal Profile",
     showFilterBar: false,
-    requiredPermission: 'view_criminals',
+    requiredPermission: "view_criminals",
   },
 ];
 
@@ -199,25 +193,27 @@ export const ROUTES: RouteConfig[] = [
  * Get route config by pathname. Handles exact match and dynamic segments.
  */
 export const FALLBACK_ROUTES = [
-  { perm: 'view_dashboard', path: '/dashboard' },
-  { perm: 'view_crimes', path: '/entities/crimes' },
-  { perm: 'view_network_analysis', path: '/network' },
-  { perm: 'view_forecast', path: '/forecast' },
-  { perm: 'view_fir', path: '/efir' },
+  { perm: "view_dashboard", path: "/dashboard" },
+  { perm: "view_crimes", path: "/entities/crimes" },
+  { perm: "view_network_analysis", path: "/network1" },
+  { perm: "view_forecast", path: "/forecast" },
+  { perm: "view_fir", path: "/efir" },
 ];
 
-export function getDefaultRedirectPath(hasPermission: (perm: string) => boolean): string {
+export function getDefaultRedirectPath(
+  hasPermission: (perm: string) => boolean,
+): string {
   const target = FALLBACK_ROUTES.find((route) => hasPermission(route.perm));
-  return target?.path ?? '/administration/profile';
+  return target?.path ?? "/administration/profile";
 }
 
 export function getRouteConfig(pathname: string): RouteConfig | undefined {
   // Handle dynamic paths
-  if (pathname.startsWith('/entities/criminals/')) {
-    return ROUTES.find((r) => r.path === '/entities/criminals/:criminalId');
+  if (pathname.startsWith("/entities/criminals/")) {
+    return ROUTES.find((r) => r.path === "/entities/criminals/:criminalId");
   }
   if (/^\/entities\/crimes\/[^/]+/.test(pathname)) {
-    return ROUTES.find((r) => r.path === '/entities/crimes/:id');
+    return ROUTES.find((r) => r.path === "/entities/crimes/:id");
   }
   return ROUTES.find((r) => r.path === pathname);
 }
@@ -235,59 +231,100 @@ export interface NavGroup {
   path: string;
   activePaths: string[];
   requiredPermission?: string;
-  items?: { label: string; path: string; icon?: string; requiredPermission?: string }[];
+  items?: {
+    label: string;
+    path: string;
+    icon?: string;
+    requiredPermission?: string;
+  }[];
 }
 
 export const NAV_GROUPS: NavGroup[] = [
   {
-    label: 'Overview',
-    path: '/dashboard',
-    activePaths: ['/dashboard', ],
-    requiredPermission: 'view_dashboard',
+    label: "Overview",
+    path: "/dashboard",
+    activePaths: ["/dashboard"],
+    requiredPermission: "view_dashboard",
   },
   {
-    label: 'Entities',
-    path: '/entities/crimes',
-    activePaths: ['/entities/crimes', '/entities/officers', '/entities/criminals'],
-    requiredPermission: 'view_entities',
+    label: "Entities",
+    path: "/entities/crimes",
+    activePaths: [
+      "/entities/crimes",
+      "/entities/officers",
+      "/entities/criminals",
+    ],
+    requiredPermission: "view_entities",
     items: [
-      { label: 'Crimes', path: '/entities/crimes', icon: 'crimes', requiredPermission: 'view_crimes' },
-      { label: 'Officers', path: '/entities/officers', icon: 'officers', requiredPermission: 'view_officers' },
-      { label: 'Criminals', path: '/entities/criminals', icon: 'criminals', requiredPermission: 'view_criminals' },
+      {
+        label: "Crimes",
+        path: "/entities/crimes",
+        icon: "crimes",
+        requiredPermission: "view_crimes",
+      },
+      {
+        label: "Officers",
+        path: "/entities/officers",
+        icon: "officers",
+        requiredPermission: "view_officers",
+      },
+      {
+        label: "Criminals",
+        path: "/entities/criminals",
+        icon: "criminals",
+        requiredPermission: "view_criminals",
+      },
     ],
   },
   {
-    label: 'Network',
-    path: '/network',
-    activePaths: ['/network', '/network1'],
-    requiredPermission: 'view_network_analysis',
+    label: "Network",
+    path: "/network1",
+    activePaths: ["/network1"],
+    requiredPermission: "view_network_analysis",
     items: [
-      { label: 'Global Network', path: '/network', icon: 'dashboard', requiredPermission: 'view_network_analysis' },
-      { label: 'Entity Network (Network 1)', path: '/network1', icon: 'dashboard', requiredPermission: 'view_network_analysis' },
+      {
+        label: "Entity Network",
+        path: "/network1",
+        icon: "dashboard",
+        requiredPermission: "view_network_analysis",
+      },
     ],
   },
   {
-    label: 'Forecast',
-    path: '/forecast',
-    activePaths: ['/forecast',],
-    requiredPermission: 'view_forecast',
-    
+    label: "Forecast",
+    path: "/forecast",
+    activePaths: ["/forecast"],
+    requiredPermission: "view_forecast",
   },
   {
-    label: 'FIR',
-    path: '/efir',
-    activePaths: ['/efir'],
-    requiredPermission: 'view_fir',
+    label: "FIR",
+    path: "/efir",
+    activePaths: ["/efir"],
+    requiredPermission: "view_fir",
   },
   {
-    label: 'Administration',
-    path: '/administration/profile',
-    activePaths: ['/administration/profile', '/administration/users', '/administration/roles'],
+    label: "Administration",
+    path: "/administration/profile",
+    activePaths: [
+      "/administration/profile",
+      "/administration/users",
+      "/administration/roles",
+    ],
     // Show administration group when user can view at least users or roles
-    requiredPermission: 'view_users',
+    requiredPermission: "view_users",
     items: [
-      { label: 'Users', path: '/administration/users', icon: 'users', requiredPermission: 'view_users' },
-      { label: 'Roles', path: '/administration/roles', icon: 'roles', requiredPermission: 'view_roles' },
+      {
+        label: "Users",
+        path: "/administration/users",
+        icon: "users",
+        requiredPermission: "view_users",
+      },
+      {
+        label: "Roles",
+        path: "/administration/roles",
+        icon: "roles",
+        requiredPermission: "view_roles",
+      },
     ],
   },
 ];

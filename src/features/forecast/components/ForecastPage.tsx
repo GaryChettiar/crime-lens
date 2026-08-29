@@ -11,9 +11,8 @@ import { DistrictForecastTable } from './DistrictForecastTable';
 import { PredictionSummaryCard } from './PredictionSummaryCard';
 import {
   useGetModelStatusQuery,
-  useGetPredictedIncidentsQuery,
-  useGetHighRiskDistrictsQuery,
-  useGetCrimeTrendQuery,
+  useGenerateAndStoreForecastMutation,
+  useGetStoredForecastsQuery,
   useTrainModelMutation,
 } from '@/services/forecastApi';
 import { useAnalyticsFilters } from '@/hooks/useAnalyticsFilters';
@@ -121,6 +120,7 @@ console.log(districtId)
   const [trainStatusMessage, setTrainStatusMessage] = React.useState<string | null>(null);
 
   const [trainModel, { isLoading: isTraining }] = useTrainModelMutation();
+  const [generateStoredForecast, { isLoading: isGeneratingForecast }] = useGenerateAndStoreForecastMutation();
 
   const {
     data: modelStatusData,
@@ -129,62 +129,47 @@ console.log(districtId)
     refetch: refetchModelStatus,
   } = useGetModelStatusQuery();
 
-  // Fetch forecast data with start_date and end_date
   const queryParams = React.useMemo(() => {
     const params: {
       start_date?: string;
       end_date?: string;
-      as_of?: string;
       district_id?: string;
-      station_id?: string;
-      districtId?: string;
-      stationId?: string;
+      police_station_id?: string;
     } = {};
 
     if (contextStartDate) params.start_date = contextStartDate;
     if (contextEndDate) params.end_date = contextEndDate;
-    if (asOfDate) params.as_of = asOfDate;
-    if (districtId) {
-      params.district_id = districtId;
-      params.districtId = districtId;
-    }
-    if (stationId) {
-      params.station_id = stationId;
-      params.stationId = stationId;
-    }
+    if (districtId) params.district_id = districtId;
+    if (stationId) params.police_station_id = stationId;
 
     return params;
-  }, [contextStartDate, contextEndDate, asOfDate, districtId, stationId]);
+  }, [contextStartDate, contextEndDate, districtId, stationId]);
 
   const {
-    data: predictedData,
-    isLoading: isLoadingPredicted,
-    isError: isErrorPredicted,
-    refetch: refetchPredicted,
-  } = useGetPredictedIncidentsQuery(queryParams);
+    data: storedForecastData,
+    isLoading: isLoadingStoredForecasts,
+    isError: isErrorStoredForecasts,
+    refetch: refetchStoredForecasts,
+  } = useGetStoredForecastsQuery(queryParams);
 
-  const {
-    data: highRiskData,
-    isLoading: isLoadingHighRisk,
-    isError: isErrorHighRisk,
-    refetch: refetchHighRisk,
-  } = useGetHighRiskDistrictsQuery(queryParams);
+  const isLoading = isLoadingStoredForecasts || isLoadingModelStatus || isGeneratingForecast;
+  const isError = isErrorStoredForecasts || isErrorModelStatus;
 
-  const {
-    data: trendData,
-    isLoading: isLoadingTrend,
-    isError: isErrorTrend,
-    refetch: refetchTrend,
-  } = useGetCrimeTrendQuery(queryParams);
-
-  const isLoading = isLoadingPredicted || isLoadingHighRisk || isLoadingTrend || isLoadingModelStatus;
-  const isError = isErrorPredicted || isErrorHighRisk || isErrorTrend || isErrorModelStatus;
-
-  const handleRefresh = () => {
-    refetchPredicted();
-    refetchHighRisk();
-    refetchTrend();
-    refetchModelStatus();
+  const handleRefresh = async () => {
+    try {
+      if (contextStartDate && contextEndDate) {
+        await generateStoredForecast({
+          start_date: contextStartDate,
+          end_date: contextEndDate,
+          district_id: districtId ?? undefined,
+          police_station_id: stationId ?? undefined,
+        }).unwrap();
+      }
+      await refetchStoredForecasts();
+      await refetchModelStatus();
+    } catch (err) {
+      console.error('Forecast refresh failed:', err);
+    }
   };
 
   const handleTrainModel = async () => {
@@ -203,102 +188,121 @@ console.log(districtId)
 
   // Map API data to ForecastCard components
   const cards = React.useMemo(() => {
-    if (!predictedData || !highRiskData) return null;
+    if (!storedForecastData || storedForecastData.length === 0) return null;
+
+    const totalPredictedIncidents = storedForecastData.reduce(
+      (sum, row) => sum + Number(row.predicted_count || 0),
+      0,
+    );
+    const uniqueDistricts = new Set(
+      storedForecastData
+        .filter((row) => row.district_id)
+        .map((row) => row.district_id),
+    ).size;
+    const dailyAverage = storedForecastData.length
+      ? totalPredictedIncidents / storedForecastData.length
+      : 0;
 
     return [
       {
-        label: 'Predicted Incidents (30d)',
-        value: predictedData.next_30_days.predicted_total_incidents,
-        change: predictedData.change_vs_last_30_days.percent_change ?? undefined,
-        unit: '',
+        label: 'Predicted Incidents',
+        value: totalPredictedIncidents,
+        change: undefined,
+        unit: 'total',
         confidence: 82,
       },
       {
         label: 'High Risk Districts',
-        value: highRiskData.high_risk_district_count,
+        value: uniqueDistricts,
         unit: 'districts',
         confidence: 88,
       },
       {
-        label: 'Past 30 Days Incidents',
-        value: predictedData.last_30_days.total_incidents,
-        unit: 'incidents',
+        label: 'Forecast Rows',
+        value: storedForecastData.length,
+        unit: 'days',
         confidence: 95,
       },
       {
         label: 'Daily Predicted Avg',
-        value: predictedData.next_30_days.predicted_daily_average,
+        value: dailyAverage,
         unit: '/ day',
         confidence: 80,
       },
     ];
-  }, [predictedData, highRiskData]);
+  }, [storedForecastData]);
 
-  // Map API trend data to chart format
   const chartData = React.useMemo(() => {
-    if (!trendData?.trend) return undefined;
-    return trendData.trend.map((t) => ({
-      period: t.date.slice(5), // 'MM-DD'
-      actual: t.actual ?? undefined,
-      predicted: t.predicted,
-    }));
-  }, [trendData]);
+    if (!storedForecastData || storedForecastData.length === 0) return undefined;
 
-  // Map API summary data
+    return storedForecastData
+      .slice()
+      .sort((a, b) => (a.forecast_date || '').localeCompare(b.forecast_date || ''))
+      .map((row) => ({
+        period: row.forecast_date?.slice(5) ?? '',
+        actual: undefined,
+        predicted: Number(row.predicted_count || 0),
+      }));
+  }, [storedForecastData]);
+
   const summaryData = React.useMemo(() => {
-    if (!predictedData || !highRiskData) return undefined;
+    if (!storedForecastData || storedForecastData.length === 0) return undefined;
 
-    const modelMetadata = (modelStatusData?.model_metadata ?? {}) as Record<string, unknown>;
-    const trainingState = (modelStatusData?.training_state ?? {}) as Record<string, unknown>;
-    const modelName =
-      typeof predictedData.model_used === 'string' && predictedData.model_used.trim()
-        ? predictedData.model_used
-        : typeof modelMetadata.model_type === 'string' && modelMetadata.model_type.trim()
-          ? modelMetadata.model_type
-          : 'CrimeLens AI Forecaster (AppSail)';
-
-    const notes = [
-      `Direction: ${predictedData.change_vs_last_30_days.direction.toUpperCase()} (${predictedData.change_vs_last_30_days.percent_change ?? 0}% vs previous 30 days).`,
-      typeof modelMetadata.message === 'string' && modelMetadata.message.trim()
-        ? modelMetadata.message
-        : undefined,
-    ].filter(Boolean) as string[];
+    const totalPredictedIncidents = storedForecastData.reduce(
+      (sum, row) => sum + Number(row.predicted_count || 0),
+      0,
+    );
+    const uniqueDistricts = new Set(
+      storedForecastData
+        .filter((row) => row.district_id)
+        .map((row) => row.district_id),
+    ).size;
+    const firstDate = storedForecastData[storedForecastData.length - 1]?.forecast_date;
+    const lastDate = storedForecastData[0]?.forecast_date;
 
     return {
-      totalPredictedIncidents: predictedData.next_30_days.predicted_total_incidents,
-      highRiskDistricts: highRiskData.high_risk_district_count,
+      totalPredictedIncidents,
+      highRiskDistricts: uniqueDistricts,
       avgConfidence: modelStatusData?.warm ? 86 : 72,
-      forecastPeriod: `${predictedData.next_30_days.start_date} → ${predictedData.next_30_days.end_date}`,
-      modelName,
+      forecastPeriod:
+        firstDate && lastDate ? `${firstDate} → ${lastDate}` : 'Stored forecast window',
+      modelName: 'Stored Forecast DB',
       lastUpdated:
-        typeof predictedData.as_of === 'string'
-          ? predictedData.as_of
-          : typeof trainingState.last_trained_at === 'string'
-            ? trainingState.last_trained_at
-            : undefined,
-      notes: notes.join(' '),
+        storedForecastData[0]?.generated_at ??
+        modelStatusData?.training_state?.last_trained_at ??
+        undefined,
+      notes: 'Predictions were generated for the selected date range and stored in the database before being rendered.',
     };
-  }, [predictedData, highRiskData, modelStatusData]);
+  }, [storedForecastData, modelStatusData]);
 
-  // Map district data for DistrictForecastTable
   const districtTableData = React.useMemo(() => {
-    if (!highRiskData?.districts) return undefined;
+    if (!storedForecastData || storedForecastData.length === 0) return undefined;
 
-    return highRiskData.districts.map((d) => {
-      const risk = d.risk_level.toLowerCase() as 'low' | 'medium' | 'high';
-      return {
-        district: d.district_name,
-        predictedIncidents: d.predicted_next_30_days_incidents,
-        change: d.percent_change_vs_last_30_days ?? 0,
-        riskLevel: risk,
-        topCategory: `${d.last_30_days_incidents} Past Incidents`,
-        confidence: Math.min(
-          95,
-          Math.max(60, Math.round(75 + d.last_30_days_incidents * 0.5))
-        ),
+    const grouped = new Map<string, { district: string; predictedIncidents: number; riskLevel: 'low' | 'medium' | 'high'; confidence: number }>();
+
+    storedForecastData.forEach((row) => {
+      const districtLabel = row.district_id || 'All Districts';
+      const current = grouped.get(districtLabel) ?? {
+        district: districtLabel,
+        predictedIncidents: 0,
+        riskLevel: 'medium' as const,
+        confidence: 75,
       };
+
+      current.predictedIncidents += Number(row.predicted_count || 0);
+      current.confidence = Math.min(95, Math.max(60, current.confidence + 2));
+      grouped.set(districtLabel, current);
     });
-  }, [highRiskData]);
+
+    return Array.from(grouped.values()).map((item) => ({
+      district: item.district,
+      predictedIncidents: item.predictedIncidents,
+      change: 0,
+      riskLevel: item.riskLevel,
+      topCategory: 'Stored forecast',
+      confidence: item.confidence,
+    }));
+  }, [storedForecastData]);
 
   return (
     <AdminLayout>

@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from 'react';
+import { Link } from 'react-router-dom';
 import { FolderOpen, Upload, ChevronRight, AlertCircle, FileUp } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,7 +12,7 @@ interface UploadedEvidence {
   evidenceId: string;
   matches: {
     path: string;
-    crimes: { ROWID: string; title: string }[];
+    crimes: Array<{ ROWID: string; title: string; id?: string; crimeNumber?: string; path?: string }>;
   }[];
 }
 
@@ -21,35 +22,48 @@ export function EvidenceAnalysisTab() {
   const [selectedMatch, setSelectedMatch] = React.useState<string | null>(null);
   const [isDragging, setIsDragging] = React.useState(false);
 
-  // Extract paths from uploaded evidence
   const paths = React.useMemo(() => {
-    return uploadedEvidence.reduce((acc, ev) => {
-      return acc.concat(ev.matches.map(m => m.path));
-    }, [] as string[]);
+    return uploadedEvidence.flatMap((ev) => ev.matches.map((match) => match.path));
   }, [uploadedEvidence]);
 
-  // Fetch crimes by evidence paths
   const { data: analysisData } = useGetCrimesByEvidencePathsQuery(paths, {
     skip: paths.length === 0,
   });
 
-  // Update matches with actual crime data
   React.useEffect(() => {
-    if (!analysisData || !analysisData.data) return;
+    if (!analysisData?.data) return;
 
-    setUploadedEvidence(prev => 
-      prev.map(ev => ({
+    setUploadedEvidence((prev) =>
+      prev.map((ev) => ({
         ...ev,
-        matches: ev.matches.map(match => ({
+        matches: ev.matches.map((match) => ({
           ...match,
-          crimes: (analysisData.data as Array<{ path: string; crimes: { ROWID: string; title: string }[] }>).find(d => d.path === match.path)?.crimes || [],
+          crimes:
+            (analysisData.data as Array<{ path: string; crimes: Array<{ ROWID: string; title: string; id?: string; crimeNumber?: string; path?: string }> }>).find((d) => d.path === match.path)?.crimes || [],
         })),
-      }))
+      })),
     );
   }, [analysisData]);
 
   const activeFile = uploadedEvidence.find((d) => d.fileName === selectedFile);
   const activeMatch = activeFile?.matches.find((m) => m.path === selectedMatch);
+
+  const filesWithRelatedCrimes = React.useMemo(() => {
+    if (!analysisData?.data) return [];
+
+    return uploadedEvidence
+      .map((evidence) => {
+        const filePaths = evidence.matches.map((match) => match.path);
+        const matches = (analysisData.data as Array<{ path: string; crimes: Array<{ ROWID: string; title: string; id?: string; crimeNumber?: string; path?: string }> }>).filter((item) => filePaths.includes(item.path));
+
+        return {
+          evidenceId: evidence.evidenceId,
+          fileName: evidence.fileName,
+          matches: matches.length > 0 ? matches : [],
+        };
+      })
+      .filter((item) => item.matches.length > 0);
+  }, [analysisData, uploadedEvidence]);
 
   const handleFileDrop = (e: React.DragEvent) => {
     e.preventDefault();
@@ -61,38 +75,36 @@ export function EvidenceAnalysisTab() {
 
   const handleFileUpload = (files: File[]) => {
     files.forEach((file, idx) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const fileName = file.name;
-        const evidenceId = `ev-${Date.now()}-${idx}`;
+      const fileName = file.name;
+      const evidenceId = `ev-${Date.now()}-${idx}`;
 
-        setUploadedEvidence(prev => [
-          ...prev,
-          {
-            fileName,
-            evidenceId,
-            matches: [
-              {
-                path: `file://${fileName}`,
-                crimes: [],
-              },
-            ],
-          },
-        ]);
-      };
-      reader.readAsDataURL(file);
+      setUploadedEvidence((prev) => [
+        ...prev,
+        {
+          fileName,
+          evidenceId,
+          matches: [
+            {
+              path: fileName,
+              crimes: [],
+            },
+          ],
+        },
+      ]);
+      setSelectedFile(fileName);
+      setSelectedMatch(fileName);
     });
   };
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       handleFileUpload(Array.from(e.target.files));
+      e.target.value = '';
     }
   };
 
   return (
     <div className="space-y-4">
-      {/* Upload Section */}
       <Card className="bg-card border border-border shadow-sm">
         <CardHeader>
           <CardTitle className="text-sm flex items-center gap-2">
@@ -137,7 +149,6 @@ export function EvidenceAnalysisTab() {
         </CardContent>
       </Card>
 
-      {/* Analysis Results */}
       {uploadedEvidence.length > 0 && (
         <Card className="bg-card border border-border shadow-sm flex-1">
           <CardHeader>
@@ -148,7 +159,6 @@ export function EvidenceAnalysisTab() {
           </CardHeader>
           <CardContent>
             <div className="flex gap-4 h-96 overflow-hidden">
-              {/* Sidebar: Uploaded Files */}
               <div className="w-1/4 border border-border rounded-lg flex flex-col bg-muted/10">
                 <div className="p-3 border-b border-border text-xs font-semibold uppercase text-muted-foreground tracking-wider">
                   Uploaded Evidence ({uploadedEvidence.length})
@@ -174,7 +184,6 @@ export function EvidenceAnalysisTab() {
                 </div>
               </div>
 
-              {/* Middle Column: Matches for the selected file */}
               <div className="w-1/3 border border-border rounded-lg flex flex-col">
                 <div className="p-3 border-b border-border text-xs font-semibold uppercase text-muted-foreground tracking-wider">
                   Database Matches
@@ -210,7 +219,6 @@ export function EvidenceAnalysisTab() {
                 </div>
               </div>
 
-              {/* Right Column: Crime Details for the selected match */}
               <div className="flex-1 border border-border rounded-lg flex flex-col">
                 <div className="p-3 border-b border-border text-xs font-semibold uppercase text-muted-foreground tracking-wider">
                   Related Crimes
@@ -225,24 +233,32 @@ export function EvidenceAnalysisTab() {
                       No active file selected.
                     </div>
                   ) : (() => {
-                    const matchData = activeFile.matches.find((m: any) => m.path === activeMatch);
+                    const matchData = activeFile.matches.find((m) => m.path === selectedMatch);
+
                     return !matchData || matchData.crimes.length === 0 ? (
                       <div className="text-xs text-muted-foreground text-center py-8">
                         <AlertCircle className="h-5 w-5 mx-auto mb-2 opacity-50" />
                         No related crimes found for this evidence.
                       </div>
                     ) : (
-                      matchData.crimes.map((crime) => (
-                        <div
-                          key={crime.ROWID}
-                          className="p-2 rounded-md bg-muted/30 border border-border hover:bg-muted/50 transition-colors cursor-pointer"
-                        >
-                          <p className="text-xs font-medium text-foreground truncate">{crime.title}</p>
-                          <p className="text-[10px] text-muted-foreground mt-0.5">
-                            Crime ID: {crime.ROWID}
-                          </p>
-                        </div>
-                      ))
+                      matchData.crimes.map((crime) => {
+                        const crimeId = crime.id || crime.ROWID;
+                        const crimeTitle = crime.title || crime.crimeNumber || crime.path || 'Related crime';
+
+                        return (
+                          <Link
+                            key={crimeId}
+                            to={`/entities/crimes/${crimeId}`}
+                            target="_blank"
+                            className="block p-2 rounded-md bg-muted/30 border border-border hover:bg-muted/50 transition-colors"
+                          >
+                            <p className="text-xs font-medium text-foreground truncate">{crimeTitle}</p>
+                            <p className="text-[10px] text-muted-foreground mt-0.5">
+                              Crime ID: {crime.ROWID || crimeId}
+                            </p>
+                          </Link>
+                        );
+                      })
                     );
                   })()}
                 </div>
@@ -252,7 +268,6 @@ export function EvidenceAnalysisTab() {
         </Card>
       )}
 
-      {/* Empty State */}
       {uploadedEvidence.length === 0 && (
         <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
           <FileUp className="h-12 w-12 mb-4 opacity-30" />

@@ -188,7 +188,9 @@ export const forecastApi = createApi({
             body: {
               start_date: params.start_date,
               end_date: params.end_date,
-              ...(params.district_id ? { district_id: params.district_id } : {}),
+              ...(params.district_id
+                ? { district_id: params.district_id }
+                : {}),
               ...(params.police_station_id
                 ? { police_station_id: params.police_station_id }
                 : {}),
@@ -226,7 +228,9 @@ export const forecastApi = createApi({
             params: {
               ...(params?.start_date ? { start_date: params.start_date } : {}),
               ...(params?.end_date ? { end_date: params.end_date } : {}),
-              ...(params?.district_id ? { district_id: params.district_id } : {}),
+              ...(params?.district_id
+                ? { district_id: params.district_id }
+                : {}),
               ...(params?.police_station_id
                 ? { police_station_id: params.police_station_id }
                 : {}),
