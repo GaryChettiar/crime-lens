@@ -45,11 +45,13 @@ export interface CommunityDetail {
 export interface EntityOption {
   id: string;
   label: string;
+  type?: 'criminal' | 'suspect' | 'vehicle' | 'evidence';
 }
 
 export interface EntityOptionsResponse {
   data: {
     criminals: EntityOption[];
+    suspects: EntityOption[];
     vehicles: EntityOption[];
     evidences: EntityOption[];
   };

@@ -70,15 +70,25 @@ export function Network1PageContent() {
 
   const currentOptions = React.useMemo(() => {
     if (!optionsData?.data) return [];
-    if (entityType === 'criminal') return optionsData.data.criminals;
-    if (entityType === 'vehicle') return optionsData.data.vehicles;
-    if (entityType === 'evidence') return optionsData.data.evidences;
+    if (entityType === 'criminal') {
+      return [
+        ...(optionsData.data.criminals ?? []).map((item) => ({ ...item, type: 'criminal' as const })),
+        ...(optionsData.data.suspects ?? []).map((item) => ({ ...item, type: 'suspect' as const })),
+      ];
+    }
+    if (entityType === 'vehicle') return (optionsData.data.vehicles ?? []).map((item) => ({ ...item, type: 'vehicle' as const }));
+    if (entityType === 'evidence') return (optionsData.data.evidences ?? []).map((item) => ({ ...item, type: 'evidence' as const }));
     return [];
   }, [optionsData, entityType]);
 
+  const selectedEntity = currentOptions.find((option) => option.id === entityId) ?? null;
+
   const handleGenerate = () => {
-    if (entityType && entityId) {
-      buildGraph({ root: { type: entityType, id: entityId } });
+    const selectedOption = currentOptions.find((option) => option.id === entityId) ?? null;
+    const rootType = selectedOption?.type ?? entityType;
+
+    if (rootType && entityId) {
+      buildGraph({ root: { type: rootType, id: entityId } });
     }
   };
 
@@ -157,12 +167,21 @@ export function Network1PageContent() {
             </Select>
 
             <Select value={entityId} onValueChange={setEntityId} disabled={optionsLoading || !currentOptions.length}>
-              <SelectTrigger className="w-[300px]">
-                <SelectValue placeholder={optionsLoading ? "Loading..." : "Select Specific Entity"} />
+              <SelectTrigger className="w-[320px]">
+                <SelectValue placeholder={
+                  optionsLoading
+                    ? 'Loading...'
+                    : entityType === 'criminal'
+                      ? 'Select Criminal or Suspect'
+                      : 'Select Specific Entity'
+                } />
               </SelectTrigger>
               <SelectContent>
-                {currentOptions.map(opt => (
-                  <SelectItem key={opt.id} value={opt.id}>{opt.label}</SelectItem>
+                {currentOptions.map((opt) => (
+                  <SelectItem key={`${opt.type ?? entityType}-${opt.id}`} value={opt.id}>
+                    {opt.type === 'suspect' ? 'Suspect: ' : ''}
+                    {opt.label}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
