@@ -6,7 +6,8 @@ const FORECAST_API_URL =
 
 // Express backend API for stored forecasts
 const EXPRESS_API_URL =
-  import.meta.env.VITE_EXPRESS_API_URL || "http://localhost:8080";
+  import.meta.env.VITE_EXPRESS_API_URL ||
+  "https://crimelens-be-50043087097.development.catalystappsail.in";
 
 const expressBaseQuery = fetchBaseQuery({
   baseUrl: EXPRESS_API_URL,
@@ -158,6 +159,21 @@ export interface TrainModelResponse {
   fallback_reason?: string;
 }
 
+const normalizeStoredForecasts = (payload: unknown): StoredForecastItem[] => {
+  if (Array.isArray(payload)) {
+    return payload as StoredForecastItem[];
+  }
+
+  if (payload && typeof payload === "object") {
+    const response = payload as { data?: unknown };
+    if (Array.isArray(response.data)) {
+      return response.data as StoredForecastItem[];
+    }
+  }
+
+  return [];
+};
+
 export const forecastApi = createApi({
   reducerPath: "forecastApi",
   baseQuery: fetchBaseQuery({
@@ -188,7 +204,9 @@ export const forecastApi = createApi({
             body: {
               start_date: params.start_date,
               end_date: params.end_date,
-              ...(params.district_id ? { district_id: params.district_id } : {}),
+              ...(params.district_id
+                ? { district_id: params.district_id }
+                : {}),
               ...(params.police_station_id
                 ? { police_station_id: params.police_station_id }
                 : {}),
@@ -226,7 +244,9 @@ export const forecastApi = createApi({
             params: {
               ...(params?.start_date ? { start_date: params.start_date } : {}),
               ...(params?.end_date ? { end_date: params.end_date } : {}),
-              ...(params?.district_id ? { district_id: params.district_id } : {}),
+              ...(params?.district_id
+                ? { district_id: params.district_id }
+                : {}),
               ...(params?.police_station_id
                 ? { police_station_id: params.police_station_id }
                 : {}),
@@ -243,7 +263,7 @@ export const forecastApi = createApi({
           return { error: result.error };
         }
 
-        return { data: result.data as StoredForecastItem[] };
+        return { data: normalizeStoredForecasts(result.data) };
       },
       providesTags: ["StoredForecast"],
     }),
