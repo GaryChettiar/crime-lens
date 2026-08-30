@@ -11,11 +11,7 @@ import {
   useUploadCrimeEvidenceMutation,
   uploadEvidenceFileToStorage,
 } from "@/services/crimeApi";
-import {
-  useCreateEvidenceMatchMutation,
-  useGetEvidenceMatchesBySourceEvidenceQuery,
-  useUpdateEvidenceMatchMutation,
-} from "@/services/evidenceMatchApi";
+import { useGetEvidenceBlobQuery } from "@/services/storageApi";
 import { useAppSelector } from "@/store/hooks";
 import { useAnalyticsFilters } from "@/hooks/useAnalyticsFilters";
 import { useTableQueryState } from "@/hooks/useTableQueryState";
@@ -46,6 +42,7 @@ import {
   ScanLine,
   MapPin,
   CalendarDays,
+  Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -70,13 +67,6 @@ import { LocationPickerMap } from "@/components/common/LocationPickerMap";
 // ---------------------------------------------------------------------------
 
 const TABLE_ID = "crimes";
-const STRATUS_BUCKET_URL = "https://crimelens-storage-development.zohostratus.in";
-
-function evidenceImageUrl(path?: string) {
-  if (!path) return undefined;
-  if (path.startsWith("data:") || path.startsWith("blob:") || path.startsWith("http")) return path;
-  return `${STRATUS_BUCKET_URL}/${path.replace(/^\/+/, "")}`;
-}
 
 // Browsers can't decode TIFF (or a handful of other raw/raster formats) in an
 // <img> tag, so we fall back to a file-style chip instead of a broken image.
@@ -97,6 +87,100 @@ function evidenceFileName(url?: string, fallback?: string) {
   } catch {
     return "evidence file";
   }
+}
+
+// A freshly-picked, not-yet-uploaded file lives in state as a data:/blob: URI
+// and can be rendered directly. Anything else is treated as a Stratus object
+// path and fetched through the authenticated /storage/blob route.
+function isStoredObjectPath(path?: string) {
+  if (!path) return false;
+  return !path.startsWith("data:") && !path.startsWith("blob:");
+}
+
+/**
+ * Renders a single evidence file, whether it's a local unsaved preview
+ * (data:/blob: URI) or a persisted Stratus object path. Persisted paths are
+ * fetched via the authenticated storage proxy rather than hitting the bucket
+ * URL directly. Optionally shows a download button.
+ */
+function EvidenceVisual({
+  path,
+  fileName,
+  className,
+  showDownload,
+}: {
+  path?: string;
+  fileName: string;
+  className?: string;
+  showDownload?: boolean;
+}) {
+  const isStored = isStoredObjectPath(path);
+  const { data, isFetching, isError } = useGetEvidenceBlobQuery(path ?? "", {
+    skip: !isStored || !path,
+  });
+
+  const resolvedUrl = !path ? undefined : isStored ? data?.url : path;
+  const loading = isStored && isFetching;
+  const failed = isStored && isError;
+  const renderable = isBrowserRenderableImage(fileName);
+
+  const handleDownload = () => {
+    if (!resolvedUrl) return;
+    const a = document.createElement("a");
+    a.href = resolvedUrl;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  };
+
+  return (
+    <div className={`relative flex items-center justify-center bg-muted/10 ${className ?? ""}`}>
+      {!path && <ImageIcon className="h-6 w-6 text-muted-foreground opacity-40" />}
+
+      {path && loading && <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />}
+
+      {path && !loading && failed && (
+        <div className="flex flex-col items-center gap-1 text-muted-foreground">
+          <ImageIcon className="h-6 w-6 opacity-40" />
+          <span className="text-[9px]">Failed to load</span>
+        </div>
+      )}
+
+      {path && !loading && !failed && resolvedUrl && renderable && (
+        <img src={resolvedUrl} alt={fileName} className="h-full w-full object-contain" />
+      )}
+
+      {path && !loading && !failed && resolvedUrl && !renderable && (
+        <a
+          href={resolvedUrl}
+          download={fileName}
+          className="flex h-full w-full flex-col items-center justify-center gap-1 px-2 text-center hover:bg-muted/20"
+        >
+          <ImageIcon className="h-6 w-6 text-muted-foreground opacity-50" />
+          <span className="max-w-full truncate text-[10px] font-medium text-foreground">
+            {fileName}
+          </span>
+          <span className="text-[9px] text-muted-foreground">
+            Preview unavailable — click to open
+          </span>
+        </a>
+      )}
+
+      {showDownload && resolvedUrl && (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="absolute bottom-2 right-2 h-6 px-2 text-[10px] gap-1 bg-background/90"
+          onClick={handleDownload}
+        >
+          <Download className="h-3 w-3" />
+          Download
+        </Button>
+      )}
+    </div>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -481,14 +565,6 @@ export function CrimesListPage() {
     (item) => item.evidenceId === selectedEvidence?.id,
   )?.matches || [];
 
-  const sourceEvidenceId = selectedEvidence && (selectedEvidence as any).ROWID
-    ? String((selectedEvidence as any).ROWID)
-    : null;
-  const { data: evidenceMatchRows } = useGetEvidenceMatchesBySourceEvidenceQuery(sourceEvidenceId || "", {
-    skip: !sourceEvidenceId,
-  });
-  const [createEvidenceMatch, { isLoading: isCreatingEvidenceMatch }] = useCreateEvidenceMatchMutation();
-  const [updateEvidenceMatch, { isLoading: isUpdatingEvidenceMatch }] = useUpdateEvidenceMatchMutation();
   const [uploadEvidence] = useUploadCrimeEvidenceMutation();
 
   const handleEvidenceUploadForPersistedCrime = React.useCallback(async (ev: EvidenceItem) => {
@@ -535,50 +611,6 @@ export function CrimesListPage() {
       console.error("Evidence upload failed from repeater tick:", error);
     }
   }, [form, uploadEvidence]);
-
-  const handleMatchDecision = React.useCallback(
-    async (match: any, decision: "approved" | "rejected") => {
-      if (!sourceEvidenceId) {
-        console.warn("Evidence must be uploaded and saved to the backend before creating a match.");
-        return;
-      }
-
-      const targetMatchId = String(match.id ?? match.ROWID ?? match.crimeNumber ?? match.path ?? "");
-      if (!targetMatchId) return;
-
-      const existingMatch = evidenceMatchRows?.find(
-        (item) => String(item.matched_evidence_id) === targetMatchId || String(item.matched_evidence_id) === selectedRelatedCrimeId,
-      );
-
-      const payload = {
-        source_evidence_id: sourceEvidenceId,
-        matched_evidence_id: targetMatchId,
-        evidence_type: selectedEvidence?.evidence_type || "unknown",
-        confidence: typeof match.score === "number" ? match.score : Number(match.score ?? 0),
-        verified: decision === "approved",
-        status: decision,
-      };
-
-      try {
-        if (existingMatch?.ROWID || existingMatch?.id) {
-          await updateEvidenceMatch({
-            id: String(existingMatch.ROWID ?? existingMatch.id),
-            body: {
-              ...payload,
-              confidence: payload.confidence,
-              verified: payload.verified,
-              status: payload.status,
-            },
-          }).unwrap();
-        } else {
-          await createEvidenceMatch(payload).unwrap();
-        }
-      } catch (error) {
-        console.error("Failed to update evidence match status:", error);
-      }
-    },
-    [createEvidenceMatch, evidenceMatchRows, selectedEvidence?.evidence_type, selectedRelatedCrimeId, sourceEvidenceId, updateEvidenceMatch],
-  );
 
   React.useEffect(() => {
     if (!selectedEvidenceId || !uploadedEvidences.some((e) => e.id === selectedEvidenceId)) {
@@ -1459,29 +1491,13 @@ export function CrimesListPage() {
                   </div>
                 ) : (
                   <>
-                    <div className="relative overflow-hidden rounded-lg border border-border bg-background">
-                      {isBrowserRenderableImage(selectedEvidence?.file?.name || selectedEvidence?.file_url) ? (
-                        <img
-                          src={evidenceImageUrl(selectedEvidence?.file_url)}
-                          alt={selectedEvidence?.file?.name || "Uploaded evidence"}
-                          className="h-52 w-full object-contain"
-                        />
-                      ) : (
-                        <a
-                          href={evidenceImageUrl(selectedEvidence?.file_url)}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="flex h-52 w-full flex-col items-center justify-center gap-2 px-4 text-center hover:bg-muted/20"
-                        >
-                          <ImageIcon className="h-8 w-8 text-muted-foreground opacity-50" />
-                          <span className="max-w-full truncate text-xs font-medium text-foreground">
-                            {evidenceFileName(selectedEvidence?.file_url, selectedEvidence?.file?.name)}
-                          </span>
-                          <span className="text-[10px] text-muted-foreground">
-                            Preview unavailable for this format — click to open
-                          </span>
-                        </a>
-                      )}
+                    <div className="relative overflow-hidden rounded-lg border border-border">
+                      <EvidenceVisual
+                        path={selectedEvidence?.file_url}
+                        fileName={evidenceFileName(selectedEvidence?.file_url, selectedEvidence?.file?.name)}
+                        className="h-52 w-full"
+                        showDownload
+                      />
                       {selectedEvidence?.afisLoading && (
                         <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-background/80 text-primary backdrop-blur-[2px]">
                           <ScanLine className="h-8 w-8 animate-pulse" />
@@ -1498,12 +1514,12 @@ export function CrimesListPage() {
                     </div>
                     <div className="mt-2 flex gap-1.5 overflow-x-auto">
                       {uploadedEvidences.map((ev, index) => (
-                        <button type="button" key={ev.id} onClick={() => { setSelectedEvidenceId(ev.id); setSelectedEvidenceImage(index); setSelectedRelatedCrimeId(null); }} className={`flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded border bg-background ${ev.id === selectedEvidence?.id ? "border-primary ring-1 ring-primary" : "border-border"}`}>
-                          {isBrowserRenderableImage(ev.file?.name || ev.file_url) ? (
-                            <img src={evidenceImageUrl(ev.file_url)} alt="" className="h-full w-full object-cover" />
-                          ) : (
-                            <ImageIcon className="h-4 w-4 text-muted-foreground opacity-50" />
-                          )}
+                        <button type="button" key={ev.id} onClick={() => { setSelectedEvidenceId(ev.id); setSelectedEvidenceImage(index); setSelectedRelatedCrimeId(null); }} className={`h-12 w-12 shrink-0 overflow-hidden rounded border bg-background ${ev.id === selectedEvidence?.id ? "border-primary ring-1 ring-primary" : "border-border"}`}>
+                          <EvidenceVisual
+                            path={ev.file_url}
+                            fileName={evidenceFileName(ev.file_url, ev.file?.name)}
+                            className="h-full w-full"
+                          />
                         </button>
                       ))}
                     </div>
@@ -1514,46 +1530,22 @@ export function CrimesListPage() {
                         const matchScore = typeof match.score === "number" ? match.score : Number(match.score ?? match.confidence ?? 0);
 
                         return (
-                          <div 
+                          <button
+                            type="button"
                             key={matchId}
-                            className={`rounded border p-2.5 text-left text-xs ${selectedRelatedCrimeId === matchId ? "border-primary bg-primary/10" : "border-border bg-background"}`}
+                            onClick={() => setSelectedRelatedCrimeId(matchId)}
+                            className={`w-full rounded border p-2.5 text-left text-xs ${selectedRelatedCrimeId === matchId ? "border-primary bg-primary/10" : "border-border bg-background"}`}
                           >
-                            <button
-                              type="button"
-                              onClick={() => setSelectedRelatedCrimeId(matchId)}
-                              className="flex w-full items-center justify-between text-left"
-                            >
+                            <div className="flex w-full items-center justify-between">
                               <span className="truncate font-medium text-foreground">{match.crimeNumber || match.title || match.path}</span>
                               <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                            </button>
-                            <div className="mt-2 flex items-center justify-between gap-2">
+                            </div>
+                            <div className="mt-2">
                               <span className="rounded bg-primary/10 px-1.5 py-0.5 font-medium text-primary">
                                 Score: {isNaN(matchScore) ? "0.0000" : matchScore.toFixed(4)}
                               </span>
-                              <div className="flex items-center gap-1.5">
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant="outline"
-                                  className="h-6 px-2 text-[10px]"
-                                  disabled={isCreatingEvidenceMatch || isUpdatingEvidenceMatch}
-                                  onClick={() => handleMatchDecision(match, "approved")}
-                                >
-                                  Approve
-                                </Button>
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant="outline"
-                                  className="h-6 px-2 text-[10px] text-destructive hover:bg-destructive/10"
-                                  disabled={isCreatingEvidenceMatch || isUpdatingEvidenceMatch}
-                                  onClick={() => handleMatchDecision(match, "rejected")}
-                                >
-                                  Reject
-                                </Button>
-                              </div>
                             </div>
-                          </div>
+                          </button>
                         );
                       })}
                     </div>
@@ -1570,47 +1562,14 @@ export function CrimesListPage() {
                           </span>
                         </div>
                         <div className="mt-2 grid grid-cols-2 gap-2 text-[10px] text-muted-foreground"><span className="flex items-center gap-1"><CalendarDays className="h-3 w-3" />{relatedCrime.incidentDate ? new Date(relatedCrime.incidentDate).toLocaleDateString("en-IN") : "Date unavailable"}</span><span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{relatedCrime.crimeLocation || relatedCrime.location?.address || "Location unavailable"}</span></div>
-                        <div className="mt-3 flex items-center gap-2">
-                          <Button
-                            type="button"
-                            size="sm"
-                            className="h-7 px-3 text-[10px]"
-                            disabled={isCreatingEvidenceMatch || isUpdatingEvidenceMatch}
-                            onClick={() => {
-                              const match = selectedEvidenceMatches.find((item) => String(item.id ?? item.ROWID) === selectedRelatedCrimeId);
-                              if (match) handleMatchDecision(match, "approved");
-                            }}
-                          >
-                            Approve
-                          </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            className="h-7 px-3 text-[10px] text-destructive hover:bg-destructive/10"
-                            disabled={isCreatingEvidenceMatch || isUpdatingEvidenceMatch}
-                            onClick={() => {
-                              const match = selectedEvidenceMatches.find((item) => String(item.id ?? item.ROWID) === selectedRelatedCrimeId);
-                              if (match) handleMatchDecision(match, "rejected");
-                            }}
-                          >
-                            Reject
-                          </Button>
-                        </div>
                         {relatedCrime.evidences?.find((e) => e.fileUrl) && (
-                          isBrowserRenderableImage(relatedCrime.evidences.find((e) => e.fileUrl)?.fileUrl) ? (
-                            <img src={evidenceImageUrl(relatedCrime.evidences.find((e) => e.fileUrl)?.fileUrl)} alt="Matched evidence in related crime" className="mt-3 h-32 w-full rounded border border-border object-contain" />
-                          ) : (
-                            <a
-                              href={evidenceImageUrl(relatedCrime.evidences.find((e) => e.fileUrl)?.fileUrl)}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="mt-3 flex h-32 w-full flex-col items-center justify-center gap-1 rounded border border-border bg-muted/10 text-center hover:bg-muted/20"
-                            >
-                              <ImageIcon className="h-6 w-6 text-muted-foreground opacity-50" />
-                              <span className="text-[10px] text-muted-foreground">Preview unavailable — click to open</span>
-                            </a>
-                          )
+                          <div className="mt-3 overflow-hidden rounded border border-border">
+                            <EvidenceVisual
+                              path={relatedCrime.evidences.find((e) => e.fileUrl)?.fileUrl}
+                              fileName={evidenceFileName(relatedCrime.evidences.find((e) => e.fileUrl)?.fileUrl)}
+                              className="h-32 w-full"
+                            />
+                          </div>
                         )}
                         <Link to={`/entities/crimes/${selectedRelatedCrimeId}`} target="_blank" className="mt-3 inline-flex items-center text-[10px] font-semibold text-primary">Open crime record <ChevronRight className="ml-1 h-3 w-3" /></Link>
                       </div>
