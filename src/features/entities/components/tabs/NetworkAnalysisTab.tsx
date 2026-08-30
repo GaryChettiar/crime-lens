@@ -15,7 +15,9 @@ import { useBuildNetworkGraphMutation } from '@/services/networkApi';
 
 interface NetworkAnalysisTabProps {
   crimeId: string;
-  crimeNumber: string;
+  crimeNumber?: string;
+  rootType?: 'incident' | 'criminal';
+  rootLabel?: string;
 }
 
 function getNodeTypeColor(type: string) {
@@ -99,7 +101,12 @@ function getNodePosition(nodeId: string, nodeType: string, layer: number, index:
   return { x, y };
 }
 
-export function NetworkAnalysisTab({ crimeId, crimeNumber }: NetworkAnalysisTabProps) {
+export function NetworkAnalysisTab({
+  crimeId,
+  crimeNumber,
+  rootType = 'incident',
+  rootLabel,
+}: NetworkAnalysisTabProps) {
   const [buildGraph, { data: graphResponse, isLoading }] = useBuildNetworkGraphMutation();
   const [expandedNodeIds, setExpandedNodeIds] = React.useState<Set<string>>(new Set());
   const [flowNodes, setFlowNodes, onNodesChange] = useNodesState<Node>([]);
@@ -107,8 +114,8 @@ export function NetworkAnalysisTab({ crimeId, crimeNumber }: NetworkAnalysisTabP
 
   React.useEffect(() => {
     if (!crimeId) return;
-    buildGraph({ root: { type: 'incident', id: crimeId } });
-  }, [buildGraph, crimeId]);
+    buildGraph({ root: { type: rootType, id: crimeId } });
+  }, [buildGraph, crimeId, rootType]);
 
   const graphData = React.useMemo(() => {
     if (!graphResponse) return null;
@@ -125,7 +132,9 @@ export function NetworkAnalysisTab({ crimeId, crimeNumber }: NetworkAnalysisTabP
       return null;
     }
 
-    const allowedTypes = new Set(['incident', 'criminal', 'evidence']);
+    const allowedTypes = rootType === 'criminal'
+      ? new Set(['incident', 'criminal', 'evidence', 'vehicle', 'alias', 'biometric', 'district', 'policestation', 'policeStation', 'suspect'])
+      : new Set(['incident', 'criminal', 'evidence']);
     const filteredNodes = (normalizedPayload as any).nodes.filter((node: any) => {
       const type = String(node?.type ?? '').toLowerCase();
       return allowedTypes.has(type);
@@ -145,15 +154,15 @@ export function NetworkAnalysisTab({ crimeId, crimeNumber }: NetworkAnalysisTabP
       nodes: Array<{ id: string; type: string; label?: string }>;
       edges: Array<{ id: string; source: string; target: string; label?: string }>;
     };
-  }, [graphResponse]);
+  }, [graphResponse, rootType]);
 
   const allNodes = React.useMemo(() => graphData?.nodes ?? [], [graphData]);
   const allEdges = React.useMemo(() => graphData?.edges ?? [], [graphData]);
   const rootNodeId = React.useMemo(() => {
-    const preferred = `incident_${crimeId}`;
+    const preferred = `${rootType}_${crimeId}`;
     if (allNodes.some((node) => String(node.id) === preferred)) return preferred;
-    return allNodes.find((node) => String(node.type).toLowerCase() === 'incident')?.id ?? preferred;
-  }, [allNodes, crimeId]);
+    return allNodes.find((node) => String(node.type).toLowerCase() === rootType)?.id ?? preferred;
+  }, [allNodes, crimeId, rootType]);
 
   const adjacency = React.useMemo(() => {
     const map = new Map<string, string[]>();
@@ -280,7 +289,10 @@ export function NetworkAnalysisTab({ crimeId, crimeNumber }: NetworkAnalysisTabP
       const palette = getNodeTypeColor(nodeType);
       const isRoot = nodeId === rootNodeId;
       const isExpanded = expandedNodeIds.has(nodeId) || isRoot;
-      const readableNode = getReadableNodeMeta(node, crimeNumber);
+      const readableNode = getReadableNodeMeta(
+        node,
+        rootType === 'incident' ? crimeNumber : rootLabel,
+      );
       const position = positions.get(nodeId) ?? { x: 260, y: 220 };
 
       const nodeLabel = (
@@ -347,7 +359,7 @@ export function NetworkAnalysisTab({ crimeId, crimeNumber }: NetworkAnalysisTabP
 
     setFlowNodes(nextNodes);
     setFlowEdges(nextEdges);
-  }, [crimeNumber, expandedNodeIds, layerMap, rootNodeId, setFlowEdges, setFlowNodes, toggleNodeCollapse, visibleEdges, visibleNodes]);
+  }, [crimeNumber, expandedNodeIds, layerMap, rootLabel, rootNodeId, rootType, setFlowEdges, setFlowNodes, toggleNodeCollapse, visibleEdges, visibleNodes]);
 
   const hasGraph = allNodes.length > 0;
 
@@ -357,10 +369,16 @@ export function NetworkAnalysisTab({ crimeId, crimeNumber }: NetworkAnalysisTabP
         <CardContent className="p-4">
           <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
             <Network className="h-4 w-4 text-primary" />
-            {crimeNumber ? `Crime network: ${crimeNumber}` : 'Incident network'}
+            {rootType === 'criminal'
+              ? `Criminal network: ${rootLabel || crimeId}`
+              : crimeNumber
+                ? `Crime network: ${crimeNumber}`
+                : 'Incident network'}
           </div>
           <p className="mt-1 text-xs text-muted-foreground">
-            Root incident is shown first, with linked evidence, criminals, and shared matches from related crimes.
+            {rootType === 'criminal'
+              ? 'Root criminal is shown first with linked crimes, evidence, associates, and related records.'
+              : 'Root incident is shown first, with linked evidence, criminals, and shared matches from related crimes.'}
           </p>
         </CardContent>
       </Card>
@@ -372,10 +390,12 @@ export function NetworkAnalysisTab({ crimeId, crimeNumber }: NetworkAnalysisTabP
               <div className="flex h-full items-center justify-center gap-3 text-sm text-muted-foreground">
                 <Loader2 className="h-5 w-5 animate-spin" />
                 Building crime network…
+                              Building {rootType === 'criminal' ? 'criminal' : 'crime'} network...
               </div>
             ) : !hasGraph ? (
               <div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted-foreground">
                 No related evidence or criminal links were found for this crime.
+                              No related records were found for this {rootType === 'criminal' ? 'criminal' : 'crime'}.
               </div>
             ) : (
               <div
