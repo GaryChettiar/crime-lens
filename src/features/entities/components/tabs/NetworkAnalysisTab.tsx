@@ -28,6 +28,27 @@ function getNodeTypeColor(type: string) {
   return { bg: '#f8fafc', border: '#cbd5e1', text: '#0f172a' };
 }
 
+function getReadableNodeName(node: { id: string; type?: string; label?: string }, crimeNumber?: string) {
+  const rawLabel = typeof node.label === 'string' ? node.label.trim() : '';
+  const normalizedType = String(node.type ?? '').toLowerCase();
+
+  if (normalizedType === 'incident') {
+    return crimeNumber || rawLabel || `Crime ${String(node.id).replace(/^incident_+/i, '')}`;
+  }
+
+  if (rawLabel && !/^incident_|^criminal_|^evidence_|^vehicle_|^alias_|^station_|^policestation_/.test(rawLabel)) {
+    return rawLabel;
+  }
+
+  const suffix = String(node.id ?? '').replace(/^(incident|criminal|evidence|vehicle|alias|station|policestation)_+/i, '');
+
+  if (normalizedType === 'criminal') return rawLabel || `Criminal ${suffix || 'Record'}`;
+  if (normalizedType === 'evidence') return rawLabel || `Evidence ${suffix || 'Record'}`;
+  if (rawLabel) return rawLabel;
+
+  return suffix || 'Linked record';
+}
+
 function getNodePosition(nodeId: string, nodeType: string, layer: number, index: number, totalInLayer: number) {
   const centerX = 540;
   const centerY = 250;
@@ -158,18 +179,8 @@ export function NetworkAnalysisTab({ crimeId, crimeNumber }: NetworkAnalysisTabP
 
   React.useEffect(() => {
     if (!allNodes.length) return;
-
-    const nextExpanded = new Set<string>();
-    allNodes.forEach((node) => {
-      if (!node.id) return;
-      const nodeId = String(node.id);
-      if (nodeId === rootNodeId || (adjacency.get(nodeId)?.length ?? 0) > 0) {
-        nextExpanded.add(nodeId);
-      }
-    });
-
-    setExpandedNodeIds(nextExpanded);
-  }, [adjacency, allNodes, rootNodeId]);
+    setExpandedNodeIds(new Set([rootNodeId]));
+  }, [allNodes, rootNodeId]);
 
   const visibleNodes = React.useMemo(
     () => allNodes.filter((node) => visibleNodeIds.has(String(node.id))),
@@ -197,90 +208,64 @@ export function NetworkAnalysisTab({ crimeId, crimeNumber }: NetworkAnalysisTabP
   }, [rootNodeId]);
 
   const flowNodes = React.useMemo<Node[]>(() => {
-    const nodeMap = new Map(visibleNodes.map((node) => [String(node.id), node]));
-    const neighbors = new Map<string, string[]>();
-
-    visibleEdges.forEach((edge) => {
-      const source = String(edge.source);
-      const target = String(edge.target);
-      neighbors.set(source, [...(neighbors.get(source) ?? []), target]);
-      neighbors.set(target, [...(neighbors.get(target) ?? []), source]);
-    });
-
-    const rootX = 540;
-    const rootY = 260;
+    const centerX = 540;
+    const centerY = 260;
     const positions = new Map<string, { x: number; y: number }>();
-    positions.set(rootNodeId, { x: rootX, y: rootY });
+    const parentMap = new Map<string, string | null>();
+    const layerMap = new Map<string, number>();
 
-    const relatedIncidents = visibleNodes.filter(
-      (node) => String(node.type).toLowerCase() === 'incident' && String(node.id) !== rootNodeId,
-    );
+    const queue: Array<{ id: string; parent: string | null; depth: number }> = [{ id: rootNodeId, parent: null, depth: 0 }];
+    const visited = new Set<string>([rootNodeId]);
 
-    const rootConnectedNonIncidents = visibleNodes.filter((node) => {
-      const nodeId = String(node.id);
-      const nodeType = String(node.type).toLowerCase();
-      if (nodeType === 'incident') return false;
-      return (neighbors.get(nodeId) ?? []).includes(rootNodeId);
+    while (queue.length > 0) {
+      const current = queue.shift();
+      if (!current) continue;
+
+      parentMap.set(current.id, current.parent);
+      layerMap.set(current.id, current.depth);
+
+      const neighbors = (adjacency.get(current.id) ?? []).filter((neighbor) => visibleNodeIds.has(neighbor));
+      neighbors.forEach((neighbor) => {
+        if (visited.has(neighbor)) return;
+        visited.add(neighbor);
+        queue.push({ id: neighbor, parent: current.id, depth: current.depth + 1 });
+      });
+    }
+
+    positions.set(rootNodeId, { x: centerX, y: centerY });
+
+    const nodesByDepth = new Map<number, string[]>();
+    Array.from(visibleNodeIds).forEach((nodeId) => {
+      const depth = layerMap.get(nodeId) ?? 0;
+      const list = nodesByDepth.get(depth) ?? [];
+      list.push(nodeId);
+      nodesByDepth.set(depth, list);
     });
 
-    rootConnectedNonIncidents.forEach((node, index) => {
-      const total = rootConnectedNonIncidents.length || 1;
-      const angle = total === 1 ? 0 : (index / total) * Math.PI * 2;
-      const radius = 165;
-      positions.set(String(node.id), {
-        x: rootX + Math.cos(angle) * radius,
-        y: rootY + Math.sin(angle) * radius,
-      });
-    });
-
-    relatedIncidents.forEach((incident, index) => {
-      const total = relatedIncidents.length || 1;
-      const angle = total === 1 ? 0 : (index / total) * Math.PI * 2 - Math.PI / 2;
-      const radius = 260;
-      const incidentId = String(incident.id);
-      const incidentX = rootX + Math.cos(angle) * radius;
-      const incidentY = rootY + Math.sin(angle) * radius;
-      positions.set(incidentId, { x: incidentX, y: incidentY });
-
-      const incidentConnectedNodes = visibleNodes.filter((node) => {
-        const nodeId = String(node.id);
-        const nodeType = String(node.type).toLowerCase();
-        if (nodeType === 'incident' && nodeId === incidentId) return false;
-        if (nodeId === rootNodeId) return false;
-        return (neighbors.get(nodeId) ?? []).includes(incidentId);
-      });
-
-      incidentConnectedNodes.forEach((node, nodeIndex) => {
-        const nodeId = String(node.id);
-        const clusterTotal = incidentConnectedNodes.length || 1;
-        const clusterAngle = clusterTotal === 1 ? 0 : (nodeIndex / clusterTotal) * Math.PI * 2;
-        const clusterRadius = 120;
+    nodesByDepth.forEach((ids, depth) => {
+      if (depth === 0) return;
+      ids.forEach((nodeId, index) => {
+        const parentId = parentMap.get(nodeId) ?? rootNodeId;
+        const parentPosition = positions.get(parentId) ?? { x: centerX, y: centerY };
+        const siblings = ids.length || 1;
+        const angle = siblings === 1 ? 0 : (index / siblings) * Math.PI * 2 - Math.PI / 2;
+        const radius = depth === 1 ? 180 : 150;
         positions.set(nodeId, {
-          x: incidentX + Math.cos(clusterAngle) * clusterRadius,
-          y: incidentY + Math.sin(clusterAngle) * clusterRadius,
+          x: parentPosition.x + Math.cos(angle) * radius,
+          y: parentPosition.y + Math.sin(angle) * radius,
         });
       });
     });
 
-    const fallbackNodes = visibleNodes.filter((node) => !positions.has(String(node.id)));
-    fallbackNodes.forEach((node, index) => {
-      const nodeId = String(node.id);
-      const angle = fallbackNodes.length === 1 ? 0 : (index / fallbackNodes.length) * Math.PI * 2;
-      const radius = 340 + (index % 3) * 55;
-      positions.set(nodeId, {
-        x: rootX + Math.cos(angle) * radius,
-        y: rootY + Math.sin(angle) * radius,
-      });
-    });
-
-    return visibleNodes.map((node, index) => {
+    return visibleNodes.map((node) => {
       const nodeId = String(node.id);
       const nodeType = String(node.type ?? 'unknown');
       const palette = getNodeTypeColor(nodeType);
       const isRoot = nodeId === rootNodeId;
       const isExpanded = expandedNodeIds.has(nodeId) || isRoot;
-      const position = positions.get(nodeId) ?? { x: rootX + (index % 8) * 110, y: rootY + (index % 5) * 90 };
+      const position = positions.get(nodeId) ?? { x: centerX, y: centerY };
 
+      const readableName = getReadableNodeName(node, crimeNumber);
       const nodeLabel = (
         <div className="relative flex flex-col items-center gap-1 select-none text-center">
           {!isRoot && (
@@ -296,10 +281,9 @@ export function NetworkAnalysisTab({ crimeId, crimeNumber }: NetworkAnalysisTabP
               {isExpanded ? <Minus className="h-2.5 w-2.5" /> : <Plus className="h-2.5 w-2.5" />}
             </button>
           )}
-          <span className="max-w-[140px] truncate text-[10px] font-bold" title={node.label ?? node.id}>
-            {node.label ?? node.id}
+          <span className="max-w-[150px] truncate text-[10px] font-bold" title={readableName}>
+            {readableName}
           </span>
-          <span className="text-[8px] uppercase tracking-[0.12em] opacity-80">{nodeType}</span>
         </div>
       );
 
@@ -325,18 +309,16 @@ export function NetworkAnalysisTab({ crimeId, crimeNumber }: NetworkAnalysisTabP
         },
       } as Node;
     });
-  }, [expandedNodeIds, rootNodeId, toggleNodeCollapse, visibleEdges, visibleNodes]);
+  }, [adjacency, crimeNumber, expandedNodeIds, rootNodeId, toggleNodeCollapse, visibleNodeIds, visibleNodes]);
 
   const flowEdges = React.useMemo<Edge[]>(() =>
     visibleEdges.map((edge) => ({
       id: String(edge.id),
       source: String(edge.source),
       target: String(edge.target),
-      animated: true,
+      animated: false,
       markerEnd: { type: MarkerType.ArrowClosed, width: 12, height: 12 },
-      label: edge.label ?? 'related',
-      style: { stroke: '#94a3b8', strokeWidth: 1.25, opacity: 0.8 },
-      labelStyle: { fill: '#64748b', fontSize: 9 },
+      style: { stroke: '#94a3b8', strokeWidth: 1.4, opacity: 0.85 },
     })),
     [visibleEdges],
   );
@@ -386,6 +368,7 @@ export function NetworkAnalysisTab({ crimeId, crimeNumber }: NetworkAnalysisTabP
                   minZoom={0.2}
                   maxZoom={2}
                   nodesDraggable
+                  nodesConnectable={false}
                   elementsSelectable
                   proOptions={{ hideAttribution: true }}
                   className="h-full w-full"
