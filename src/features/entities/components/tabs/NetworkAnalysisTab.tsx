@@ -57,18 +57,37 @@ export function NetworkAnalysisTab({ crimeId, crimeNumber }: NetworkAnalysisTabP
     if (!graphResponse) return null;
 
     const payload = (graphResponse as any)?.data ?? graphResponse;
-    if (payload && typeof payload === 'object' && Array.isArray((payload as any).nodes)) {
-      return payload as { nodes: Array<{ id: string; type: string; label?: string }> ; edges: Array<{ id: string; source: string; target: string; label?: string }> };
+    const normalizedPayload =
+      payload && typeof payload === 'object' && Array.isArray((payload as any).nodes)
+        ? payload
+        : payload && typeof payload === 'object' && 'data' in payload
+          ? (payload as any).data
+          : null;
+
+    if (!normalizedPayload || !Array.isArray((normalizedPayload as any).nodes)) {
+      return null;
     }
 
-    if (payload && typeof payload === 'object' && 'data' in payload) {
-      const nested = (payload as any).data;
-      if (nested && typeof nested === 'object' && Array.isArray((nested as any).nodes)) {
-        return nested as { nodes: Array<{ id: string; type: string; label?: string }> ; edges: Array<{ id: string; source: string; target: string; label?: string }> };
-      }
-    }
+    const allowedTypes = new Set(['incident', 'criminal', 'evidence']);
+    const filteredNodes = (normalizedPayload as any).nodes.filter((node: any) => {
+      const type = String(node?.type ?? '').toLowerCase();
+      return allowedTypes.has(type);
+    });
 
-    return null;
+    const filteredNodeIds = new Set(filteredNodes.map((node: any) => String(node.id)));
+    const filteredEdges = (normalizedPayload as any).edges.filter((edge: any) => {
+      const source = String(edge?.source ?? '');
+      const target = String(edge?.target ?? '');
+      return filteredNodeIds.has(source) && filteredNodeIds.has(target);
+    });
+
+    return {
+      nodes: filteredNodes,
+      edges: filteredEdges,
+    } as {
+      nodes: Array<{ id: string; type: string; label?: string }>;
+      edges: Array<{ id: string; source: string; target: string; label?: string }>;
+    };
   }, [graphResponse]);
 
   const allNodes = React.useMemo(() => graphData?.nodes ?? [], [graphData]);
