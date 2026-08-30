@@ -3,6 +3,8 @@ import ReactFlow, {
   Background,
   Controls,
   MarkerType,
+  useEdgesState,
+  useNodesState,
   type Edge,
   type Node,
 } from 'reactflow';
@@ -100,6 +102,8 @@ function getNodePosition(nodeId: string, nodeType: string, layer: number, index:
 export function NetworkAnalysisTab({ crimeId, crimeNumber }: NetworkAnalysisTabProps) {
   const [buildGraph, { data: graphResponse, isLoading }] = useBuildNetworkGraphMutation();
   const [expandedNodeIds, setExpandedNodeIds] = React.useState<Set<string>>(new Set());
+  const [flowNodes, setFlowNodes, onNodesChange] = useNodesState<Node>([]);
+  const [flowEdges, setFlowEdges] = useEdgesState<Edge>([]);
 
   React.useEffect(() => {
     if (!crimeId) return;
@@ -239,67 +243,46 @@ export function NetworkAnalysisTab({ crimeId, crimeNumber }: NetworkAnalysisTabP
     });
   }, [rootNodeId]);
 
-  const flowNodes = React.useMemo<Node[]>(() => {
-    const centerX = 540;
-    const centerY = 260;
+  React.useEffect(() => {
     const positions = new Map<string, { x: number; y: number }>();
-    const parentMap = new Map<string, string | null>();
-    const layerMap = new Map<string, number>();
-
-    const queue: Array<{ id: string; parent: string | null; depth: number }> = [{ id: rootNodeId, parent: null, depth: 0 }];
-    const visited = new Set<string>([rootNodeId]);
-
-    while (queue.length > 0) {
-      const current = queue.shift();
-      if (!current) continue;
-
-      parentMap.set(current.id, current.parent);
-      layerMap.set(current.id, current.depth);
-
-      const neighbors = (adjacency.get(current.id) ?? []).filter((neighbor) => visibleNodeIds.has(neighbor));
-      neighbors.forEach((neighbor) => {
-        if (visited.has(neighbor)) return;
-        visited.add(neighbor);
-        queue.push({ id: neighbor, parent: current.id, depth: current.depth + 1 });
-      });
-    }
-
-    positions.set(rootNodeId, { x: centerX, y: centerY });
-
     const nodesByDepth = new Map<number, string[]>();
-    Array.from(visibleNodeIds).forEach((nodeId) => {
-      const depth = layerMap.get(nodeId) ?? 0;
+
+    visibleNodes.forEach((node) => {
+      const depth = layerMap.get(String(node.id)) ?? 0;
       const list = nodesByDepth.get(depth) ?? [];
-      list.push(nodeId);
+      list.push(String(node.id));
       nodesByDepth.set(depth, list);
     });
 
-    nodesByDepth.forEach((ids, depth) => {
-      if (depth === 0) return;
+    const orderedDepths = Array.from(nodesByDepth.keys()).sort((a, b) => a - b);
 
+    orderedDepths.forEach((depth) => {
+      const ids = nodesByDepth.get(depth) ?? [];
       ids.forEach((nodeId, index) => {
-        const parentId = parentMap.get(nodeId) ?? rootNodeId;
-        const parentPosition = positions.get(parentId) ?? { x: centerX, y: centerY };
-        const horizontalSpacing = depth === 1 ? 220 : 170;
-        const verticalSpacing = depth === 1 ? 110 : 80;
-        const columnOffset = index - (ids.length - 1) / 2;
+        if (depth === 0) {
+          positions.set(nodeId, { x: 260, y: 220 });
+          return;
+        }
 
+        const x = 520 + depth * 230;
+        const rowOffset = ((index % 3) - 1) * 110;
+        const columnOffset = Math.floor(index / 3) * 90;
         positions.set(nodeId, {
-          x: parentPosition.x + columnOffset * horizontalSpacing,
-          y: parentPosition.y + (depth % 2 === 0 ? 1 : -1) * (index % 2 === 0 ? verticalSpacing : verticalSpacing * 0.7),
+          x,
+          y: 150 + rowOffset + columnOffset,
         });
       });
     });
 
-    return visibleNodes.map((node) => {
+    const nextNodes: Node[] = visibleNodes.map((node) => {
       const nodeId = String(node.id);
       const nodeType = String(node.type ?? 'unknown');
       const palette = getNodeTypeColor(nodeType);
       const isRoot = nodeId === rootNodeId;
       const isExpanded = expandedNodeIds.has(nodeId) || isRoot;
-      const position = positions.get(nodeId) ?? { x: centerX, y: centerY };
-
       const readableNode = getReadableNodeMeta(node, crimeNumber);
+      const position = positions.get(nodeId) ?? { x: 260, y: 220 };
+
       const nodeLabel = (
         <div className="relative flex flex-col items-center gap-1 select-none text-center">
           <span className="drag-handle absolute -left-1 -top-1 flex h-4 w-4 cursor-grab items-center justify-center rounded border border-slate-300/80 bg-white/80 text-[8px] text-slate-500 shadow-sm active:cursor-grabbing">
@@ -352,19 +335,19 @@ export function NetworkAnalysisTab({ crimeId, crimeNumber }: NetworkAnalysisTabP
         },
       } as Node;
     });
-  }, [adjacency, crimeNumber, expandedNodeIds, rootNodeId, toggleNodeCollapse, visibleNodeIds, visibleNodes]);
 
-  const flowEdges = React.useMemo<Edge[]>(() =>
-    visibleEdges.map((edge) => ({
+    const nextEdges: Edge[] = visibleEdges.map((edge) => ({
       id: String(edge.id),
       source: String(edge.source),
       target: String(edge.target),
       animated: false,
       markerEnd: { type: MarkerType.ArrowClosed, width: 12, height: 12 },
       style: { stroke: '#94a3b8', strokeWidth: 1.4, opacity: 0.85 },
-    })),
-    [visibleEdges],
-  );
+    }));
+
+    setFlowNodes(nextNodes);
+    setFlowEdges(nextEdges);
+  }, [crimeNumber, expandedNodeIds, layerMap, rootNodeId, setFlowEdges, setFlowNodes, toggleNodeCollapse, visibleEdges, visibleNodes]);
 
   const hasGraph = allNodes.length > 0;
 

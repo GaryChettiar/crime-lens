@@ -365,6 +365,10 @@ export function CrimesListPage() {
     null,
   );
   const [isImportingExcel, setIsImportingExcel] = React.useState(false);
+  const [isExcelImportPreviewOpen, setIsExcelImportPreviewOpen] = React.useState(false);
+  const [excelImportPreview, setExcelImportPreview] = React.useState<
+    ImportedCrimeFormData[]
+  >([]);
   const [bulkImportedCrimes, setBulkImportedCrimes] = React.useState<
     ImportedCrimeFormData[]
   >([]);
@@ -601,6 +605,83 @@ export function CrimesListPage() {
 
   const [uploadEvidence] = useUploadCrimeEvidenceMutation();
 
+  const updateImportedPreviewRow = (
+    rowIndex: number,
+    field: keyof ImportedCrimeFormData,
+    value: string | undefined,
+  ) => {
+    setExcelImportPreview((prev) =>
+      prev.map((row, index) =>
+        index === rowIndex
+          ? {
+              ...row,
+              [field]: value,
+            }
+          : row,
+      ),
+    );
+  };
+
+  const saveImportedPreviewRecords = async () => {
+    if (!excelImportPreview.length) return;
+
+    const validRecords = excelImportPreview.filter(
+      (record) => record.title?.trim() && record.crimeCategory,
+    );
+
+    if (!validRecords.length) {
+      setExcelImportError("Please add a title and category for each record before saving.");
+      return;
+    }
+
+    try {
+      const createdIds: string[] = [];
+
+      for (const record of validRecords) {
+        const payload = {
+          ...(record as unknown as CreateCrimePayload),
+          title: record.title || "",
+          crimeCategory: record.crimeCategory || "",
+          description: record.description || "",
+          district: record.district || "",
+          assignedStationId: record.assignedStationId || "",
+          weaponUsed: record.weaponUsed || "",
+          firId: record.firId || "",
+          severity: record.severity,
+          createdBy: currentUser?.sysUserId,
+          incidentDate: formatDateTimeForBackend(record.incidentDate || ""),
+          incidentRegisteredDate: formatDateTimeForBackend(record.incidentDate || ""),
+        };
+
+        const result = await createCrime(payload).unwrap();
+        const newId = result.data?.id;
+        if (newId) createdIds.push(newId);
+      }
+
+      setBulkImportedCrimes(validRecords);
+      setIsExcelImportPreviewOpen(false);
+      setExcelImportPreview([]);
+      setExcelImportError(null);
+      setShowCreate(false);
+
+      if (createdIds.length > 0) {
+        const firstId = createdIds[0];
+        if (validRecords.length === 1 && firstId) {
+          navigate(`/entities/crimes/${firstId}`);
+        }
+      }
+
+      refetch();
+    } catch (error) {
+      console.error("Import preview save failed:", error);
+      setExcelImportError(
+        error instanceof Error
+          ? error.message
+          : "Unable to create the imported crime records.",
+      );
+    }
+  };
+
   const handleEvidenceUploadForPersistedCrime = React.useCallback(async (ev: EvidenceItem) => {
     if (!ev.file || ev.ROWID) return;
 
@@ -823,20 +904,18 @@ export function CrimesListPage() {
         return;
       }
 
+      setExcelImportPreview(imported);
+      setIsExcelImportPreviewOpen(true);
       setBulkImportedCrimes(imported);
-      const firstRecord = imported[0];
-      setForm((prev) => ({
-        ...prev,
-        ...firstRecord,
-        evidences: prev.evidences ?? [],
-      }));
-      setShowCreate(true);
+      setShowCreate(false);
     } catch (error) {
       setExcelImportError(
         error instanceof Error
           ? error.message
           : "Unable to import the selected file.",
       );
+      setExcelImportPreview([]);
+      setIsExcelImportPreviewOpen(false);
       setBulkImportedCrimes([]);
     } finally {
       setIsImportingExcel(false);
@@ -911,6 +990,284 @@ export function CrimesListPage() {
             )}
           </div>
         </div>
+
+        {isExcelImportPreviewOpen && (
+          <Dialog
+            open={isExcelImportPreviewOpen}
+            onOpenChange={(open) => {
+              setIsExcelImportPreviewOpen(open);
+              if (!open) {
+                setExcelImportPreview([]);
+                setExcelImportError(null);
+              }
+            }}
+          >
+            <DialogContent className="max-h-[92vh] w-[90vw] max-w-6xl overflow-hidden p-0">
+              <DialogHeader className="border-b border-border px-5 py-4">
+                <DialogTitle className="flex items-center gap-2 text-sm font-semibold">
+                  <FileSpreadsheet className="h-4 w-4 text-primary" />
+                  Review imported crime records
+                </DialogTitle>
+              </DialogHeader>
+
+              <div className="max-h-[70vh] overflow-y-auto px-5 py-4">
+                {excelImportPreview.length === 0 ? (
+                  <div className="text-xs text-muted-foreground">
+                    No imported records available for review.
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {excelImportPreview.map((record, index) => (
+                      <div
+                        key={`${record.title ?? "row"}-${index}`}
+                        className="rounded-lg border border-border bg-muted/10 p-3"
+                      >
+                        <div className="mb-3 flex items-center justify-between gap-2">
+                          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                            Record {index + 1}
+                          </span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 text-[10px]"
+                            onClick={() =>
+                              setExcelImportPreview((prev) =>
+                                prev.filter((_, rowIndex) => rowIndex !== index),
+                              )
+                            }
+                          >
+                            Remove
+                          </Button>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                          <div className="space-y-1 md:col-span-2">
+                            <label className="text-[10px] font-semibold uppercase text-muted-foreground">
+                              Incident Title
+                            </label>
+                            <Input
+                              value={record.title || ""}
+                              onChange={(e) =>
+                                updateImportedPreviewRow(index, "title", e.target.value)
+                              }
+                              className="h-8 text-xs"
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-semibold uppercase text-muted-foreground">
+                              Crime Category
+                            </label>
+                            <select
+                              value={record.crimeCategory || ""}
+                              onChange={(e) =>
+                                updateImportedPreviewRow(
+                                  index,
+                                  "crimeCategory",
+                                  e.target.value,
+                                )
+                              }
+                              className="h-8 w-full rounded-lg border border-border bg-background px-3 text-xs text-foreground"
+                            >
+                              <option value="">Select category</option>
+                              {(categories ?? []).map((category: any) => (
+                                <option key={category.ROWID} value={category.ROWID}>
+                                  {category.crime_category_name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-semibold uppercase text-muted-foreground">
+                              Incident Date/Time
+                            </label>
+                            <Input
+                              type="datetime-local"
+                              value={record.incidentDate || ""}
+                              onChange={(e) =>
+                                updateImportedPreviewRow(
+                                  index,
+                                  "incidentDate",
+                                  e.target.value,
+                                )
+                              }
+                              className="h-8 text-xs"
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-semibold uppercase text-muted-foreground">
+                              District
+                            </label>
+                            <select
+                              value={record.district || ""}
+                              onChange={(e) =>
+                                updateImportedPreviewRow(index, "district", e.target.value)
+                              }
+                              className="h-8 w-full rounded-lg border border-border bg-background px-3 text-xs text-foreground"
+                            >
+                              <option value="">Select district</option>
+                              {(districts ?? []).map((district) => (
+                                <option key={district.id} value={district.id}>
+                                  {district.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-semibold uppercase text-muted-foreground">
+                              Assigned Station
+                            </label>
+                            <select
+                              value={record.assignedStationId || ""}
+                              onChange={(e) =>
+                                updateImportedPreviewRow(
+                                  index,
+                                  "assignedStationId",
+                                  e.target.value,
+                                )
+                              }
+                              className="h-8 w-full rounded-lg border border-border bg-background px-3 text-xs text-foreground"
+                            >
+                              <option value="">Select station</option>
+                              {(stations ?? []).map((station) => (
+                                <option key={station.id} value={station.id}>
+                                  {station.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-semibold uppercase text-muted-foreground">
+                              Severity
+                            </label>
+                            <select
+                              value={record.severity || ""}
+                              onChange={(e) =>
+                                updateImportedPreviewRow(
+                                  index,
+                                  "severity",
+                                  e.target.value === ""
+                                    ? undefined
+                                    : (e.target.value as ImportedCrimeFormData["severity"]),
+                                )
+                              }
+                              className="h-8 w-full rounded-lg border border-border bg-background px-3 text-xs text-foreground"
+                            >
+                              <option value="">Select severity</option>
+                              <option value="low">Low</option>
+                              <option value="medium">Medium</option>
+                              <option value="high">High</option>
+                              <option value="critical">Critical</option>
+                            </select>
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-semibold uppercase text-muted-foreground">
+                              FIR ID
+                            </label>
+                            <Input
+                              value={record.firId || ""}
+                              onChange={(e) =>
+                                updateImportedPreviewRow(index, "firId", e.target.value)
+                              }
+                              className="h-8 text-xs"
+                            />
+                          </div>
+
+                          <div className="space-y-1 md:col-span-2">
+                            <label className="text-[10px] font-semibold uppercase text-muted-foreground">
+                              Crime Location
+                            </label>
+                            <Input
+                              value={record.crimeLocation || ""}
+                              onChange={(e) =>
+                                updateImportedPreviewRow(
+                                  index,
+                                  "crimeLocation",
+                                  e.target.value,
+                                )
+                              }
+                              className="h-8 text-xs"
+                            />
+                          </div>
+
+                          <div className="space-y-1 md:col-span-2">
+                            <label className="text-[10px] font-semibold uppercase text-muted-foreground">
+                              Description
+                            </label>
+                            <Input
+                              value={record.description || ""}
+                              onChange={(e) =>
+                                updateImportedPreviewRow(
+                                  index,
+                                  "description",
+                                  e.target.value,
+                                )
+                              }
+                              className="h-8 text-xs"
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-semibold uppercase text-muted-foreground">
+                              Weapon Used
+                            </label>
+                            <Input
+                              value={record.weaponUsed || ""}
+                              onChange={(e) =>
+                                updateImportedPreviewRow(
+                                  index,
+                                  "weaponUsed",
+                                  e.target.value,
+                                )
+                              }
+                              className="h-8 text-xs"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <DialogFooter className="border-t border-border bg-background px-5 py-4">
+                <a
+                  href="/sample-crime-import.xlsx"
+                  download
+                  className="inline-flex items-center justify-center rounded-md border border-border bg-background px-3 py-2 text-[10px] font-medium text-foreground hover:bg-muted/20"
+                >
+                  Download sample Excel
+                </a>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setIsExcelImportPreviewOpen(false);
+                    setExcelImportPreview([]);
+                    setExcelImportError(null);
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={!excelImportPreview.length}
+                  onClick={saveImportedPreviewRecords}
+                >
+                  Save & Create
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        )}
 
         {/* Floating Evidence Match Card */}
 
