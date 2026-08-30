@@ -276,15 +276,17 @@ export function NetworkAnalysisTab({ crimeId, crimeNumber }: NetworkAnalysisTabP
 
     nodesByDepth.forEach((ids, depth) => {
       if (depth === 0) return;
+
       ids.forEach((nodeId, index) => {
         const parentId = parentMap.get(nodeId) ?? rootNodeId;
         const parentPosition = positions.get(parentId) ?? { x: centerX, y: centerY };
-        const siblings = ids.length || 1;
-        const angle = siblings === 1 ? 0 : (index / siblings) * Math.PI * 2 - Math.PI / 2;
-        const radius = depth === 1 ? 180 : 150;
+        const horizontalSpacing = depth === 1 ? 220 : 170;
+        const verticalSpacing = depth === 1 ? 110 : 80;
+        const columnOffset = index - (ids.length - 1) / 2;
+
         positions.set(nodeId, {
-          x: parentPosition.x + Math.cos(angle) * radius,
-          y: parentPosition.y + Math.sin(angle) * radius,
+          x: parentPosition.x + columnOffset * horizontalSpacing,
+          y: parentPosition.y + (depth % 2 === 0 ? 1 : -1) * (index % 2 === 0 ? verticalSpacing : verticalSpacing * 0.7),
         });
       });
     });
@@ -300,6 +302,9 @@ export function NetworkAnalysisTab({ crimeId, crimeNumber }: NetworkAnalysisTabP
       const readableNode = getReadableNodeMeta(node, crimeNumber);
       const nodeLabel = (
         <div className="relative flex flex-col items-center gap-1 select-none text-center">
+          <span className="drag-handle absolute -left-1 -top-1 flex h-4 w-4 cursor-grab items-center justify-center rounded border border-slate-300/80 bg-white/80 text-[8px] text-slate-500 shadow-sm active:cursor-grabbing">
+            ⋮
+          </span>
           {!isRoot && (
             <button
               type="button"
@@ -328,6 +333,7 @@ export function NetworkAnalysisTab({ crimeId, crimeNumber }: NetworkAnalysisTabP
         id: nodeId,
         type: 'default',
         draggable: true,
+        dragHandle: '.drag-handle',
         position,
         data: {
           label: nodeLabel,
