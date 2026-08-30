@@ -43,6 +43,7 @@ import {
   MapPin,
   CalendarDays,
   Download,
+  FileSpreadsheet,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -58,10 +59,12 @@ import { useGetDistrictsQuery } from "@/services/districtsApi";
 import { useGetStationsQuery } from "@/services/policeStationsApi";
 import { useGetCrimeCategoriesQuery } from "@/services/crimeCategoryApi";
 import type { CreateCrimePayload, CrimeRecord } from "@/services/crimeApi";
+import type { ImportedCrimeFormData } from "@/utils/importCrimeExcel";
 import type { GlobalFiltersState } from "@/store/slices/globalFiltersSlice";
 import { useGetCurrentUserQuery } from "@/services/authApi";
 import { useGetEfirsQuery } from "@/services/efirApi"; // ⚠️ confirm this matches your actual FIR service
 import { LocationPickerMap } from "@/components/common/LocationPickerMap";
+import { parseImportedCrimeExcel } from "@/utils/importCrimeExcel";
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
@@ -358,6 +361,13 @@ export function CrimesListPage() {
   // Local UI state only
   const [statusFilter, setStatusFilter] = React.useState("");
   const [showCreate, setShowCreate] = React.useState(false);
+  const [excelImportError, setExcelImportError] = React.useState<string | null>(
+    null,
+  );
+  const [isImportingExcel, setIsImportingExcel] = React.useState(false);
+  const [bulkImportedCrimes, setBulkImportedCrimes] = React.useState<
+    ImportedCrimeFormData[]
+  >([]);
   const [confirmDeleteId, setConfirmDeleteId] = React.useState<string | null>(
     null,
   );
@@ -714,29 +724,70 @@ export function CrimesListPage() {
   };
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.title?.trim() || !form.crimeCategory) return;
+
+    const recordsToCreate =
+      bulkImportedCrimes.length > 0 && bulkImportedCrimes.length > 1
+        ? bulkImportedCrimes
+        : [
+            {
+              title: form.title,
+              crimeCategory: form.crimeCategory,
+              description: form.description,
+              incidentDate: form.incidentDate,
+              crimeLocation: form.crimeLocation,
+              district: form.district,
+              weaponUsed: form.weaponUsed,
+              assignedStationId: form.assignedStationId,
+              firId: form.firId,
+              severity: form.severity,
+            } as ImportedCrimeFormData,
+          ];
+
+    if (recordsToCreate.length === 0) return;
+    const invalidRecord = recordsToCreate.find(
+      (record) => !record.title?.trim() || !record.crimeCategory,
+    );
+    if (invalidRecord) return;
+
     try {
-      const payload = {
-        ...(form as CreateCrimePayload),
-        createdBy: currentUser?.sysUserId,
-        incidentDate: formatDateTimeForBackend(form.incidentDate || ""),
-        incidentRegisteredDate: formatDateTimeForBackend(
-          form.incidentDate || "",
-        ),
-        evidences: form.evidences
-          ?.filter((e) => e.isConfirmed)
-          .map((e) => ({
-            evidence_type: e.evidence_type,
-            file_url: e.file_url,
-            description: "Added from incident form",
-          })),
-      };
-      console.log(payload);
-      const result = await createCrime(payload).unwrap();
-      const newId = result.data?.id;
+      const createdIds: string[] = [];
+
+      for (const record of recordsToCreate) {
+        const payload = {
+          ...(record as unknown as CreateCrimePayload),
+          title: record.title || "",
+          crimeCategory: record.crimeCategory || "",
+          description: record.description || "",
+          district: record.district || "",
+          assignedStationId: record.assignedStationId || "",
+          weaponUsed: record.weaponUsed || "",
+          firId: record.firId || "",
+          severity: record.severity,
+          createdBy: currentUser?.sysUserId,
+          incidentDate: formatDateTimeForBackend(record.incidentDate || ""),
+          incidentRegisteredDate: formatDateTimeForBackend(record.incidentDate || ""),
+          evidences: form.evidences
+            ?.filter((e) => e.isConfirmed)
+            .map((e) => ({
+              evidence_type: e.evidence_type,
+              file_url: e.file_url,
+              description: "Added from incident form",
+            })),
+        };
+
+        const result = await createCrime(payload).unwrap();
+        const newId = result.data?.id;
+        if (newId) createdIds.push(newId);
+      }
+
       setShowCreate(false);
+      setBulkImportedCrimes([]);
       setForm({ crimeCategory: "", evidences: [] });
-      if (newId) navigate(`/entities/crimes/${newId}`);
+
+      if (createdIds.length > 0) {
+        const firstId = createdIds[0];
+        if (recordsToCreate.length === 1 && firstId) navigate(`/entities/crimes/${firstId}`);
+      }
     } catch (err) {
       console.error("Create crime failed:", err);
     }
@@ -749,6 +800,47 @@ export function CrimesListPage() {
       setConfirmDeleteId(null);
     } catch (err) {
       console.error("Delete crime failed:", err);
+    }
+  };
+
+  const handleExcelImport = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setIsImportingExcel(true);
+      setExcelImportError(null);
+      const imported = await parseImportedCrimeExcel(file, {
+        categories: categories ?? [],
+        districts: districts ?? [],
+        stations: stations ?? [],
+      });
+
+      if (imported.length === 0) {
+        setExcelImportError("No valid crime records were found in the selected file.");
+        return;
+      }
+
+      setBulkImportedCrimes(imported);
+      const firstRecord = imported[0];
+      setForm((prev) => ({
+        ...prev,
+        ...firstRecord,
+        evidences: prev.evidences ?? [],
+      }));
+      setShowCreate(true);
+    } catch (error) {
+      setExcelImportError(
+        error instanceof Error
+          ? error.message
+          : "Unable to import the selected file.",
+      );
+      setBulkImportedCrimes([]);
+    } finally {
+      setIsImportingExcel(false);
+      event.target.value = "";
     }
   };
 
@@ -796,14 +888,26 @@ export function CrimesListPage() {
               Refresh
             </Button>
             {hasPermission("update_crime") && (
-              <Button
-                size="sm"
-                onClick={() => setShowCreate(true)}
-                className="h-8 px-3 text-xs gap-1.5"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                New Crime
-              </Button>
+              <>
+                <label className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-border bg-background px-3 text-xs font-medium text-foreground shadow-sm hover:bg-muted/20">
+                  <input
+                    type="file"
+                    accept=".csv,.xlsx,.xls"
+                    className="hidden"
+                    onChange={handleExcelImport}
+                  />
+                  <FileSpreadsheet className="h-3.5 w-3.5" />
+                  {isImportingExcel ? "Importing..." : "Import Excel"}
+                </label>
+                <Button
+                  size="sm"
+                  onClick={() => setShowCreate(true)}
+                  className="h-8 px-3 text-xs gap-1.5"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  New Crime
+                </Button>
+              </>
             )}
           </div>
         </div>
@@ -884,11 +988,30 @@ export function CrimesListPage() {
           <Dialog open onOpenChange={(o) => !o && setShowCreate(false)}>
             <DialogContent className="w-[80vw] sm:max-w-none max-h-[92vh] h-[92vh] bg-card border-border p-0 flex flex-col overflow-hidden">
               <DialogHeader className="shrink-0 px-5 pt-5 pb-3 border-b border-border">
-                <DialogTitle className="text-sm font-semibold flex items-center gap-2">
-                  <FolderOpen className="h-4 w-4 text-primary" />
-                  Log New Crime Incident
-                </DialogTitle>
+                <div className="flex items-center justify-between gap-3">
+                  <DialogTitle className="text-sm font-semibold flex items-center gap-2">
+                    <FolderOpen className="h-4 w-4 text-primary" />
+                    Log New Crime Incident
+                  </DialogTitle>
+                  {hasPermission("update_crime") && (
+                    <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-border bg-background px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-foreground hover:bg-muted/20">
+                      <input
+                        type="file"
+                        accept=".csv,.xlsx,.xls"
+                        className="hidden"
+                        onChange={handleExcelImport}
+                      />
+                      <FileSpreadsheet className="h-3.5 w-3.5" />
+                      Import Excel
+                    </label>
+                  )}
+                </div>
               </DialogHeader>
+              {excelImportError && (
+                <div className="mx-5 mt-3 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-[11px] text-destructive">
+                  {excelImportError}
+                </div>
+              )}
               <div className="grid flex-1 min-h-0 grid-cols-1 gap-0 lg:grid-cols-2">
               <form onSubmit={handleCreate} className="flex min-h-0 flex-col overflow-y-auto border-r border-border p-5 space-y-4">
                 <div className="space-y-1">
@@ -1496,7 +1619,11 @@ export function CrimesListPage() {
                     Cancel
                   </Button>
                   <Button type="submit" size="sm" disabled={isCreating}>
-                    {isCreating ? "Creating..." : "Log Incident"}
+                    {isCreating
+                      ? "Creating..."
+                      : bulkImportedCrimes.length > 1
+                        ? `Create ${bulkImportedCrimes.length} Crimes`
+                        : "Log Incident"}
                   </Button>
                 </DialogFooter>
               </form>
