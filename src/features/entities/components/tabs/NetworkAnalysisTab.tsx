@@ -28,6 +28,27 @@ function getNodeTypeColor(type: string) {
   return { bg: '#f8fafc', border: '#cbd5e1', text: '#0f172a' };
 }
 
+function getReadableNodeName(node: { id: string; type?: string; label?: string }, crimeNumber?: string) {
+  const rawLabel = typeof node.label === 'string' ? node.label.trim() : '';
+  const normalizedType = String(node.type ?? '').toLowerCase();
+
+  if (normalizedType === 'incident') {
+    return crimeNumber || rawLabel || `Crime ${String(node.id).replace(/^incident_+/i, '')}`;
+  }
+
+  if (rawLabel && !/^incident_|^criminal_|^evidence_|^vehicle_|^alias_|^station_|^policestation_/.test(rawLabel)) {
+    return rawLabel;
+  }
+
+  const suffix = String(node.id ?? '').replace(/^(incident|criminal|evidence|vehicle|alias|station|policestation)_+/i, '');
+
+  if (normalizedType === 'criminal') return rawLabel || `Criminal ${suffix || 'Record'}`;
+  if (normalizedType === 'evidence') return rawLabel || `Evidence ${suffix || 'Record'}`;
+  if (rawLabel) return rawLabel;
+
+  return suffix || 'Linked record';
+}
+
 function getNodePosition(nodeId: string, nodeType: string, layer: number, index: number, totalInLayer: number) {
   const centerX = 540;
   const centerY = 250;
@@ -281,6 +302,7 @@ export function NetworkAnalysisTab({ crimeId, crimeNumber }: NetworkAnalysisTabP
       const isExpanded = expandedNodeIds.has(nodeId) || isRoot;
       const position = positions.get(nodeId) ?? { x: rootX + (index % 8) * 110, y: rootY + (index % 5) * 90 };
 
+      const readableName = getReadableNodeName(node, crimeNumber);
       const nodeLabel = (
         <div className="relative flex flex-col items-center gap-1 select-none text-center">
           {!isRoot && (
@@ -296,10 +318,9 @@ export function NetworkAnalysisTab({ crimeId, crimeNumber }: NetworkAnalysisTabP
               {isExpanded ? <Minus className="h-2.5 w-2.5" /> : <Plus className="h-2.5 w-2.5" />}
             </button>
           )}
-          <span className="max-w-[140px] truncate text-[10px] font-bold" title={node.label ?? node.id}>
-            {node.label ?? node.id}
+          <span className="max-w-[150px] truncate text-[10px] font-bold" title={readableName}>
+            {readableName}
           </span>
-          <span className="text-[8px] uppercase tracking-[0.12em] opacity-80">{nodeType}</span>
         </div>
       );
 
@@ -332,11 +353,9 @@ export function NetworkAnalysisTab({ crimeId, crimeNumber }: NetworkAnalysisTabP
       id: String(edge.id),
       source: String(edge.source),
       target: String(edge.target),
-      animated: true,
+      animated: false,
       markerEnd: { type: MarkerType.ArrowClosed, width: 12, height: 12 },
-      label: edge.label ?? 'related',
-      style: { stroke: '#94a3b8', strokeWidth: 1.25, opacity: 0.8 },
-      labelStyle: { fill: '#64748b', fontSize: 9 },
+      style: { stroke: '#94a3b8', strokeWidth: 1.4, opacity: 0.85 },
     })),
     [visibleEdges],
   );
