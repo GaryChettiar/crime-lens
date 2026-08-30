@@ -179,18 +179,8 @@ export function NetworkAnalysisTab({ crimeId, crimeNumber }: NetworkAnalysisTabP
 
   React.useEffect(() => {
     if (!allNodes.length) return;
-
-    const nextExpanded = new Set<string>();
-    allNodes.forEach((node) => {
-      if (!node.id) return;
-      const nodeId = String(node.id);
-      if (nodeId === rootNodeId || (adjacency.get(nodeId)?.length ?? 0) > 0) {
-        nextExpanded.add(nodeId);
-      }
-    });
-
-    setExpandedNodeIds(nextExpanded);
-  }, [adjacency, allNodes, rootNodeId]);
+    setExpandedNodeIds(new Set([rootNodeId]));
+  }, [allNodes, rootNodeId]);
 
   const visibleNodes = React.useMemo(
     () => allNodes.filter((node) => visibleNodeIds.has(String(node.id))),
@@ -221,26 +211,59 @@ export function NetworkAnalysisTab({ crimeId, crimeNumber }: NetworkAnalysisTabP
     const centerX = 540;
     const centerY = 260;
     const positions = new Map<string, { x: number; y: number }>();
+    const parentMap = new Map<string, string | null>();
+    const layerMap = new Map<string, number>();
+
+    const queue: Array<{ id: string; parent: string | null; depth: number }> = [{ id: rootNodeId, parent: null, depth: 0 }];
+    const visited = new Set<string>([rootNodeId]);
+
+    while (queue.length > 0) {
+      const current = queue.shift();
+      if (!current) continue;
+
+      parentMap.set(current.id, current.parent);
+      layerMap.set(current.id, current.depth);
+
+      const neighbors = (adjacency.get(current.id) ?? []).filter((neighbor) => visibleNodeIds.has(neighbor));
+      neighbors.forEach((neighbor) => {
+        if (visited.has(neighbor)) return;
+        visited.add(neighbor);
+        queue.push({ id: neighbor, parent: current.id, depth: current.depth + 1 });
+      });
+    }
+
     positions.set(rootNodeId, { x: centerX, y: centerY });
 
-    const branchNodes = visibleNodes.filter((node) => String(node.id) !== rootNodeId);
-    branchNodes.forEach((node, index) => {
-      const nodeId = String(node.id);
-      const nodeType = String(node.type ?? '').toLowerCase();
-      const angle = branchNodes.length === 1 ? 0 : (index / branchNodes.length) * Math.PI * 2;
-      const radius = nodeType === 'incident' ? 240 : 170;
-      const x = centerX + Math.cos(angle) * radius;
-      const y = centerY + Math.sin(angle) * radius;
-      positions.set(nodeId, { x, y });
+    const nodesByDepth = new Map<number, string[]>();
+    Array.from(visibleNodeIds).forEach((nodeId) => {
+      const depth = layerMap.get(nodeId) ?? 0;
+      const list = nodesByDepth.get(depth) ?? [];
+      list.push(nodeId);
+      nodesByDepth.set(depth, list);
     });
 
-    return visibleNodes.map((node, index) => {
+    nodesByDepth.forEach((ids, depth) => {
+      if (depth === 0) return;
+      ids.forEach((nodeId, index) => {
+        const parentId = parentMap.get(nodeId) ?? rootNodeId;
+        const parentPosition = positions.get(parentId) ?? { x: centerX, y: centerY };
+        const siblings = ids.length || 1;
+        const angle = siblings === 1 ? 0 : (index / siblings) * Math.PI * 2 - Math.PI / 2;
+        const radius = depth === 1 ? 180 : 150;
+        positions.set(nodeId, {
+          x: parentPosition.x + Math.cos(angle) * radius,
+          y: parentPosition.y + Math.sin(angle) * radius,
+        });
+      });
+    });
+
+    return visibleNodes.map((node) => {
       const nodeId = String(node.id);
       const nodeType = String(node.type ?? 'unknown');
       const palette = getNodeTypeColor(nodeType);
       const isRoot = nodeId === rootNodeId;
       const isExpanded = expandedNodeIds.has(nodeId) || isRoot;
-      const position = positions.get(nodeId) ?? { x: centerX + (index % 6) * 110, y: centerY + (index % 3) * 90 };
+      const position = positions.get(nodeId) ?? { x: centerX, y: centerY };
 
       const readableName = getReadableNodeName(node, crimeNumber);
       const nodeLabel = (
@@ -286,7 +309,7 @@ export function NetworkAnalysisTab({ crimeId, crimeNumber }: NetworkAnalysisTabP
         },
       } as Node;
     });
-  }, [crimeNumber, expandedNodeIds, rootNodeId, toggleNodeCollapse, visibleNodes]);
+  }, [adjacency, crimeNumber, expandedNodeIds, rootNodeId, toggleNodeCollapse, visibleNodeIds, visibleNodes]);
 
   const flowEdges = React.useMemo<Edge[]>(() =>
     visibleEdges.map((edge) => ({
