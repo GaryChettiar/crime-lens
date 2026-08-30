@@ -8,6 +8,7 @@ import {
   useCreateCrimeMutation,
   useDeleteCrimeMutation,
   useGetCrimesByEvidencePathsQuery,
+  useUploadCrimeEvidenceMutation,
 } from "@/services/crimeApi";
 import {
   useCreateEvidenceMatchMutation,
@@ -280,6 +281,7 @@ export function CrimesListPage() {
     evidence_type: string;
     file?: File;
     file_url?: string;
+    ROWID?: string;
     isConfirmed?: boolean;
     afisLoading?: boolean;
     afisResult?: AfisMatch[] | null;
@@ -486,6 +488,47 @@ export function CrimesListPage() {
   });
   const [createEvidenceMatch, { isLoading: isCreatingEvidenceMatch }] = useCreateEvidenceMatchMutation();
   const [updateEvidenceMatch, { isLoading: isUpdatingEvidenceMatch }] = useUpdateEvidenceMatchMutation();
+  const [uploadEvidence] = useUploadCrimeEvidenceMutation();
+
+  const handleEvidenceUploadForPersistedCrime = React.useCallback(async (ev: EvidenceItem) => {
+    if (!ev.file || !ev.file_url || ev.ROWID) return;
+
+    const matchedCrimeId =
+      (form as any)?.id ||
+      (typeof window !== "undefined"
+        ? window.location.pathname.match(/\/entities\/crimes\/([^/]+)/)?.[1]
+        : undefined);
+
+    if (!matchedCrimeId) return;
+
+    try {
+      const response = await uploadEvidence({
+        crimeId: matchedCrimeId,
+        body: {
+          evidenceType: ev.evidence_type as any,
+          description: `Uploaded from evidence repeater: ${ev.file.name}`,
+          collectedBy: "Officer",
+          collectedDate: new Date().toISOString(),
+          collectionLocation: "",
+          remarks: "Uploaded during confirmation",
+        },
+        file: ev.file,
+      }).unwrap();
+
+      const persistedEvidence = (response as any)?.data ?? response;
+      const persistedId = String(persistedEvidence?.ROWID ?? persistedEvidence?.id ?? "");
+      if (persistedId) {
+        setForm((f) => ({
+          ...f,
+          evidences: f.evidences?.map((item) =>
+            item.id === ev.id ? { ...item, ROWID: persistedId } : item,
+          ),
+        }));
+      }
+    } catch (error) {
+      console.error("Evidence upload failed from repeater tick:", error);
+    }
+  }, [form, uploadEvidence]);
 
   const handleMatchDecision = React.useCallback(
     async (match: any, decision: "approved" | "rejected") => {
@@ -1100,6 +1143,10 @@ export function CrimesListPage() {
                                 ),
                               }));
                               return;
+                            }
+
+                            if (ev.file && ev.file_url) {
+                              await handleEvidenceUploadForPersistedCrime(ev);
                             }
 
                             if (
