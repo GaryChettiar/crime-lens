@@ -865,72 +865,29 @@ export const crimeApi = baseApi.injectEndpoints({
       { data: CrimeEvidence; message: string },
       { crimeId: string; body: CreateEvidencePayload; file?: File }
     >({
-      queryFn: async ({ crimeId, body, file }, _queryApi, _extraOptions, baseQuery) => {
-        try {
-          const getRes = await baseQuery(`/crimes/getOneCrime/${crimeId}`);
-          if (getRes.error) return { error: getRes.error as any };
-          const crime: any = (getRes.data as any)?.data ?? getRes.data;
+      query: ({ crimeId, body, file }) => {
+        const payload = {
+          evidence_type: body.evidenceType,
+          description: body.description || '',
+          uploaded_by: body.collectedBy || 'Officer',
+          collected_by: body.collectedBy || 'Officer',
+          collected_date: body.collectedDate || new Date().toISOString(),
+          collection_location: body.collectionLocation || '',
+          remarks: body.remarks || '',
+          file_url: file ? URL.createObjectURL(file) : undefined,
+          file_name: file?.name || 'file',
+          file_size: file?.size || 0,
+          file_mime_type: file?.type || 'application/octet-stream',
+          evidence_number: `EV-${Date.now().toString().slice(-6)}`,
+          chain_of_custody_status: 'intact',
+          verification_status: 'verified',
+        };
 
-          const fileUrl = file ? URL.createObjectURL(file) : undefined;
-          const fileName = file?.name;
-          const fileSize = file?.size;
-          const fileMimeType = file?.type;
-
-          const newEv = {
-            evidence_type: body.evidenceType,
-            description: body.description || '',
-            uploaded_by: body.collectedBy || 'Officer',
-            collected_by: body.collectedBy || 'Officer',
-            collected_date: body.collectedDate || new Date().toISOString(),
-            collection_location: body.collectionLocation || '',
-            remarks: body.remarks || '',
-            file_url: fileUrl,
-            file_name: fileName || 'file',
-            file_size: fileSize || 0,
-            file_mime_type: fileMimeType || 'application/octet-stream',
-            evidence_number: `EV-${Date.now().toString().slice(-4)}`,
-            chain_of_custody_status: 'intact',
-            verification_status: 'verified',
-          };
-
-          const updatedEvidences = [...(crime.evidences || []), newEv];
-
-          const putRes = await baseQuery({
-            url: `/crimes/${crimeId}`,
-            method: 'PUT',
-            body: {
-              evidences: updatedEvidences,
-            },
-          });
-
-          if (putRes.error) return { error: putRes.error as any };
-
-          const refreshedCrimeRes = await baseQuery(`/crimes/getOneCrime/${crimeId}`);
-          const refreshedCrime = (refreshedCrimeRes.data as any)?.data ?? refreshedCrimeRes.data;
-          const savedEvidence = (refreshedCrime?.evidences ?? [])
-            .slice()
-            .reverse()
-            .find((e: any) =>
-              String(e.file_name || '').toLowerCase() === String(fileName || '').toLowerCase() ||
-              String(e.description || '') === String(newEv.description || '') ||
-              String(e.evidence_number || '') === String(newEv.evidence_number || '') ||
-              String(e.file_url || '') === String(fileUrl || '')
-            );
-
-          const createdDecoded = decodeEvidence(savedEvidence ?? newEv);
-          return {
-            data: {
-              data: {
-                ...createdDecoded,
-                id: savedEvidence?.ROWID || savedEvidence?.id || createdDecoded.id,
-                ROWID: savedEvidence?.ROWID || savedEvidence?.id || createdDecoded.id,
-              },
-              message: 'Evidence uploaded successfully',
-            },
-          };
-        } catch (err: any) {
-          return { error: { status: 500, statusText: err.message, data: err } as any };
-        }
+        return {
+          url: `/crimes/${crimeId}/evidences`,
+          method: 'POST',
+          body: payload,
+        };
       },
       invalidatesTags: (_result, _error, { crimeId }) => [
         { type: 'CrimeEvidence', id: `crime-${crimeId}` },
