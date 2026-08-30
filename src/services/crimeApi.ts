@@ -589,7 +589,7 @@ export const crimeApi = baseApi.injectEndpoints({
       providesTags: (_result, _error, id) => [{ type: 'Crime', id }],
     }),
 
-    getCrimesByEvidencePaths: builder.query<{ success: boolean, data: { path: string, crimes: { ROWID: string, title: string }[] }[] }, string[]>({
+    getCrimesByEvidencePaths: builder.query<{ success: boolean, data: { path: string, score?: number, crimes: { ROWID: string, title: string }[] }[] }, string[]>({
       query: (paths) => ({
         url: '/evidence-analysis',
         params: { paths: paths.join(',') },

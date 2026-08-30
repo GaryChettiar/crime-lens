@@ -9,6 +9,11 @@ import {
   useDeleteCrimeMutation,
   useGetCrimesByEvidencePathsQuery,
 } from "@/services/crimeApi";
+import {
+  useCreateEvidenceMatchMutation,
+  useGetEvidenceMatchesBySourceEvidenceQuery,
+  useUpdateEvidenceMatchMutation,
+} from "@/services/evidenceMatchApi";
 import { useAppSelector } from "@/store/hooks";
 import { useAnalyticsFilters } from "@/hooks/useAnalyticsFilters";
 import { useTableQueryState } from "@/hooks/useTableQueryState";
@@ -439,7 +444,17 @@ export function CrimesListPage() {
                 )
                 .includes(d.path),
             )
-            .flatMap((d) => d.crimes.map((crime) => ({ ...crime, id: crime.ROWID, path: d.path }))),
+            .flatMap((d) => {
+              const matchingAfis = ev.afisResult?.find(
+                (m) => (m.metadata?.original_path || m.name || m.criminal_id) === d.path,
+              );
+              return d.crimes.map((crime) => ({
+                ...crime,
+                id: crime.ROWID,
+                path: d.path,
+                score: matchingAfis?.score ?? d.score ?? 0,
+              }));
+            }),
         })) || []
     );
   }, [analysisData, form.evidences]);
@@ -462,6 +477,54 @@ export function CrimesListPage() {
   const selectedEvidenceMatches = filesWithRelatedCrimes.find(
     (item) => item.evidenceId === selectedEvidence?.id,
   )?.matches || [];
+
+  const sourceEvidenceId = selectedEvidence?.id || null;
+  const { data: evidenceMatchRows } = useGetEvidenceMatchesBySourceEvidenceQuery(sourceEvidenceId || "", {
+    skip: !sourceEvidenceId,
+  });
+  const [createEvidenceMatch, { isLoading: isCreatingEvidenceMatch }] = useCreateEvidenceMatchMutation();
+  const [updateEvidenceMatch, { isLoading: isUpdatingEvidenceMatch }] = useUpdateEvidenceMatchMutation();
+
+  const handleMatchDecision = React.useCallback(
+    async (match: any, decision: "approved" | "rejected") => {
+      if (!sourceEvidenceId) return;
+
+      const targetMatchId = String(match.id ?? match.ROWID ?? match.crimeNumber ?? match.path ?? "");
+      if (!targetMatchId) return;
+
+      const existingMatch = evidenceMatchRows?.find(
+        (item) => String(item.matched_evidence_id) === targetMatchId || String(item.matched_evidence_id) === selectedRelatedCrimeId,
+      );
+
+      const payload = {
+        source_evidence_id: sourceEvidenceId,
+        matched_evidence_id: targetMatchId,
+        evidence_type: selectedEvidence?.evidence_type || "unknown",
+        confidence: typeof match.score === "number" ? match.score : Number(match.score ?? 0),
+        verified: decision === "approved",
+        status: decision,
+      };
+
+      try {
+        if (existingMatch?.ROWID || existingMatch?.id) {
+          await updateEvidenceMatch({
+            id: String(existingMatch.ROWID ?? existingMatch.id),
+            body: {
+              ...payload,
+              confidence: payload.confidence,
+              verified: payload.verified,
+              status: payload.status,
+            },
+          }).unwrap();
+        } else {
+          await createEvidenceMatch(payload).unwrap();
+        }
+      } catch (error) {
+        console.error("Failed to update evidence match status:", error);
+      }
+    },
+    [createEvidenceMatch, evidenceMatchRows, selectedEvidence?.evidence_type, selectedRelatedCrimeId, sourceEvidenceId, updateEvidenceMatch],
+  );
 
   React.useEffect(() => {
     if (!selectedEvidenceId || !uploadedEvidences.some((e) => e.id === selectedEvidenceId)) {
@@ -1388,16 +1451,94 @@ export function CrimesListPage() {
                     </div>
                     <div className="mt-5 space-y-2">
                       <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Matched crimes ({selectedEvidenceMatches.length})</p>
-                      {selectedEvidenceMatches.length === 0 ? <p className="rounded border border-border p-3 text-xs text-muted-foreground">Confirm this evidence to load related crimes.</p> : selectedEvidenceMatches.map((match: any) => (
-                        <button type="button" key={match.id} onClick={() => setSelectedRelatedCrimeId(String(match.id))} className={`flex w-full items-center justify-between rounded border p-2.5 text-left text-xs ${selectedRelatedCrimeId === String(match.id) ? "border-primary bg-primary/10" : "border-border bg-background hover:border-primary/50"}`}>
-                          <span className="truncate font-medium text-foreground">{match.crimeNumber || match.title || match.path}</span><ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                        </button>
-                      ))}
+                      {selectedEvidenceMatches.length === 0 ? <p className="rounded border border-border p-3 text-xs text-muted-foreground">Confirm this evidence to load related crimes.</p> : selectedEvidenceMatches.map((match: any) => {
+                        const matchId = String(match.id ?? match.ROWID ?? match.crimeNumber ?? match.path ?? "");
+                        const matchScore = typeof match.score === "number" ? match.score : Number(match.score ?? match.confidence ?? 0);
+
+                        return (
+                          <div 
+                            key={matchId}
+                            className={`rounded border p-2.5 text-left text-xs ${selectedRelatedCrimeId === matchId ? "border-primary bg-primary/10" : "border-border bg-background"}`}
+                          >
+                            <button
+                              type="button"
+                              onClick={() => setSelectedRelatedCrimeId(matchId)}
+                              className="flex w-full items-center justify-between text-left"
+                            >
+                              <span className="truncate font-medium text-foreground">{match.crimeNumber || match.title || match.path}</span>
+                              <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                            </button>
+                            <div className="mt-2 flex items-center justify-between gap-2">
+                              <span className="rounded bg-primary/10 px-1.5 py-0.5 font-medium text-primary">
+                                Score: {isNaN(matchScore) ? "0.0000" : matchScore.toFixed(4)}
+                              </span>
+                              <div className="flex items-center gap-1.5">
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-6 px-2 text-[10px]"
+                                  disabled={isCreatingEvidenceMatch || isUpdatingEvidenceMatch}
+                                  onClick={() => handleMatchDecision(match, "approved")}
+                                >
+                                  Approve
+                                </Button>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-6 px-2 text-[10px] text-destructive hover:bg-destructive/10"
+                                  disabled={isCreatingEvidenceMatch || isUpdatingEvidenceMatch}
+                                  onClick={() => handleMatchDecision(match, "rejected")}
+                                >
+                                  Reject
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                     {selectedRelatedCrimeId && relatedCrime && (
                       <div className="mt-4 rounded-lg border border-primary/30 bg-background p-3">
-                        <p className="text-sm font-semibold text-foreground">{relatedCrime.title}</p>
+                        <div className="flex items-start justify-between gap-3">
+                          <p className="text-sm font-semibold text-foreground">{relatedCrime.title}</p>
+                          <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                            Match score: {(() => {
+                              const selectedMatch = selectedEvidenceMatches.find((item) => String(item.id ?? item.ROWID) === selectedRelatedCrimeId);
+                              const scoreValue = Number(selectedMatch?.score ?? 0);
+                              return isNaN(scoreValue) ? "0.0000" : scoreValue.toFixed(4);
+                            })()}
+                          </span>
+                        </div>
                         <div className="mt-2 grid grid-cols-2 gap-2 text-[10px] text-muted-foreground"><span className="flex items-center gap-1"><CalendarDays className="h-3 w-3" />{relatedCrime.incidentDate ? new Date(relatedCrime.incidentDate).toLocaleDateString("en-IN") : "Date unavailable"}</span><span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{relatedCrime.crimeLocation || relatedCrime.location?.address || "Location unavailable"}</span></div>
+                        <div className="mt-3 flex items-center gap-2">
+                          <Button
+                            type="button"
+                            size="sm"
+                            className="h-7 px-3 text-[10px]"
+                            disabled={isCreatingEvidenceMatch || isUpdatingEvidenceMatch}
+                            onClick={() => {
+                              const match = selectedEvidenceMatches.find((item) => String(item.id ?? item.ROWID) === selectedRelatedCrimeId);
+                              if (match) handleMatchDecision(match, "approved");
+                            }}
+                          >
+                            Approve
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="h-7 px-3 text-[10px] text-destructive hover:bg-destructive/10"
+                            disabled={isCreatingEvidenceMatch || isUpdatingEvidenceMatch}
+                            onClick={() => {
+                              const match = selectedEvidenceMatches.find((item) => String(item.id ?? item.ROWID) === selectedRelatedCrimeId);
+                              if (match) handleMatchDecision(match, "rejected");
+                            }}
+                          >
+                            Reject
+                          </Button>
+                        </div>
                         {relatedCrime.evidences?.find((e) => e.fileUrl) && (
                           isBrowserRenderableImage(relatedCrime.evidences.find((e) => e.fileUrl)?.fileUrl) ? (
                             <img src={evidenceImageUrl(relatedCrime.evidences.find((e) => e.fileUrl)?.fileUrl)} alt="Matched evidence in related crime" className="mt-3 h-32 w-full rounded border border-border object-contain" />
