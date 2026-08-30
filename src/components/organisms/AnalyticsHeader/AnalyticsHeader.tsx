@@ -608,7 +608,7 @@ export function AnalyticsHeader({
                           dispatchRange(date, date);
                         }
                       }}
-                      disabledDates={(d) => d < MIN_DATE || d > MAX_DATE}
+                      // disabledDates={(d) => d < MIN_DATE || d > MAX_DATE}
                     />
                   ) : (
                     <ShadcnCalendar
