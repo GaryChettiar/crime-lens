@@ -89,6 +89,15 @@ function evidenceFileName(url?: string, fallback?: string) {
   }
 }
 
+// Just the filename portion of a path/URL, used to line up a match's gallery
+// path (e.g. "face_default_001093.jpg") with the evidence record it came from
+// (e.g. "face/crime_12_face_default_001093.jpg"), regardless of prefix.
+function pathBaseName(path?: string) {
+  if (!path) return undefined;
+  const clean = path.split("?")[0];
+  return clean.substring(clean.lastIndexOf("/") + 1).toLowerCase();
+}
+
 // A freshly-picked, not-yet-uploaded file lives in state as a data:/blob: URI
 // and can be rendered directly. Anything else is treated as a Stratus object
 // path and fetched through the authenticated /storage/blob route.
@@ -555,6 +564,21 @@ export function CrimesListPage() {
   const { data: relatedCrime } = useGetCrimeByIdQuery(selectedRelatedCrimeId || "", {
     skip: !selectedRelatedCrimeId,
   });
+
+  // The specific evidence file that actually matched — not just "the first
+  // file on this crime record". Falls back to the first available file only
+  // if the matched filename can't be lined up with anything on the record.
+  const matchedRelatedEvidence = React.useMemo(() => {
+    const evidences = relatedCrime?.evidences;
+    if (!evidences || evidences.length === 0) return undefined;
+
+    const targetName = pathBaseName(selectedRelatedCrime?.path);
+    const exact = targetName
+      ? evidences.find((e) => e.fileUrl && pathBaseName(e.fileUrl) === targetName)
+      : undefined;
+
+    return exact ?? evidences.find((e) => e.fileUrl);
+  }, [relatedCrime, selectedRelatedCrime]);
 
   const uploadedEvidences = React.useMemo(
     () => (form.evidences || []).filter((e) => e.file_url),
@@ -1562,11 +1586,11 @@ export function CrimesListPage() {
                           </span>
                         </div>
                         <div className="mt-2 grid grid-cols-2 gap-2 text-[10px] text-muted-foreground"><span className="flex items-center gap-1"><CalendarDays className="h-3 w-3" />{relatedCrime.incidentDate ? new Date(relatedCrime.incidentDate).toLocaleDateString("en-IN") : "Date unavailable"}</span><span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{relatedCrime.crimeLocation || relatedCrime.location?.address || "Location unavailable"}</span></div>
-                        {relatedCrime.evidences?.find((e) => e.fileUrl) && (
+                        {matchedRelatedEvidence && (
                           <div className="mt-3 overflow-hidden rounded border border-border">
                             <EvidenceVisual
-                              path={relatedCrime.evidences.find((e) => e.fileUrl)?.fileUrl}
-                              fileName={evidenceFileName(relatedCrime.evidences.find((e) => e.fileUrl)?.fileUrl)}
+                              path={matchedRelatedEvidence.fileUrl}
+                              fileName={evidenceFileName(matchedRelatedEvidence.fileUrl, matchedRelatedEvidence.fileName)}
                               className="h-32 w-full"
                             />
                           </div>
