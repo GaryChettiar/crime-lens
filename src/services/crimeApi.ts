@@ -904,8 +904,30 @@ export const crimeApi = baseApi.injectEndpoints({
           });
 
           if (putRes.error) return { error: putRes.error as any };
-          const createdDecoded = decodeEvidence(newEv);
-          return { data: { data: createdDecoded, message: 'Evidence uploaded successfully' } };
+
+          const refreshedCrimeRes = await baseQuery(`/crimes/getOneCrime/${crimeId}`);
+          const refreshedCrime = (refreshedCrimeRes.data as any)?.data ?? refreshedCrimeRes.data;
+          const savedEvidence = (refreshedCrime?.evidences ?? [])
+            .slice()
+            .reverse()
+            .find((e: any) =>
+              String(e.file_name || '').toLowerCase() === String(fileName || '').toLowerCase() ||
+              String(e.description || '') === String(newEv.description || '') ||
+              String(e.evidence_number || '') === String(newEv.evidence_number || '') ||
+              String(e.file_url || '') === String(fileUrl || '')
+            );
+
+          const createdDecoded = decodeEvidence(savedEvidence ?? newEv);
+          return {
+            data: {
+              data: {
+                ...createdDecoded,
+                id: savedEvidence?.ROWID || savedEvidence?.id || createdDecoded.id,
+                ROWID: savedEvidence?.ROWID || savedEvidence?.id || createdDecoded.id,
+              },
+              message: 'Evidence uploaded successfully',
+            },
+          };
         } catch (err: any) {
           return { error: { status: 500, statusText: err.message, data: err } as any };
         }

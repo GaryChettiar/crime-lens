@@ -478,7 +478,9 @@ export function CrimesListPage() {
     (item) => item.evidenceId === selectedEvidence?.id,
   )?.matches || [];
 
-  const sourceEvidenceId = selectedEvidence?.id || null;
+  const sourceEvidenceId = selectedEvidence && (selectedEvidence as any).ROWID
+    ? String((selectedEvidence as any).ROWID)
+    : null;
   const { data: evidenceMatchRows } = useGetEvidenceMatchesBySourceEvidenceQuery(sourceEvidenceId || "", {
     skip: !sourceEvidenceId,
   });
@@ -487,7 +489,10 @@ export function CrimesListPage() {
 
   const handleMatchDecision = React.useCallback(
     async (match: any, decision: "approved" | "rejected") => {
-      if (!sourceEvidenceId) return;
+      if (!sourceEvidenceId) {
+        console.warn("Evidence must be uploaded and saved to the backend before creating a match.");
+        return;
+      }
 
       const targetMatchId = String(match.id ?? match.ROWID ?? match.crimeNumber ?? match.path ?? "");
       if (!targetMatchId) return;
@@ -1451,6 +1456,11 @@ export function CrimesListPage() {
                     </div>
                     <div className="mt-5 space-y-2">
                       <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Matched crimes ({selectedEvidenceMatches.length})</p>
+                      {!sourceEvidenceId && (
+                        <p className="rounded border border-amber-500/40 bg-amber-500/5 p-3 text-xs text-amber-600 dark:text-amber-400">
+                          Upload and save this evidence to get a real biz_crime_evidence ROWID before matching.
+                        </p>
+                      )}
                       {selectedEvidenceMatches.length === 0 ? <p className="rounded border border-border p-3 text-xs text-muted-foreground">Confirm this evidence to load related crimes.</p> : selectedEvidenceMatches.map((match: any) => {
                         const matchId = String(match.id ?? match.ROWID ?? match.crimeNumber ?? match.path ?? "");
                         const matchScore = typeof match.score === "number" ? match.score : Number(match.score ?? match.confidence ?? 0);
