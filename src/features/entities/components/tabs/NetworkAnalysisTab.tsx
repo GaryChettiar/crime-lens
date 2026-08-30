@@ -19,30 +19,27 @@ interface NetworkAnalysisTabProps {
 function getNodeTypeColor(type: string) {
   const normalized = String(type).toLowerCase();
 
-  if (normalized === 'incident') return { bg: '#7c2d12', border: '#f97316', text: '#fff7ed' };
-  if (normalized === 'criminal') return { bg: '#881337', border: '#f43f5e', text: '#fff1f2' };
-  if (normalized === 'evidence') return { bg: '#0f172a', border: '#38bdf8', text: '#e0f2fe' };
-  if (normalized === 'vehicle') return { bg: '#0f766e', border: '#2dd4bf', text: '#ecfeff' };
-  if (normalized === 'alias') return { bg: '#78350f', border: '#f59e0b', text: '#fffbeb' };
-  if (normalized === 'policestation' || normalized === 'station') return { bg: '#1d4ed8', border: '#60a5fa', text: '#eff6ff' };
-  return { bg: '#111827', border: '#94a3b8', text: '#f8fafc' };
+  if (normalized === 'incident') return { bg: '#ef4444', border: '#fca5a5', text: '#fff7f7' };
+  if (normalized === 'criminal') return { bg: '#fff7ed', border: '#f59e0b', text: '#7c2d12' };
+  if (normalized === 'evidence') return { bg: '#f8fafc', border: '#7dd3fc', text: '#0f172a' };
+  if (normalized === 'vehicle') return { bg: '#ecfeff', border: '#2dd4bf', text: '#134e4a' };
+  if (normalized === 'alias') return { bg: '#fef3c7', border: '#fbbf24', text: '#78350f' };
+  if (normalized === 'policestation' || normalized === 'station') return { bg: '#eff6ff', border: '#93c5fd', text: '#1e3a8a' };
+  return { bg: '#f8fafc', border: '#cbd5e1', text: '#0f172a' };
 }
 
 function getNodePosition(nodeId: string, nodeType: string, layer: number, index: number, totalInLayer: number) {
-  const angle = totalInLayer === 1 ? 0 : (index / totalInLayer) * Math.PI * 2;
-  const radius = 230 + layer * 190;
-  const centerX = 850;
-  const centerY = 260;
-
-  const x = centerX + Math.cos(angle) * radius;
-  const y = centerY + Math.sin(angle) * radius;
-
-  const numericBias = Number(String(nodeId).match(/\d+/g)?.at(-1) ?? index + 1);
-  const jitter = (numericBias % 7) * 8;
+  const centerX = 540;
+  const centerY = 250;
 
   if (nodeType === 'incident') {
-    return { x: centerX + jitter, y: centerY + (layer === 0 ? 0 : jitter * 0.4) };
+    return { x: centerX, y: centerY };
   }
+
+  const angle = totalInLayer === 1 ? 0 : (index / totalInLayer) * Math.PI * 2;
+  const radius = 160 + layer * 170;
+  const x = centerX + Math.cos(angle) * radius;
+  const y = centerY + Math.sin(angle) * radius;
 
   return { x, y };
 }
@@ -231,13 +228,13 @@ export function NetworkAnalysisTab({ crimeId, crimeNumber }: NetworkAnalysisTabP
           isRoot,
         },
         style: {
-          background: palette.bg,
-          color: palette.text,
-          border: `2px solid ${isRoot ? '#ffffff' : palette.border}`,
-          borderRadius: 14,
-          width: isRoot ? 160 : 138,
+          background: isRoot ? '#ef4444' : palette.bg,
+          color: isRoot ? '#ffffff' : palette.text,
+          border: `2px solid ${isRoot ? '#fca5a5' : palette.border}`,
+          borderRadius: 12,
+          width: isRoot ? 170 : 134,
           padding: '8px 10px',
-          boxShadow: isRoot ? '0 0 0 4px rgba(255,255,255,0.12)' : 'none',
+          boxShadow: isRoot ? '0 0 0 4px rgba(239,68,68,0.18)' : '0 2px 8px rgba(15,23,42,0.08)',
         },
       } as Node;
     });
@@ -251,8 +248,8 @@ export function NetworkAnalysisTab({ crimeId, crimeNumber }: NetworkAnalysisTabP
       animated: true,
       markerEnd: { type: MarkerType.ArrowClosed, width: 12, height: 12 },
       label: edge.label ?? 'related',
-      style: { stroke: '#8ec5ff', strokeWidth: 1.5 },
-      labelStyle: { fill: '#dbeafe', fontSize: 9 },
+      style: { stroke: '#94a3b8', strokeWidth: 1.25, opacity: 0.8 },
+      labelStyle: { fill: '#64748b', fontSize: 9 },
     })),
     [visibleEdges],
   );
@@ -275,7 +272,7 @@ export function NetworkAnalysisTab({ crimeId, crimeNumber }: NetworkAnalysisTabP
 
       <Card className="bg-card border border-border shadow-sm">
         <CardContent className="p-0">
-          <div className="h-[560px] w-full overflow-hidden rounded-lg border border-border bg-slate-950/95">
+          <div className="h-[560px] w-full overflow-hidden rounded-lg border border-border bg-[#f5f7fb]">
             {isLoading ? (
               <div className="flex h-full items-center justify-center gap-3 text-sm text-muted-foreground">
                 <Loader2 className="h-5 w-5 animate-spin" />
@@ -286,21 +283,29 @@ export function NetworkAnalysisTab({ crimeId, crimeNumber }: NetworkAnalysisTabP
                 No related evidence or criminal links were found for this crime.
               </div>
             ) : (
-              <ReactFlow
-                nodes={flowNodes}
-                edges={flowEdges}
-                fitView
-                fitViewOptions={{ padding: 0.2 }}
-                minZoom={0.2}
-                maxZoom={2}
-                nodesDraggable
-                elementsSelectable
-                proOptions={{ hideAttribution: true }}
+              <div
                 className="h-full w-full"
+                style={{
+                  backgroundImage: 'radial-gradient(circle, rgba(148, 163, 184, 0.75) 1px, transparent 1px)',
+                  backgroundSize: '12px 12px',
+                  backgroundColor: '#f5f7fb',
+                }}
               >
-                <Background color="#334155" gap={18} />
-                <Controls showInteractive={false} />
-              </ReactFlow>
+                <ReactFlow
+                  nodes={flowNodes}
+                  edges={flowEdges}
+                  fitView
+                  fitViewOptions={{ padding: 0.25 }}
+                  minZoom={0.2}
+                  maxZoom={2}
+                  nodesDraggable
+                  elementsSelectable
+                  proOptions={{ hideAttribution: true }}
+                  className="h-full w-full"
+                >
+                  <Controls showInteractive={false} className="!bg-white !border !border-slate-200 !shadow-sm" />
+                </ReactFlow>
+              </div>
             )}
           </div>
         </CardContent>
