@@ -15,10 +15,14 @@ import type { CaseWitness } from '@/services/crimeApi';
 
 interface WitnessTabProps {
   incidentId: string;
+  items?: CaseWitness[];
 }
 
-export function WitnessTab({ incidentId }: WitnessTabProps) {
-  const { data: witnesses, isLoading, isError, refetch } = useGetWitnessesByIncidentQuery(incidentId);
+export function WitnessTab({ incidentId, items }: WitnessTabProps) {
+  const { data: fetchedWitnesses, isLoading, isError, refetch } = useGetWitnessesByIncidentQuery(incidentId, {
+    skip: items !== undefined,
+  });
+  const witnesses = fetchedWitnesses ?? items ?? [];
   const [deleteWitness] = useDeleteCaseWitnessMutation();
 
   const [search, setSearch] = React.useState('');

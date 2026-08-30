@@ -19,6 +19,7 @@ import type { CrimeEvidence, EvidenceType } from '@/services/crimeApi';
 
 interface EvidenceTabProps {
   crimeId: string;
+  initialEvidence?: CrimeEvidence[];
 }
 
 const EVIDENCE_ICONS: Partial<Record<EvidenceType, React.ElementType>> = {
@@ -47,8 +48,11 @@ function EvidenceTypeIcon({ type }: { type: EvidenceType }) {
   return <Icon className="h-3.5 w-3.5" />;
 }
 
-export function EvidenceTab({ crimeId }: EvidenceTabProps) {
-  const { data: evidence, isLoading, isError, refetch } = useGetCrimeEvidenceQuery(crimeId);
+export function EvidenceTab({ crimeId, initialEvidence }: EvidenceTabProps) {
+  const { data: fetchedEvidence, isLoading, isError, refetch } = useGetCrimeEvidenceQuery(crimeId, {
+    skip: initialEvidence !== undefined,
+  });
+  const evidence = fetchedEvidence ?? initialEvidence ?? [];
   const [deleteEvidence] = useDeleteCrimeEvidenceMutation();
 
   const [search, setSearch] = React.useState('');

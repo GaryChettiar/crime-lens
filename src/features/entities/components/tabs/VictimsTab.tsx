@@ -15,10 +15,14 @@ import type { CaseVictim } from '@/services/crimeApi';
 
 interface VictimsTabProps {
   incidentId: string;
+  items?: CaseVictim[];
 }
 
-export function VictimsTab({ incidentId }: VictimsTabProps) {
-  const { data: victims, isLoading, isError, refetch } = useGetVictimsByIncidentQuery(incidentId);
+export function VictimsTab({ incidentId, items }: VictimsTabProps) {
+  const { data: fetchedVictims, isLoading, isError, refetch } = useGetVictimsByIncidentQuery(incidentId, {
+    skip: items !== undefined,
+  });
+  const victims = fetchedVictims ?? items ?? [];
   const [deleteVictim] = useDeleteCaseVictimMutation();
 
   const [search, setSearch] = React.useState('');

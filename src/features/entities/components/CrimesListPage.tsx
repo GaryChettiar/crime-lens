@@ -4,6 +4,7 @@ import { AdminLayout } from "@/components/templates/AdminLayout/AdminLayout";
 import {
   crimeApi,
   useGetCrimesQuery,
+  useGetCrimeByIdQuery,
   useCreateCrimeMutation,
   useDeleteCrimeMutation,
   useGetCrimesByEvidencePathsQuery,
@@ -33,6 +34,11 @@ import {
   X,
   Loader2,
   ChevronRight,
+  ChevronLeft,
+  Image as ImageIcon,
+  ScanLine,
+  MapPin,
+  CalendarDays,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -57,6 +63,34 @@ import { LocationPickerMap } from "@/components/common/LocationPickerMap";
 // ---------------------------------------------------------------------------
 
 const TABLE_ID = "crimes";
+const STRATUS_BUCKET_URL = "https://crimelens-storage-development.zohostratus.in";
+
+function evidenceImageUrl(path?: string) {
+  if (!path) return undefined;
+  if (path.startsWith("data:") || path.startsWith("blob:") || path.startsWith("http")) return path;
+  return `${STRATUS_BUCKET_URL}/${path.replace(/^\/+/, "")}`;
+}
+
+// Browsers can't decode TIFF (or a handful of other raw/raster formats) in an
+// <img> tag, so we fall back to a file-style chip instead of a broken image.
+const UNRENDERABLE_IMAGE_EXTENSIONS = [".tif", ".tiff", ".heic", ".heif", ".raw", ".dng", ".bmp"];
+
+function isBrowserRenderableImage(nameOrUrl?: string) {
+  if (!nameOrUrl) return true;
+  const clean = nameOrUrl.split("?")[0].toLowerCase();
+  return !UNRENDERABLE_IMAGE_EXTENSIONS.some((ext) => clean.endsWith(ext));
+}
+
+function evidenceFileName(url?: string, fallback?: string) {
+  if (fallback) return fallback;
+  if (!url) return "evidence file";
+  try {
+    const clean = url.split("?")[0];
+    return decodeURIComponent(clean.substring(clean.lastIndexOf("/") + 1)) || "evidence file";
+  } catch {
+    return "evidence file";
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Column definitions — the only Crimes-specific part of this file
@@ -227,6 +261,9 @@ export function CrimesListPage() {
   const [confirmDeleteId, setConfirmDeleteId] = React.useState<string | null>(
     null,
   );
+  const [selectedEvidenceId, setSelectedEvidenceId] = React.useState<string | null>(null);
+  const [selectedEvidenceImage, setSelectedEvidenceImage] = React.useState(0);
+  const [selectedRelatedCrimeId, setSelectedRelatedCrimeId] = React.useState<string | null>(null);
   type AfisMatch = {
     criminal_id?: string;
     name?: string;
@@ -394,16 +431,44 @@ export function CrimesListPage() {
         .map((ev) => ({
           evidenceId: ev.id,
           fileName: ev.file?.name || `${ev.evidence_type} uploaded`,
-          matches: analysisData.data.filter((d) =>
-            ev
-              .afisResult!.map(
-                (m) => m.metadata?.original_path || m.name || m.criminal_id,
-              )
-              .includes(d.path),
-          ),
+          matches: analysisData.data
+            .filter((d) =>
+              ev
+                .afisResult!.map(
+                  (m) => m.metadata?.original_path || m.name || m.criminal_id,
+                )
+                .includes(d.path),
+            )
+            .flatMap((d) => d.crimes.map((crime) => ({ ...crime, id: crime.ROWID, path: d.path }))),
         })) || []
     );
   }, [analysisData, form.evidences]);
+
+  const selectedRelatedCrime = React.useMemo(
+    () => filesWithRelatedCrimes
+      .flatMap((item) => item.matches)
+      .find((match: any) => String(match.id) === selectedRelatedCrimeId),
+    [filesWithRelatedCrimes, selectedRelatedCrimeId],
+  );
+  const { data: relatedCrime } = useGetCrimeByIdQuery(selectedRelatedCrimeId || "", {
+    skip: !selectedRelatedCrimeId,
+  });
+
+  const uploadedEvidences = React.useMemo(
+    () => (form.evidences || []).filter((e) => e.file_url),
+    [form.evidences],
+  );
+  const selectedEvidence = uploadedEvidences.find((e) => e.id === selectedEvidenceId) || uploadedEvidences[0];
+  const selectedEvidenceMatches = filesWithRelatedCrimes.find(
+    (item) => item.evidenceId === selectedEvidence?.id,
+  )?.matches || [];
+
+  React.useEffect(() => {
+    if (!selectedEvidenceId || !uploadedEvidences.some((e) => e.id === selectedEvidenceId)) {
+      setSelectedEvidenceId(uploadedEvidences[0]?.id || null);
+      setSelectedEvidenceImage(0);
+    }
+  }, [selectedEvidenceId, uploadedEvidences]);
 
   // const handleOpenAnalysis = () => {
   //   localStorage.setItem(
@@ -644,14 +709,15 @@ export function CrimesListPage() {
         {/* Create Dialog */}
         {showCreate && (
           <Dialog open onOpenChange={(o) => !o && setShowCreate(false)}>
-            <DialogContent className="sm:max-w-lg bg-card border-border max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
+            <DialogContent className="w-[80vw] sm:max-w-none max-h-[92vh] h-[92vh] bg-card border-border p-0 flex flex-col overflow-hidden">
+              <DialogHeader className="shrink-0 px-5 pt-5 pb-3 border-b border-border">
                 <DialogTitle className="text-sm font-semibold flex items-center gap-2">
                   <FolderOpen className="h-4 w-4 text-primary" />
                   Log New Crime Incident
                 </DialogTitle>
               </DialogHeader>
-              <form onSubmit={handleCreate} className="space-y-4 pt-1">
+              <div className="grid flex-1 min-h-0 grid-cols-1 gap-0 lg:grid-cols-2">
+              <form onSubmit={handleCreate} className="flex min-h-0 flex-col overflow-y-auto border-r border-border p-5 space-y-4">
                 <div className="space-y-1">
                   <label className="text-[10px] font-semibold uppercase text-muted-foreground">
                     Incident Title *
@@ -1242,45 +1308,7 @@ export function CrimesListPage() {
                       </div>
                     )}
                 </div>
-                {/* Related Crimes (rendered inline, no separate modal/tab) */}
-                {filesWithRelatedCrimes.length > 0 && (
-                  <div className="space-y-2 pt-2 border-t border-border">
-                    <div className="flex items-center gap-2">
-                      <FolderOpen className="h-4 w-4 text-primary" />
-                      <label className="text-[10px] font-semibold uppercase text-muted-foreground">
-                        Related Crimes Found
-                      </label>
-                    </div>
-                    <div className="space-y-2">
-                      {filesWithRelatedCrimes.map((item) => (
-                        <div
-                          key={item.evidenceId}
-                          className="rounded-lg border border-primary/30 bg-primary/5 p-2.5"
-                        >
-                          <div className="text-[11px] font-semibold text-foreground mb-1.5">
-                            {item.fileName}
-                          </div>
-                          <div className="space-y-1">
-                            {item.matches.map((m: any, i: number) => (
-                              <Link
-                                key={i}
-                                to={`/entities/crimes/${m.id}`}
-                                target="_blank"
-                                className="flex items-center justify-between text-[10px] text-muted-foreground hover:text-primary group"
-                              >
-                                <span className="font-medium text-foreground group-hover:text-primary">
-                                  {m.crimeNumber || m.title || m.path}
-                                </span>
-                                <ChevronRight className="h-3 w-3 opacity-60 group-hover:opacity-100" />
-                              </Link>
-                            ))}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                <DialogFooter className="gap-2 pt-2">
+                <DialogFooter className="gap-2 pt-2 sticky bottom-0 -mx-5 -mb-5 mt-auto bg-card px-5 py-3 border-t border-border">
                   <Button
                     type="button"
                     variant="outline"
@@ -1295,6 +1323,103 @@ export function CrimesListPage() {
                   </Button>
                 </DialogFooter>
               </form>
+              <aside className="flex min-h-0 flex-col overflow-y-auto bg-muted/10 p-5">
+                <div className="mb-3 flex items-center justify-between">
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Evidence intelligence</p>
+                    <p className="text-xs text-foreground">Review uploaded evidence and related cases</p>
+                  </div>
+                  <ImageIcon className="h-4 w-4 text-primary" />
+                </div>
+                {uploadedEvidences.length === 0 ? (
+                  <div className="flex min-h-[360px] flex-col items-center justify-center rounded-lg border border-dashed border-border text-center text-xs text-muted-foreground">
+                    <ImageIcon className="mb-2 h-8 w-8 opacity-40" />
+                    Upload an image to inspect it here.
+                  </div>
+                ) : (
+                  <>
+                    <div className="relative overflow-hidden rounded-lg border border-border bg-background">
+                      {isBrowserRenderableImage(selectedEvidence?.file?.name || selectedEvidence?.file_url) ? (
+                        <img
+                          src={evidenceImageUrl(selectedEvidence?.file_url)}
+                          alt={selectedEvidence?.file?.name || "Uploaded evidence"}
+                          className="h-52 w-full object-contain"
+                        />
+                      ) : (
+                        <a
+                          href={evidenceImageUrl(selectedEvidence?.file_url)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="flex h-52 w-full flex-col items-center justify-center gap-2 px-4 text-center hover:bg-muted/20"
+                        >
+                          <ImageIcon className="h-8 w-8 text-muted-foreground opacity-50" />
+                          <span className="max-w-full truncate text-xs font-medium text-foreground">
+                            {evidenceFileName(selectedEvidence?.file_url, selectedEvidence?.file?.name)}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground">
+                            Preview unavailable for this format — click to open
+                          </span>
+                        </a>
+                      )}
+                      {selectedEvidence?.afisLoading && (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-background/80 text-primary backdrop-blur-[2px]">
+                          <ScanLine className="h-8 w-8 animate-pulse" />
+                          <span className="text-[10px] font-semibold uppercase tracking-[0.2em]">Scanning evidence</span>
+                          <div className="absolute inset-x-0 top-1/2 h-px animate-[scan_1.8s_ease-in-out_infinite] bg-primary shadow-[0_0_12px_2px_hsl(var(--primary))]" />
+                        </div>
+                      )}
+                      {uploadedEvidences.length > 1 && (
+                        <>
+                          <button type="button" aria-label="Previous evidence" onClick={() => { const index = (selectedEvidenceImage - 1 + uploadedEvidences.length) % uploadedEvidences.length; setSelectedEvidenceImage(index); setSelectedEvidenceId(uploadedEvidences[index].id); setSelectedRelatedCrimeId(null); }} className="absolute left-2 top-1/2 rounded-full bg-background/80 p-1 text-foreground"><ChevronLeft className="h-4 w-4" /></button>
+                          <button type="button" aria-label="Next evidence" onClick={() => { const index = (selectedEvidenceImage + 1) % uploadedEvidences.length; setSelectedEvidenceImage(index); setSelectedEvidenceId(uploadedEvidences[index].id); setSelectedRelatedCrimeId(null); }} className="absolute right-2 top-1/2 rounded-full bg-background/80 p-1 text-foreground"><ChevronRight className="h-4 w-4" /></button>
+                        </>
+                      )}
+                    </div>
+                    <div className="mt-2 flex gap-1.5 overflow-x-auto">
+                      {uploadedEvidences.map((ev, index) => (
+                        <button type="button" key={ev.id} onClick={() => { setSelectedEvidenceId(ev.id); setSelectedEvidenceImage(index); setSelectedRelatedCrimeId(null); }} className={`flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded border bg-background ${ev.id === selectedEvidence?.id ? "border-primary ring-1 ring-primary" : "border-border"}`}>
+                          {isBrowserRenderableImage(ev.file?.name || ev.file_url) ? (
+                            <img src={evidenceImageUrl(ev.file_url)} alt="" className="h-full w-full object-cover" />
+                          ) : (
+                            <ImageIcon className="h-4 w-4 text-muted-foreground opacity-50" />
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="mt-5 space-y-2">
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Matched crimes ({selectedEvidenceMatches.length})</p>
+                      {selectedEvidenceMatches.length === 0 ? <p className="rounded border border-border p-3 text-xs text-muted-foreground">Confirm this evidence to load related crimes.</p> : selectedEvidenceMatches.map((match: any) => (
+                        <button type="button" key={match.id} onClick={() => setSelectedRelatedCrimeId(String(match.id))} className={`flex w-full items-center justify-between rounded border p-2.5 text-left text-xs ${selectedRelatedCrimeId === String(match.id) ? "border-primary bg-primary/10" : "border-border bg-background hover:border-primary/50"}`}>
+                          <span className="truncate font-medium text-foreground">{match.crimeNumber || match.title || match.path}</span><ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                        </button>
+                      ))}
+                    </div>
+                    {selectedRelatedCrimeId && relatedCrime && (
+                      <div className="mt-4 rounded-lg border border-primary/30 bg-background p-3">
+                        <p className="text-sm font-semibold text-foreground">{relatedCrime.title}</p>
+                        <div className="mt-2 grid grid-cols-2 gap-2 text-[10px] text-muted-foreground"><span className="flex items-center gap-1"><CalendarDays className="h-3 w-3" />{relatedCrime.incidentDate ? new Date(relatedCrime.incidentDate).toLocaleDateString("en-IN") : "Date unavailable"}</span><span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{relatedCrime.crimeLocation || relatedCrime.location?.address || "Location unavailable"}</span></div>
+                        {relatedCrime.evidences?.find((e) => e.fileUrl) && (
+                          isBrowserRenderableImage(relatedCrime.evidences.find((e) => e.fileUrl)?.fileUrl) ? (
+                            <img src={evidenceImageUrl(relatedCrime.evidences.find((e) => e.fileUrl)?.fileUrl)} alt="Matched evidence in related crime" className="mt-3 h-32 w-full rounded border border-border object-contain" />
+                          ) : (
+                            <a
+                              href={evidenceImageUrl(relatedCrime.evidences.find((e) => e.fileUrl)?.fileUrl)}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="mt-3 flex h-32 w-full flex-col items-center justify-center gap-1 rounded border border-border bg-muted/10 text-center hover:bg-muted/20"
+                            >
+                              <ImageIcon className="h-6 w-6 text-muted-foreground opacity-50" />
+                              <span className="text-[10px] text-muted-foreground">Preview unavailable — click to open</span>
+                            </a>
+                          )
+                        )}
+                        <Link to={`/entities/crimes/${selectedRelatedCrimeId}`} target="_blank" className="mt-3 inline-flex items-center text-[10px] font-semibold text-primary">Open crime record <ChevronRight className="ml-1 h-3 w-3" /></Link>
+                      </div>
+                    )}
+                  </>
+                )}
+              </aside>
+              </div>
             </DialogContent>
           </Dialog>
         )}

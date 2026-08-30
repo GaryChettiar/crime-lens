@@ -17,6 +17,37 @@ export type CrimeStatus =
   | 'charge_sheet_filed'
   | 'closed';
 
+export interface CrimeAssignedOfficer {
+  id: string;
+  incidentId: string;
+  officerId?: string;
+  badgeNumber?: string;
+  rank?: string;
+  contactNumber?: string;
+  stationId?: string;
+  operationalStatus?: string;
+  createdAt?: string;
+}
+
+const normalizeCrimeStatus = (status?: string): CrimeStatus => {
+  const value = (status ?? '').toString().trim().toLowerCase();
+  const statusMap: Record<string, CrimeStatus> = {
+    reported: 'reported',
+    under_investigation: 'under_investigation',
+    'under investigation': 'under_investigation',
+    suspects_identified: 'suspects_identified',
+    'suspects identified': 'suspects_identified',
+    evidence_collected: 'evidence_collected',
+    'evidence collected': 'evidence_collected',
+    charge_sheet_filed: 'charge_sheet_filed',
+    'charge sheet filed': 'charge_sheet_filed',
+    closed: 'closed',
+  };
+
+  const normalized = value.replace(/[^a-z_ ]/g, '').replace(/\s+/g, '_');
+  return statusMap[normalized] ?? 'under_investigation';
+};
+
 export type EvidenceType =
   | 'photo'
   | 'video'
@@ -68,6 +99,11 @@ export interface CrimeRecord {
   suspectCount?: number;
   evidenceCount?: number;
   legalSectionsCount?: number;
+  victims?: CaseVictim[];
+  witnesses?: CaseWitness[];
+  evidences?: CrimeEvidence[];
+  criminals?: Array<{ id: string; name: string; status?: string; crimeId?: string; nationality?: string; alias?: string; gender?: string; age?: number; phone?: string; address?: string }>; 
+  assignedOfficers?: CrimeAssignedOfficer[];
   createdAt?: string;
   updatedAt?: string;
 }
@@ -318,34 +354,75 @@ const decodeCrime = (c: any): CrimeRecord => {
     c.crime_location_longitude ? parseFloat(c.crime_location_longitude) : 0,
   ];
 
+  const assignedOfficers = Array.isArray(c.assigned_officers)
+    ? c.assigned_officers.map((officer: any) => ({
+        id: String(officer.ROWID || officer.id || ''),
+        incidentId: officer.incident_id || c.ROWID || c.id,
+        officerId: officer.officer_id,
+        badgeNumber: officer.officer_details?.badge_number || officer.badge_number,
+        rank: officer.officer_details?.rank_id || officer.rank_id,
+        contactNumber: officer.officer_details?.contact_number || officer.contact_number,
+        stationId: officer.officer_details?.station_id || officer.station_id,
+        operationalStatus: officer.officer_details?.operational_status || officer.operational_status,
+        createdAt: officer.CREATEDTIME || officer.createdAt,
+      }))
+    : [];
+
+  const victims = Array.isArray(c.victims) ? c.victims.map(decodeVictim) : [];
+  const witnesses = Array.isArray(c.witnesses) ? c.witnesses.map(decodeWitness) : [];
+  const evidence = Array.isArray(c.evidences) ? c.evidences.map(decodeEvidence) : [];
+  const criminals = Array.isArray(c.criminals)
+    ? c.criminals.map((criminal: any) => ({
+        id: String(criminal.ROWID || criminal.id || ''),
+        name: criminal.full_name || criminal.name || 'Unknown Criminal',
+        status: criminal.status,
+        crimeId: criminal.incident_id || c.ROWID || c.id,
+        nationality: criminal.nationality,
+        alias: criminal.alias || criminal.known_alias,
+        gender: criminal.gender,
+        age: criminal.age ? Number(criminal.age) : undefined,
+        phone: criminal.mobile_number || criminal.phone,
+        address: criminal.address,
+      }))
+    : [];
+
+  const primaryOfficer = assignedOfficers[0];
+  const hasCoordinates = Number.isFinite(coordinates[0]) && Number.isFinite(coordinates[1]) && (coordinates[0] !== 0 || coordinates[1] !== 0);
+  const locationLabel = hasCoordinates ? `${coordinates[0]}, ${coordinates[1]}` : c.crime_location || c.location || 'Not specified';
+
   return {
     id: c.ROWID || c.id,
     crimeNumber: c.crime_number || `CRIME-${String(c.ROWID || c.id).padStart(6, '0')}`,
-    caseNumber: c.crime_number || `CRIME-${String(c.ROWID || c.id).padStart(6, '0')}`,
+    caseNumber: c.case_number || c.crime_number || `CRIME-${String(c.ROWID || c.id).padStart(6, '0')}`,
     title: c.title || 'Untitled Crime Incident',
     description: c.description || '',
-    crimeCategory: c.crime_category_id || c.crime_category || c.category || 'General',
-    status: (c.status as CrimeStatus) || 'under_investigation',
-    incidentDate: c.crime_occured_date_time || c.incident_date || c.createdAt,
-    crimeLocation: c.crime_location || c.location || '',
+    crimeCategory: c.crime_category || c.crime_category_id || c.category || c.title || 'General',
+    status: normalizeCrimeStatus(c.status),
+    incidentDate: c.crime_occured_date_time || c.incident_date || c.createdAt || c.incident_registered_date,
+    crimeLocation: locationLabel,
     location: {
       address: c.address || '',
       district: c.crime_happended_at_district_id || '',
       coordinates: coordinates,
     },
-    district: c.crime_happended_at_district_id || c.district || '',
-    weaponUsed: c.weapon_used || '',
-    assignedOfficerId: c.assigned_officer_id,
-    assignedOfficerName: c.assigned_officer_name,
-    assignedStationId: c.police_station_id,
-    assignedStationName: c.police_station_name,
-    createdBy: c.created_by || c.createdBy,
-    victimCount: c.victim_count ?? 0,
-    suspectCount: c.suspect_count ?? 0,
-    evidenceCount: c.evidence_count ?? 0,
+    district: c.crime_happended_at_district_id || c.district || 'Unassigned District',
+    weaponUsed: c.weapon_used || 'Not specified',
+    assignedOfficerId: primaryOfficer?.officerId || c.assigned_officer_id,
+    assignedOfficerName: primaryOfficer?.badgeNumber ? `Badge ${primaryOfficer.badgeNumber}` : c.assigned_officer_name || 'Pending Assignment',
+    assignedStationId: primaryOfficer?.stationId || c.police_station_id,
+    assignedStationName: c.police_station_name || 'Pending Station',
+    createdBy: c.created_by || c.createdBy || 'System',
+    victimCount: c.victim_count ?? (Array.isArray(c.victims) ? c.victims.length : 0),
+    suspectCount: c.suspect_count ?? (Array.isArray(c.criminals) ? c.criminals.length : 0),
+    evidenceCount: c.evidence_count ?? (Array.isArray(c.evidences) ? c.evidences.length : 0),
     legalSectionsCount: c.legal_sections_count ?? 0,
-    createdAt: c.createdAt || c.created_at,
-    updatedAt: c.updatedAt || c.updated_at,
+    victims,
+    witnesses,
+    evidences: evidence,
+    criminals,
+    assignedOfficers,
+    createdAt: c.CREATEDTIME || c.createdAt || c.created_at,
+    updatedAt: c.MODIFIEDTIME || c.updatedAt || c.updated_at,
   };
 };
 

@@ -242,7 +242,7 @@ export function CrimeDetailWorkspace() {
               </TabsContent>
 
               <TabsContent value="evidence" className="mt-0">
-                <EvidenceTab crimeId={crimeData.id} />
+                <EvidenceTab crimeId={crimeData.id} initialEvidence={crimeData.evidences ?? []} />
               </TabsContent>
 
               <TabsContent value="suspects" className="mt-0">
@@ -254,30 +254,131 @@ export function CrimeDetailWorkspace() {
               </TabsContent>
 
               <TabsContent value="timeline" className="mt-0">
-                <TimelineTab crimeId={crimeData.id} />
+                <TimelineTab crimeId={crimeData.id} initialTimeline={[
+                  {
+                    id: `crime-${crimeData.id}-registered`,
+                    crimeId: crimeData.id,
+                    eventType: 'crime_registered',
+                    title: 'Incident Registered',
+                    description: crimeData.description || 'Crime incident registered in the system.',
+                    actor: crimeData.createdBy || 'System',
+                    occurredAt: crimeData.createdAt || crimeData.incidentDate || new Date().toISOString(),
+                  },
+                  ...(crimeData.assignedOfficers?.map((officer, idx) => ({
+                    id: `officer-${officer.id || idx}`,
+                    crimeId: crimeData.id,
+                    eventType: 'officer_assigned' as const,
+                    title: 'Officer Assigned',
+                    description: `Officer ${officer.badgeNumber || officer.officerId || 'assigned'} linked to investigation.`,
+                    actor: officer.badgeNumber || 'Officer',
+                    occurredAt: officer.createdAt || crimeData.createdAt || new Date().toISOString(),
+                  })) ?? []),
+                  ...(crimeData.evidences?.length ? [{
+                    id: `evidence-${crimeData.id}`,
+                    crimeId: crimeData.id,
+                    eventType: 'evidence_uploaded' as const,
+                    title: 'Evidence Collected',
+                    description: `${crimeData.evidences.length} evidence item${crimeData.evidences.length > 1 ? 's' : ''} recorded for this incident.`,
+                    actor: 'System',
+                    occurredAt: crimeData.updatedAt || crimeData.createdAt || new Date().toISOString(),
+                  }] : []),
+                ]} />
               </TabsContent>
 
               <TabsContent value="activity" className="mt-0">
-                <ActivityTab crimeId={crimeData.id} />
+                <ActivityTab
+                  crimeId={crimeData.id}
+                  initialActivity={[
+                    {
+                      id: `activity-${crimeData.id}-created`,
+                      crimeId: crimeData.id,
+                      timestamp: crimeData.createdAt || new Date().toISOString(),
+                      user: crimeData.createdBy || 'System',
+                      action: 'INCIDENT_REGISTERED',
+                      module: 'Crimes',
+                      details: crimeData.description || 'Crime incident logged in the system.',
+                    },
+                    ...(crimeData.assignedOfficers?.length
+                      ? [{
+                          id: `activity-${crimeData.id}-assigned`,
+                          crimeId: crimeData.id,
+                          timestamp: crimeData.updatedAt || new Date().toISOString(),
+                          user: 'Investigation Unit',
+                          action: 'OFFICER_ASSIGNED',
+                          module: 'Investigations',
+                          details: `${crimeData.assignedOfficers.length} officer assignment${crimeData.assignedOfficers.length > 1 ? 's' : ''} recorded.`,
+                        }]
+                      : [])
+                  ]}
+                />
               </TabsContent>
 
               <TabsContent value="victims" className="mt-0">
-                <VictimsTab incidentId={crimeData.id} />
+                <VictimsTab incidentId={crimeData.id} items={crimeData.victims ?? []} />
               </TabsContent>
 
               <TabsContent value="witness" className="mt-0">
-                <WitnessTab incidentId={crimeData.id} />
+                <WitnessTab incidentId={crimeData.id} items={crimeData.witnesses ?? []} />
               </TabsContent>
 
               <TabsContent value="criminal" className="mt-0">
-                <div className="p-8 bg-muted/20 text-sm text-muted-foreground text-center rounded-lg border border-border/50">
-                  Criminal information will be displayed here.
+                <div className="space-y-3">
+                  {(!crimeData.criminals || crimeData.criminals.length === 0) ? (
+                    <div className="p-8 bg-muted/20 text-sm text-muted-foreground text-center rounded-lg border border-border/50">
+                      No criminal records linked to this incident yet.
+                    </div>
+                  ) : (
+                    <div className="grid gap-3 md:grid-cols-2">
+                      {crimeData.criminals.map((criminal) => (
+                        <div key={criminal.id} className="rounded-lg border border-border/60 bg-card/40 p-4">
+                          <div className="flex items-center justify-between gap-3">
+                            <div>
+                              <p className="text-sm font-semibold text-foreground">{criminal.name}</p>
+                              {criminal.alias && <p className="text-[10px] text-muted-foreground">Alias: {criminal.alias}</p>}
+                            </div>
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border bg-amber-500/10 text-amber-400 border-amber-500/20">
+                              {criminal.status || 'Active'}
+                            </span>
+                          </div>
+                          <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] text-muted-foreground">
+                            <div><span className="block text-[10px] uppercase tracking-wide">Gender</span>{criminal.gender || '—'}</div>
+                            <div><span className="block text-[10px] uppercase tracking-wide">Age</span>{criminal.age ?? '—'}</div>
+                            <div className="col-span-2"><span className="block text-[10px] uppercase tracking-wide">Phone</span>{criminal.phone || '—'}</div>
+                            <div className="col-span-2"><span className="block text-[10px] uppercase tracking-wide">Address</span>{criminal.address || '—'}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </TabsContent>
 
               <TabsContent value="investigating_team" className="mt-0">
-                <div className="p-8 bg-muted/20 text-sm text-muted-foreground text-center rounded-lg border border-border/50">
-                  Investigating Team details will be displayed here.
+                <div className="space-y-3">
+                  {(!crimeData.assignedOfficers || crimeData.assignedOfficers.length === 0) ? (
+                    <div className="p-8 bg-muted/20 text-sm text-muted-foreground text-center rounded-lg border border-border/50">
+                      No investigating officers assigned to this case.
+                    </div>
+                  ) : (
+                    <div className="grid gap-3 md:grid-cols-2">
+                      {crimeData.assignedOfficers.map((officer, idx) => (
+                        <div key={officer.id || idx} className="rounded-lg border border-border/60 bg-card/40 p-4">
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="text-sm font-semibold text-foreground">Badge {officer.badgeNumber || 'N/A'}</p>
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border bg-blue-500/10 text-blue-400 border-blue-500/20">
+                              {officer.operationalStatus || 'ACTIVE'}
+                            </span>
+                          </div>
+                          <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] text-muted-foreground">
+                            <div><span className="block text-[10px] uppercase tracking-wide">Officer ID</span>{officer.officerId || '—'}</div>
+                            <div><span className="block text-[10px] uppercase tracking-wide">Rank</span>{officer.rank || '—'}</div>
+                            <div><span className="block text-[10px] uppercase tracking-wide">Contact</span>{officer.contactNumber || '—'}</div>
+                            <div><span className="block text-[10px] uppercase tracking-wide">Station</span>{officer.stationId || '—'}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </TabsContent>
 

@@ -3,13 +3,18 @@ import { useGetCrimeActivityQuery } from '@/services/crimeApi';
 import { TableSkeleton, EmptyState, ErrorState } from '@/components/molecules/DataStates';
 import { ClipboardList, Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import type { CrimeActivityLog } from '@/services/crimeApi';
 
 interface ActivityTabProps {
   crimeId: string;
+  initialActivity?: CrimeActivityLog[];
 }
 
-export function ActivityTab({ crimeId }: ActivityTabProps) {
-  const { data: activity, isLoading, isError, refetch } = useGetCrimeActivityQuery(crimeId);
+export function ActivityTab({ crimeId, initialActivity }: ActivityTabProps) {
+  const { data: fetchedActivity, isLoading, isError, refetch } = useGetCrimeActivityQuery(crimeId, {
+    skip: initialActivity !== undefined,
+  });
+  const activity = fetchedActivity ?? initialActivity ?? [];
   const [search, setSearch] = React.useState('');
 
   const filtered = React.useMemo(() => {

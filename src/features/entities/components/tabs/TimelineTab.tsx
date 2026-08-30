@@ -5,11 +5,12 @@ import {
   FileText, Shield, Paperclip, UserPlus, RefreshCw as RefreshIcon,
   FileCheck, PenLine, Scale, UserCheck, Clock, Loader2,
 } from 'lucide-react';
-import type { CrimeTimelineEvent } from '@/services/crimeApi';
+import type { CrimeTimelineEvent, CrimeActivityLog } from '@/services/crimeApi';
 import { cn } from '@/lib/utils';
 
 interface TimelineTabProps {
   crimeId: string;
+  initialTimeline?: CrimeTimelineEvent[];
 }
 
 const EVENT_CONFIG: Record<
@@ -96,16 +97,20 @@ const MOCK_TIMELINE_EVENTS: Array<Omit<CrimeTimelineEvent, 'crimeId'>> = [
   },
 ];
 
-export function TimelineTab({ crimeId }: TimelineTabProps) {
-  const { data: timeline, isLoading, isError, refetch } = useGetCrimeTimelineQuery(crimeId);
+export function TimelineTab({ crimeId, initialTimeline }: TimelineTabProps) {
+  const { data: fetchedTimeline, isLoading, isError, refetch } = useGetCrimeTimelineQuery(crimeId, {
+    skip: initialTimeline !== undefined,
+  });
 
   const events = React.useMemo(() => {
-    const list = timeline?.length ? timeline : MOCK_TIMELINE_EVENTS.map((e) => ({ ...e, crimeId }));
+    const list = (fetchedTimeline ?? initialTimeline ?? []).length
+      ? (fetchedTimeline ?? initialTimeline ?? [])
+      : MOCK_TIMELINE_EVENTS.map((e) => ({ ...e, crimeId }));
     // Newest first
     return [...list].sort(
       (a, b) => new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime()
     );
-  }, [timeline, crimeId]);
+  }, [fetchedTimeline, initialTimeline, crimeId]);
 
   if (isLoading) {
     return (
