@@ -621,7 +621,7 @@ export function AnalyticsHeader({
                           dispatchRange(range.from, range.to);
                         }
                       }}
-                      disabledDates={(d) => d < MIN_DATE || d > MAX_DATE}
+                      // disabledDates={(d) => d < MIN_DATE || d > MAX_DATE}
                     />
                   )}
                 </div>
