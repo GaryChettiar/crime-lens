@@ -218,80 +218,20 @@ export function NetworkAnalysisTab({ crimeId, crimeNumber }: NetworkAnalysisTabP
   }, [rootNodeId]);
 
   const flowNodes = React.useMemo<Node[]>(() => {
-    const nodeMap = new Map(visibleNodes.map((node) => [String(node.id), node]));
-    const neighbors = new Map<string, string[]>();
-
-    visibleEdges.forEach((edge) => {
-      const source = String(edge.source);
-      const target = String(edge.target);
-      neighbors.set(source, [...(neighbors.get(source) ?? []), target]);
-      neighbors.set(target, [...(neighbors.get(target) ?? []), source]);
-    });
-
-    const rootX = 540;
-    const rootY = 260;
+    const centerX = 540;
+    const centerY = 260;
     const positions = new Map<string, { x: number; y: number }>();
-    positions.set(rootNodeId, { x: rootX, y: rootY });
+    positions.set(rootNodeId, { x: centerX, y: centerY });
 
-    const relatedIncidents = visibleNodes.filter(
-      (node) => String(node.type).toLowerCase() === 'incident' && String(node.id) !== rootNodeId,
-    );
-
-    const rootConnectedNonIncidents = visibleNodes.filter((node) => {
+    const branchNodes = visibleNodes.filter((node) => String(node.id) !== rootNodeId);
+    branchNodes.forEach((node, index) => {
       const nodeId = String(node.id);
-      const nodeType = String(node.type).toLowerCase();
-      if (nodeType === 'incident') return false;
-      return (neighbors.get(nodeId) ?? []).includes(rootNodeId);
-    });
-
-    rootConnectedNonIncidents.forEach((node, index) => {
-      const total = rootConnectedNonIncidents.length || 1;
-      const angle = total === 1 ? 0 : (index / total) * Math.PI * 2;
-      const radius = 165;
-      positions.set(String(node.id), {
-        x: rootX + Math.cos(angle) * radius,
-        y: rootY + Math.sin(angle) * radius,
-      });
-    });
-
-    relatedIncidents.forEach((incident, index) => {
-      const total = relatedIncidents.length || 1;
-      const angle = total === 1 ? 0 : (index / total) * Math.PI * 2 - Math.PI / 2;
-      const radius = 260;
-      const incidentId = String(incident.id);
-      const incidentX = rootX + Math.cos(angle) * radius;
-      const incidentY = rootY + Math.sin(angle) * radius;
-      positions.set(incidentId, { x: incidentX, y: incidentY });
-
-      const incidentConnectedNodes = visibleNodes.filter((node) => {
-        const nodeId = String(node.id);
-        const nodeType = String(node.type).toLowerCase();
-        if (nodeType === 'incident' && nodeId === incidentId) return false;
-        if (nodeId === rootNodeId) return false;
-        return (neighbors.get(nodeId) ?? []).includes(incidentId);
-      });
-
-      incidentConnectedNodes.forEach((node, nodeIndex) => {
-        const nodeId = String(node.id);
-        const clusterTotal = incidentConnectedNodes.length || 1;
-        const clusterAngle = clusterTotal === 1 ? 0 : (nodeIndex / clusterTotal) * Math.PI * 2;
-        const clusterRadius = 120;
-        positions.set(nodeId, {
-          x: incidentX + Math.cos(clusterAngle) * clusterRadius,
-          y: incidentY + Math.sin(clusterAngle) * clusterRadius,
-        });
-      });
-    });
-
-    const fallbackNodes = visibleNodes.filter((node) => !positions.has(String(node.id)));
-    fallbackNodes.forEach((node, index) => {
-      const nodeId = String(node.id);
-      const angle = fallbackNodes.length === 1 ? 0 : (index / fallbackNodes.length) * Math.PI * 2;
-      const radius = 340 + (index % 3) * 55;
-      positions.set(nodeId, {
-        x: rootX + Math.cos(angle) * radius,
-        y: rootY + Math.sin(angle) * radius,
-      });
+      const nodeType = String(node.type ?? '').toLowerCase();
+      const angle = branchNodes.length === 1 ? 0 : (index / branchNodes.length) * Math.PI * 2;
+      const radius = nodeType === 'incident' ? 240 : 170;
+      const x = centerX + Math.cos(angle) * radius;
+      const y = centerY + Math.sin(angle) * radius;
+      positions.set(nodeId, { x, y });
     });
 
     return visibleNodes.map((node, index) => {
@@ -300,7 +240,7 @@ export function NetworkAnalysisTab({ crimeId, crimeNumber }: NetworkAnalysisTabP
       const palette = getNodeTypeColor(nodeType);
       const isRoot = nodeId === rootNodeId;
       const isExpanded = expandedNodeIds.has(nodeId) || isRoot;
-      const position = positions.get(nodeId) ?? { x: rootX + (index % 8) * 110, y: rootY + (index % 5) * 90 };
+      const position = positions.get(nodeId) ?? { x: centerX + (index % 6) * 110, y: centerY + (index % 3) * 90 };
 
       const readableName = getReadableNodeName(node, crimeNumber);
       const nodeLabel = (
@@ -346,7 +286,7 @@ export function NetworkAnalysisTab({ crimeId, crimeNumber }: NetworkAnalysisTabP
         },
       } as Node;
     });
-  }, [expandedNodeIds, rootNodeId, toggleNodeCollapse, visibleEdges, visibleNodes]);
+  }, [crimeNumber, expandedNodeIds, rootNodeId, toggleNodeCollapse, visibleNodes]);
 
   const flowEdges = React.useMemo<Edge[]>(() =>
     visibleEdges.map((edge) => ({
@@ -405,6 +345,7 @@ export function NetworkAnalysisTab({ crimeId, crimeNumber }: NetworkAnalysisTabP
                   minZoom={0.2}
                   maxZoom={2}
                   nodesDraggable
+                  nodesConnectable={false}
                   elementsSelectable
                   proOptions={{ hideAttribution: true }}
                   className="h-full w-full"
