@@ -197,31 +197,92 @@ export function NetworkAnalysisTab({ crimeId, crimeNumber }: NetworkAnalysisTabP
   }, [rootNodeId]);
 
   const flowNodes = React.useMemo<Node[]>(() => {
-    const groups = new Map<number, Array<{ node: typeof allNodes[number]; index: number }>>();
-    visibleNodes.forEach((node, index) => {
-      const layer = layerMap.get(String(node.id)) ?? 0;
-      const bucket = groups.get(layer) ?? [];
-      bucket.push({ node, index });
-      groups.set(layer, bucket);
+    const nodeMap = new Map(visibleNodes.map((node) => [String(node.id), node]));
+    const neighbors = new Map<string, string[]>();
+
+    visibleEdges.forEach((edge) => {
+      const source = String(edge.source);
+      const target = String(edge.target);
+      neighbors.set(source, [...(neighbors.get(source) ?? []), target]);
+      neighbors.set(target, [...(neighbors.get(target) ?? []), source]);
+    });
+
+    const rootX = 540;
+    const rootY = 260;
+    const positions = new Map<string, { x: number; y: number }>();
+    positions.set(rootNodeId, { x: rootX, y: rootY });
+
+    const relatedIncidents = visibleNodes.filter(
+      (node) => String(node.type).toLowerCase() === 'incident' && String(node.id) !== rootNodeId,
+    );
+
+    const rootConnectedNonIncidents = visibleNodes.filter((node) => {
+      const nodeId = String(node.id);
+      const nodeType = String(node.type).toLowerCase();
+      if (nodeType === 'incident') return false;
+      return (neighbors.get(nodeId) ?? []).includes(rootNodeId);
+    });
+
+    rootConnectedNonIncidents.forEach((node, index) => {
+      const total = rootConnectedNonIncidents.length || 1;
+      const angle = total === 1 ? 0 : (index / total) * Math.PI * 2;
+      const radius = 165;
+      positions.set(String(node.id), {
+        x: rootX + Math.cos(angle) * radius,
+        y: rootY + Math.sin(angle) * radius,
+      });
+    });
+
+    relatedIncidents.forEach((incident, index) => {
+      const total = relatedIncidents.length || 1;
+      const angle = total === 1 ? 0 : (index / total) * Math.PI * 2 - Math.PI / 2;
+      const radius = 260;
+      const incidentId = String(incident.id);
+      const incidentX = rootX + Math.cos(angle) * radius;
+      const incidentY = rootY + Math.sin(angle) * radius;
+      positions.set(incidentId, { x: incidentX, y: incidentY });
+
+      const incidentConnectedNodes = visibleNodes.filter((node) => {
+        const nodeId = String(node.id);
+        const nodeType = String(node.type).toLowerCase();
+        if (nodeType === 'incident' && nodeId === incidentId) return false;
+        if (nodeId === rootNodeId) return false;
+        return (neighbors.get(nodeId) ?? []).includes(incidentId);
+      });
+
+      incidentConnectedNodes.forEach((node, nodeIndex) => {
+        const nodeId = String(node.id);
+        const clusterTotal = incidentConnectedNodes.length || 1;
+        const clusterAngle = clusterTotal === 1 ? 0 : (nodeIndex / clusterTotal) * Math.PI * 2;
+        const clusterRadius = 120;
+        positions.set(nodeId, {
+          x: incidentX + Math.cos(clusterAngle) * clusterRadius,
+          y: incidentY + Math.sin(clusterAngle) * clusterRadius,
+        });
+      });
+    });
+
+    const fallbackNodes = visibleNodes.filter((node) => !positions.has(String(node.id)));
+    fallbackNodes.forEach((node, index) => {
+      const nodeId = String(node.id);
+      const angle = fallbackNodes.length === 1 ? 0 : (index / fallbackNodes.length) * Math.PI * 2;
+      const radius = 340 + (index % 3) * 55;
+      positions.set(nodeId, {
+        x: rootX + Math.cos(angle) * radius,
+        y: rootY + Math.sin(angle) * radius,
+      });
     });
 
     return visibleNodes.map((node, index) => {
       const nodeId = String(node.id);
       const nodeType = String(node.type ?? 'unknown');
-      const layer = layerMap.get(nodeId) ?? 0;
-      const group = groups.get(layer) ?? [];
-      const groupIndex = group.findIndex((entry) => entry.node.id === node.id);
-      const totalInLayer = group.length;
-      const position = getNodePosition(nodeId, nodeType, layer, groupIndex >= 0 ? groupIndex : index, totalInLayer || 1);
       const palette = getNodeTypeColor(nodeType);
       const isRoot = nodeId === rootNodeId;
       const isExpanded = expandedNodeIds.has(nodeId) || isRoot;
+      const position = positions.get(nodeId) ?? { x: rootX + (index % 8) * 110, y: rootY + (index % 5) * 90 };
 
       const nodeLabel = (
         <div className="relative flex flex-col items-center gap-1 select-none text-center">
-          <span className="drag-handle absolute -left-1 -top-1 flex h-4 w-4 cursor-grab items-center justify-center rounded border border-slate-300/80 bg-white/80 text-[8px] text-slate-500 shadow-sm active:cursor-grabbing">
-            ⋮
-          </span>
           {!isRoot && (
             <button
               type="button"
@@ -245,7 +306,7 @@ export function NetworkAnalysisTab({ crimeId, crimeNumber }: NetworkAnalysisTabP
       return {
         id: nodeId,
         type: 'default',
-        dragHandle: '.drag-handle',
+        draggable: true,
         position,
         data: {
           label: nodeLabel,
@@ -264,7 +325,7 @@ export function NetworkAnalysisTab({ crimeId, crimeNumber }: NetworkAnalysisTabP
         },
       } as Node;
     });
-  }, [expandedNodeIds, layerMap, rootNodeId, toggleNodeCollapse, visibleNodes]);
+  }, [expandedNodeIds, rootNodeId, toggleNodeCollapse, visibleEdges, visibleNodes]);
 
   const flowEdges = React.useMemo<Edge[]>(() =>
     visibleEdges.map((edge) => ({
