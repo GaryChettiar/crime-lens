@@ -1002,7 +1002,7 @@ export function CrimesListPage() {
               }
             }}
           >
-            <DialogContent className="max-h-[92vh] w-[90vw] max-w-6xl overflow-hidden p-0">
+            <DialogContent className="max-h-[92vh] w-[94vw] max-w-7xl overflow-hidden p-0">
               <DialogHeader className="border-b border-border px-5 py-4">
                 <DialogTitle className="flex items-center gap-2 text-sm font-semibold">
                   <FileSpreadsheet className="h-4 w-4 text-primary" />
