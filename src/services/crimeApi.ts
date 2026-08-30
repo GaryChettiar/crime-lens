@@ -313,6 +313,7 @@ export interface CreateEvidencePayload {
   collectedDate?: string;
   collectionLocation?: string;
   remarks?: string;
+  storagePath?: string;
 }
 
 export interface CreateLegalSectionPayload {
@@ -348,6 +349,33 @@ export interface TrendData {
 }
 
 // Helpers to encode/decode
+export async function uploadEvidenceFileToStorage(file: File, crimeId: string): Promise<string> {
+  const baseUrl = String(import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/$/, "");
+  const response = await fetch(`${baseUrl}/storage/upload`, {
+    method: 'POST',
+    body: (() => {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('entityType', 'crime-evidence');
+      formData.append('entityId', crimeId);
+      return formData;
+    })(),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(errorText || 'Storage upload failed');
+  }
+
+  const payload = await response.json();
+  const objectPath = payload?.objectPath ?? payload?.path ?? payload?.data?.objectPath ?? payload?.data?.path;
+  if (!objectPath) {
+    throw new Error('Storage upload did not return an object path');
+  }
+
+  return String(objectPath);
+}
+
 const decodeCrime = (c: any): CrimeRecord => {
   const coordinates: [number, number] = [
     c.crime_location_latitude ? parseFloat(c.crime_location_latitude) : 0,
@@ -866,6 +894,7 @@ export const crimeApi = baseApi.injectEndpoints({
       { crimeId: string; body: CreateEvidencePayload; file?: File }
     >({
       query: ({ crimeId, body, file }) => {
+        const storagePath = body.storagePath || (file ? `storage://${file.name}` : undefined);
         const payload = {
           evidence_type: body.evidenceType,
           description: body.description || '',
@@ -874,7 +903,8 @@ export const crimeApi = baseApi.injectEndpoints({
           collected_date: body.collectedDate || new Date().toISOString(),
           collection_location: body.collectionLocation || '',
           remarks: body.remarks || '',
-          file_url: file ? URL.createObjectURL(file) : undefined,
+          storage_path: storagePath,
+          file_url: storagePath,
           file_name: file?.name || 'file',
           file_size: file?.size || 0,
           file_mime_type: file?.type || 'application/octet-stream',

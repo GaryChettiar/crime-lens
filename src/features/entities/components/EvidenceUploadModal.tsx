@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useUploadCrimeEvidenceMutation } from '@/services/crimeApi';
+import { useUploadCrimeEvidenceMutation, uploadEvidenceFileToStorage } from '@/services/crimeApi';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -41,9 +41,13 @@ export function EvidenceUploadModal({ crimeId, onClose, onSuccess }: EvidenceUpl
     e.preventDefault();
     if (!form.evidenceType) return;
     try {
+      const storagePath = selectedFile ? await uploadEvidenceFileToStorage(selectedFile, crimeId) : undefined;
       await uploadEvidence({
         crimeId,
-        body: form as CreateEvidencePayload,
+        body: {
+          ...(form as CreateEvidencePayload),
+          storagePath,
+        },
         file: selectedFile ?? undefined,
       }).unwrap();
       onSuccess('Evidence uploaded successfully.');

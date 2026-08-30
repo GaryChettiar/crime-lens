@@ -9,6 +9,7 @@ import {
   useDeleteCrimeMutation,
   useGetCrimesByEvidencePathsQuery,
   useUploadCrimeEvidenceMutation,
+  uploadEvidenceFileToStorage,
 } from "@/services/crimeApi";
 import {
   useCreateEvidenceMatchMutation,
@@ -491,7 +492,7 @@ export function CrimesListPage() {
   const [uploadEvidence] = useUploadCrimeEvidenceMutation();
 
   const handleEvidenceUploadForPersistedCrime = React.useCallback(async (ev: EvidenceItem) => {
-    if (!ev.file || !ev.file_url || ev.ROWID) return;
+    if (!ev.file || ev.ROWID) return;
 
     const matchedCrimeId =
       (form as any)?.id ||
@@ -499,9 +500,13 @@ export function CrimesListPage() {
         ? window.location.pathname.match(/\/entities\/crimes\/([^/]+)/)?.[1]
         : undefined);
 
-    if (!matchedCrimeId) return;
+    if (!matchedCrimeId) {
+      console.warn("No persisted crime id available for evidence upload.");
+      return;
+    }
 
     try {
+      const storagePath = await uploadEvidenceFileToStorage(ev.file, matchedCrimeId);
       const response = await uploadEvidence({
         crimeId: matchedCrimeId,
         body: {
@@ -511,6 +516,7 @@ export function CrimesListPage() {
           collectedDate: new Date().toISOString(),
           collectionLocation: "",
           remarks: "Uploaded during confirmation",
+          storagePath,
         },
         file: ev.file,
       }).unwrap();
@@ -521,7 +527,7 @@ export function CrimesListPage() {
         setForm((f) => ({
           ...f,
           evidences: f.evidences?.map((item) =>
-            item.id === ev.id ? { ...item, ROWID: persistedId } : item,
+            item.id === ev.id ? { ...item, ROWID: persistedId, file_url: storagePath } : item,
           ),
         }));
       }
