@@ -27,6 +27,49 @@ function isVideoMime(mime?: string) {
 function isPdfMime(mime?: string) {
   return mime === 'application/pdf';
 }
+// Browsers cannot render TIFF inside <img>, regardless of what mime type
+// is reported, so it needs its own branch rather than falling under "image".
+function isTiffMime(mime?: string) {
+  return mime === 'image/tiff' || mime === 'image/tif';
+}
+
+// Generic/placeholder values that should never be trusted as the real
+// content type — treat them the same as "no mime type at all".
+const GENERIC_MIME_VALUES = new Set(['application/octet-stream', 'binary/octet-stream', '']);
+
+// Strips params (e.g. "application/octet-stream; charset=binary") and
+// rejects generic/placeholder values so callers can fall through to the
+// next source instead of getting stuck on a useless mime type.
+function normalizeMime(mime?: string | null): string | undefined {
+  if (!mime) return undefined;
+  const base = mime.split(';')[0].trim().toLowerCase();
+  return GENERIC_MIME_VALUES.has(base) ? undefined : base;
+}
+
+// Fallback for when neither the evidence record nor the blob response
+// gives us a usable mime type (e.g. server returns application/octet-stream,
+// or the evidence record's stored mime type is generic because the item
+// was filed under evidenceType "OTHER").
+function guessMimeFromPath(path?: string): string | undefined {
+  if (!path) return undefined;
+  const ext = path.split('.').pop()?.toLowerCase();
+  const map: Record<string, string> = {
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    png: 'image/png',
+    gif: 'image/gif',
+    webp: 'image/webp',
+    svg: 'image/svg+xml',
+    bmp: 'image/bmp',
+    tif: 'image/tiff',
+    tiff: 'image/tiff',
+    mp4: 'video/mp4',
+    webm: 'video/webm',
+    mov: 'video/quicktime',
+    pdf: 'application/pdf',
+  };
+  return ext ? map[ext] : undefined;
+}
 
 const VERIFICATION_STYLES: Record<CrimeEvidence['verificationStatus'], string> = {
   verified: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
@@ -46,7 +89,17 @@ function EvidencePreview({ item }: { item: CrimeEvidence }) {
     skip: !objectPath,
   });
 
-  const mime = item.fileMimeType || data?.contentType;
+  // Prefer explicit metadata, then whatever the blob endpoint reported,
+  // then fall back to guessing from the file extension. Each source is
+  // normalized and generic values (application/octet-stream, empty, etc.)
+  // are treated as "no answer" so a bad value from one source doesn't
+  // block a good one from the next — this is what was silently forcing
+  // every OTHER-typed item to the generic file icon.
+  const mime =
+    normalizeMime(item.fileMimeType) ||
+    normalizeMime(data?.contentType) ||
+    guessMimeFromPath(objectPath);
+
   const displayName = item.fileName || objectPath?.split('/').pop() || 'Evidence file';
   const CustodyIcon = CUSTODY_ICON[item.chainOfCustodyStatus] ?? ShieldQuestion;
 
@@ -81,7 +134,14 @@ function EvidencePreview({ item }: { item: CrimeEvidence }) {
           </div>
         )}
 
-        {objectPath && !isFetching && !isError && data && isImageMime(mime) && (
+        {objectPath && !isFetching && !isError && data && isTiffMime(mime) && (
+          <div className="flex flex-col items-center gap-1 text-muted-foreground">
+            <FileIcon className="h-6 w-6" />
+            <span className="text-[10px]">TIFF — download to view</span>
+          </div>
+        )}
+
+        {objectPath && !isFetching && !isError && data && !isTiffMime(mime) && isImageMime(mime) && (
           <img src={data.url} alt={displayName} className="h-full w-full object-cover" />
         )}
 
@@ -97,6 +157,7 @@ function EvidencePreview({ item }: { item: CrimeEvidence }) {
           !isFetching &&
           !isError &&
           data &&
+          !isTiffMime(mime) &&
           !isImageMime(mime) &&
           !isVideoMime(mime) &&
           !isPdfMime(mime) && <FileIcon className="h-10 w-10 text-muted-foreground" />}
