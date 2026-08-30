@@ -20,11 +20,11 @@ function getNodeTypeColor(type: string) {
   const normalized = String(type).toLowerCase();
 
   if (normalized === 'incident') return { bg: '#ef4444', border: '#fca5a5', text: '#fff7f7' };
-  if (normalized === 'criminal') return { bg: '#fff7ed', border: '#f59e0b', text: '#7c2d12' };
-  if (normalized === 'evidence') return { bg: '#f8fafc', border: '#7dd3fc', text: '#0f172a' };
-  if (normalized === 'vehicle') return { bg: '#ecfeff', border: '#2dd4bf', text: '#134e4a' };
-  if (normalized === 'alias') return { bg: '#fef3c7', border: '#fbbf24', text: '#78350f' };
-  if (normalized === 'policestation' || normalized === 'station') return { bg: '#eff6ff', border: '#93c5fd', text: '#1e3a8a' };
+  if (normalized === 'criminal') return { bg: '#fff1d6', border: '#f7b267', text: '#7a4b16' };
+  if (normalized === 'evidence') return { bg: '#e0f2fe', border: '#7dd3fc', text: '#0f172a' };
+  if (normalized === 'vehicle') return { bg: '#dcfce7', border: '#86efac', text: '#14532d' };
+  if (normalized === 'alias') return { bg: '#f3e8ff', border: '#c4b5fd', text: '#4c1d95' };
+  if (normalized === 'policestation' || normalized === 'station') return { bg: '#e0e7ff', border: '#a5b4fc', text: '#312e81' };
   return { bg: '#f8fafc', border: '#cbd5e1', text: '#0f172a' };
 }
 
@@ -200,27 +200,33 @@ export function NetworkAnalysisTab({ crimeId, crimeNumber }: NetworkAnalysisTabP
 
       const nodeLabel = (
         <div className="relative flex flex-col items-center gap-1 select-none text-center">
-          <button
-            type="button"
-            aria-label={isExpanded ? 'Collapse node' : 'Expand node'}
-            className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded border border-white/20 bg-black/20 text-[10px] text-white"
-            onClick={(event) => {
-              event.stopPropagation();
-              if (!isRoot) toggleNodeCollapse(nodeId);
-            }}
-          >
-            {isExpanded ? <Minus className="h-2.5 w-2.5" /> : <Plus className="h-2.5 w-2.5" />}
-          </button>
-          <span className="max-w-[140px] truncate text-[10px] font-bold text-white" title={node.label ?? node.id}>
+          <span className="drag-handle absolute -left-1 -top-1 flex h-4 w-4 cursor-grab items-center justify-center rounded border border-slate-300/80 bg-white/80 text-[8px] text-slate-500 shadow-sm active:cursor-grabbing">
+            ⋮
+          </span>
+          {!isRoot && (
+            <button
+              type="button"
+              aria-label={isExpanded ? 'Collapse node' : 'Expand node'}
+              className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded border border-white/30 bg-slate-900/25 text-[9px] text-white backdrop-blur-sm"
+              onClick={(event) => {
+                event.stopPropagation();
+                toggleNodeCollapse(nodeId);
+              }}
+            >
+              {isExpanded ? <Minus className="h-2.5 w-2.5" /> : <Plus className="h-2.5 w-2.5" />}
+            </button>
+          )}
+          <span className="max-w-[140px] truncate text-[10px] font-bold" title={node.label ?? node.id}>
             {node.label ?? node.id}
           </span>
-          <span className="text-[8px] uppercase tracking-[0.12em] text-white/80">{nodeType}</span>
+          <span className="text-[8px] uppercase tracking-[0.12em] opacity-80">{nodeType}</span>
         </div>
       );
 
       return {
         id: nodeId,
         type: 'default',
+        dragHandle: '.drag-handle',
         position,
         data: {
           label: nodeLabel,
@@ -231,10 +237,11 @@ export function NetworkAnalysisTab({ crimeId, crimeNumber }: NetworkAnalysisTabP
           background: isRoot ? '#ef4444' : palette.bg,
           color: isRoot ? '#ffffff' : palette.text,
           border: `2px solid ${isRoot ? '#fca5a5' : palette.border}`,
-          borderRadius: 12,
-          width: isRoot ? 170 : 134,
-          padding: '8px 10px',
-          boxShadow: isRoot ? '0 0 0 4px rgba(239,68,68,0.18)' : '0 2px 8px rgba(15,23,42,0.08)',
+          borderRadius: 14,
+          width: isRoot ? 170 : 138,
+          padding: '10px 12px',
+          boxShadow: isRoot ? '0 0 0 5px rgba(239,68,68,0.18), 0 10px 20px rgba(239,68,68,0.12)' : '0 8px 18px rgba(15,23,42,0.08)',
+          transition: 'all 0.2s ease',
         },
       } as Node;
     });
