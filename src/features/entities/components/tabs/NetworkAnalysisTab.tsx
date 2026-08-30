@@ -28,25 +28,57 @@ function getNodeTypeColor(type: string) {
   return { bg: '#f8fafc', border: '#cbd5e1', text: '#0f172a' };
 }
 
-function getReadableNodeName(node: { id: string; type?: string; label?: string }, crimeNumber?: string) {
+function getReadableNodeMeta(node: {
+  id: string;
+  type?: string;
+  label?: string;
+  subtitle?: string;
+  properties?: Record<string, unknown>;
+}, crimeNumber?: string) {
   const rawLabel = typeof node.label === 'string' ? node.label.trim() : '';
+  const subtitle = typeof node.subtitle === 'string' ? node.subtitle.trim() : '';
   const normalizedType = String(node.type ?? '').toLowerCase();
 
   if (normalizedType === 'incident') {
-    return crimeNumber || rawLabel || `Crime ${String(node.id).replace(/^incident_+/i, '')}`;
+    const incidentTitle = rawLabel || crimeNumber || `Crime ${String(node.id).replace(/^incident_+/i, '')}`;
+    const incidentSubtitle = subtitle || (typeof node.properties?.case_number === 'string' ? node.properties.case_number : '') || crimeNumber || 'Crime incident';
+    return {
+      title: incidentTitle,
+      subtitle: incidentSubtitle,
+    };
   }
 
-  if (rawLabel && !/^incident_|^criminal_|^evidence_|^vehicle_|^alias_|^station_|^policestation_/.test(rawLabel)) {
-    return rawLabel;
+  if (normalizedType === 'criminal') {
+    const criminalTitle = rawLabel || `Criminal ${String(node.id).replace(/^criminal_+/i, '') || 'Record'}`;
+    const criminalSubtitle = subtitle || (typeof node.properties?.status === 'string' ? node.properties.status : '') || 'Linked criminal';
+    return {
+      title: criminalTitle,
+      subtitle: criminalSubtitle,
+    };
   }
 
-  const suffix = String(node.id ?? '').replace(/^(incident|criminal|evidence|vehicle|alias|station|policestation)_+/i, '');
+  if (normalizedType === 'evidence') {
+    const evidenceTitle = rawLabel || `Evidence ${String(node.id).replace(/^evidence_+/i, '') || 'Record'}`;
+    const evidenceType = typeof node.properties?.evidenceType === 'string' ? node.properties.evidenceType : '';
+    const evidenceDescription = typeof node.properties?.description === 'string' ? node.properties.description : '';
+    return {
+      title: evidenceTitle,
+      subtitle: subtitle || evidenceType || evidenceDescription || 'Evidence item',
+    };
+  }
 
-  if (normalizedType === 'criminal') return rawLabel || `Criminal ${suffix || 'Record'}`;
-  if (normalizedType === 'evidence') return rawLabel || `Evidence ${suffix || 'Record'}`;
-  if (rawLabel) return rawLabel;
+  if (rawLabel) {
+    return {
+      title: rawLabel,
+      subtitle: subtitle || 'Linked record',
+    };
+  }
 
-  return suffix || 'Linked record';
+  const fallbackId = String(node.id ?? '').replace(/^(incident|criminal|evidence|vehicle|alias|station|policestation)_+/i, '');
+  return {
+    title: fallbackId || 'Linked record',
+    subtitle: 'Related record',
+  };
 }
 
 function getNodePosition(nodeId: string, nodeType: string, layer: number, index: number, totalInLayer: number) {
@@ -265,7 +297,7 @@ export function NetworkAnalysisTab({ crimeId, crimeNumber }: NetworkAnalysisTabP
       const isExpanded = expandedNodeIds.has(nodeId) || isRoot;
       const position = positions.get(nodeId) ?? { x: centerX, y: centerY };
 
-      const readableName = getReadableNodeName(node, crimeNumber);
+      const readableNode = getReadableNodeMeta(node, crimeNumber);
       const nodeLabel = (
         <div className="relative flex flex-col items-center gap-1 select-none text-center">
           {!isRoot && (
@@ -281,9 +313,14 @@ export function NetworkAnalysisTab({ crimeId, crimeNumber }: NetworkAnalysisTabP
               {isExpanded ? <Minus className="h-2.5 w-2.5" /> : <Plus className="h-2.5 w-2.5" />}
             </button>
           )}
-          <span className="max-w-[150px] truncate text-[10px] font-bold" title={readableName}>
-            {readableName}
+          <span className="max-w-[150px] truncate text-[10px] font-bold" title={readableNode.title}>
+            {readableNode.title}
           </span>
+          {readableNode.subtitle && (
+            <span className="max-w-[150px] truncate text-[8px] opacity-80" title={readableNode.subtitle}>
+              {readableNode.subtitle}
+            </span>
+          )}
         </div>
       );
 
